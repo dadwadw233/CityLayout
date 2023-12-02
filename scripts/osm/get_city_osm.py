@@ -7,7 +7,7 @@ import elevation
 from shapely.geometry import Point, box
 
 def create_area_polygon(lat, lon, radius):
-    # 创建代表感兴趣区域的多边形
+    
     center = Point(lon, lat)
     
     area_polygon = box(center.x - radius, center.y - radius, center.x + radius, center.y + radius)
@@ -15,7 +15,7 @@ def create_area_polygon(lat, lon, radius):
     return area_polygon
 
 def get_dem(lat, lon, radius, output_path):
-    # 设置DEM数据的边界
+    
     bounds = (lon-radius, lat-radius, lon+radius, lat+radius)
     elevation.clip(bounds=bounds, output=output_path)
 
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--input', type=str, required=True, help='Input file (for city locations)')
     parser.add_argument('--output_dir', type=str, required=True, help='Output root directory')
-    parser.add_argument('--radius', type=int, required=True, help='Radius of the city')
+    parser.add_argument('--radius', type=int, required=True, help='Radius of the city (meters))')
 
     args = parser.parse_args()
 
@@ -58,10 +58,11 @@ if __name__ == '__main__':
                 continue
             city_out_path = os.path.join(args.output_dir, city)
             lat, lon = citys[city]
-            area_polygon = create_area_polygon(lat, lon, 0.00898)
+            geo_redius = (args.radius/1000) / 111.319444
+            area_polygon = create_area_polygon(lat, lon, geo_redius)
 
             
-            # 提取道路网络
+            
             # road_graph = ox.graph_from_point((lat, lon), network_type='all')
             road_graph = ox.features_from_point((lat, lon), dist=args.radius, tags={'highway': True})
             # road_graph = ox.features_from_polygon(area_polygon, tags={'highway': True})
@@ -114,6 +115,8 @@ if __name__ == '__main__':
             print(f"OSM data for {city} saved.")
         except Exception as e:
             print(f"Error occured when processing {city}: {e}")
+            with open(os.path.join(city_out_path, 'getdata_error.txt'), 'w') as file:
+                file.write(str(e))
             continue
 
     

@@ -4,12 +4,25 @@ import os
 import tqdm
 import geopandas as gpd
 import matplotlib.pyplot as plt
+import concurrent.futures
+
+def geo_data_validation(path):
+
+    if os.path.exists(os.path.join(path, 'getdata_error.txt')):
+        print(f"Error occurred in {path}.")
+
+        # remove data directory
+        os.system(f"rm -rf {path}")
+    else :
+        print(f"Pass in {path}.")
+        
 
 def plot_and_save_geojson(file_name, out_root, plot_type, xlim=None, ylim=None, fig_size=(10, 10)):
     try:
         gdf = gpd.read_file(file_name)
 
         
+        # todo 更据full image的大小调整fig_size
         
         fig, ax = plt.subplots(figsize=fig_size)
         ax.axis('off')
@@ -17,6 +30,7 @@ def plot_and_save_geojson(file_name, out_root, plot_type, xlim=None, ylim=None, 
         if plot_type == 'landuse':
             gdf.plot(ax=ax, column='landuse', cmap='Set3', legend=True)
             fig.savefig(os.path.join(out_root, 'landuse.jpg'), bbox_inches='tight', format='jpg')
+            plt.close(fig)
 
         elif plot_type == 'building':
 
@@ -29,6 +43,7 @@ def plot_and_save_geojson(file_name, out_root, plot_type, xlim=None, ylim=None, 
 
             # 清除当前的ax和fig，为高度图重新创建
             plt.clf()
+            plt.close(fig)
             fig, ax = plt.subplots(figsize=fig_size)
             ax.axis('off')
 
@@ -41,6 +56,7 @@ def plot_and_save_geojson(file_name, out_root, plot_type, xlim=None, ylim=None, 
             # 高度图
             gdf.plot(ax=ax, column='height', cmap='viridis')
             fig.savefig(os.path.join(out_root, 'building_height.jpg'), bbox_inches='tight', format='jpg')
+            plt.close(fig)
 
         elif plot_type == 'road':
             # 判断'highway'字段是否存在
@@ -49,6 +65,7 @@ def plot_and_save_geojson(file_name, out_root, plot_type, xlim=None, ylim=None, 
 
             gdf.plot(ax=ax, column='highway', cmap='tab20', legend=True)
             fig.savefig(os.path.join(out_root, 'road.jpg'), bbox_inches='tight', format='jpg')
+            plt.close(fig)
 
         elif plot_type == 'nature':
             # 创建组合列，仅当相关列存在时
@@ -64,20 +81,74 @@ def plot_and_save_geojson(file_name, out_root, plot_type, xlim=None, ylim=None, 
             ax.axis('off')
             gdf.plot(ax=ax, column='nature_sum', cmap='Set3', legend=True)
             fig.savefig(os.path.join(out_root, 'nature.jpg'), bbox_inches='tight', format='jpg')
+            plt.close(fig)
+            
 
     except Exception as e:
         # 输出错误信息到baddata.txt
-        with open(os.path.join(out_root, 'baddata.txt'), 'w') as file:
+        with open(os.path.join(out_root, 'plotting_img_error.txt'), 'w') as file:
             file.write(str(e))
         
 
 
+def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_filename, fig_size=(10, 10)):
+    fig, ax = plt.subplots(figsize=fig_size)
     
+    # 如果有landuse数据，先绘制landuse层
+    if not landuse_gdf.empty:
+        landuse_gdf.plot(ax=ax, color='lightgreen', alpha=0.5) 
+
+    # 绘制nature层
+    if not nature_gdf.empty:
+        nature_gdf.plot(ax=ax, color='green', alpha=0.5) 
+
+    # 绘制roads层
+    if not roads_gdf.empty:
+        roads_gdf.plot(ax=ax, color='grey', linewidth=1)
+
+    # 绘制buildings层
+    if not buildings_gdf.empty:
+        buildings_gdf.plot(ax=ax, color='beige', edgecolor='black', alpha=0.7)  
+
+    ax.axis('off') 
+    plt.savefig(output_filename, dpi=300, bbox_inches='tight', format='jpg')
+    plt.close()
 
 
 
+def process_city(city, input_root, output_root):
+    try:
+        print(f"Processing {city}...")
+        save_path = os.path.join(input_root, city)
+        output_path = os.path.join(output_root, city)
+        os.makedirs(output_path, exist_ok=True)
+
+        # 处理每种类型的数据
+        plot_and_save_geojson(os.path.join(save_path, "road_data.geojson"), output_path, 'road')
+        plot_and_save_geojson(os.path.join(save_path, "landuse_data.geojson"), output_path, 'landuse')
+        plot_and_save_geojson(os.path.join(save_path, "buildings_data.geojson"), output_path, 'building')
+        plot_and_save_geojson(os.path.join(save_path, "nature_data.geojson"), output_path, 'nature')
 
 
+        try:
+            roads_gdf = gpd.read_file(os.path.join(save_path, "road_data.geojson"))
+            landuse_gdf = gpd.read_file(os.path.join(save_path, "landuse_data.geojson"))
+            buildings_gdf = gpd.read_file(os.path.join(save_path, "buildings_data.geojson"))
+            nature_gdf = gpd.read_file(os.path.join(save_path, "nature_data.geojson"))
+            
+        except Exception as e:
+            roads_gdf = gpd.GeoDataFrame()
+            landuse_gdf = gpd.GeoDataFrame()
+            buildings_gdf = gpd.GeoDataFrame()
+            nature_gdf = gpd.GeoDataFrame()
+            with open(os.path.join(output_root, 'plotting_img_error.txt'), 'a') as file:
+                file.write(f"Error occurred in {city}: {str(e)}\n")
+
+        plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, os.path.join(args.output, city, 'combined.jpg'))
+
+    except Exception as e:
+        with open(os.path.join(output_root, 'plotting_img_error.txt'), 'a') as file:
+            file.write(f"Error occurred in {city}: {str(e)}\n")
 
 
 if __name__ == '__main__':
@@ -88,21 +159,17 @@ if __name__ == '__main__':
     args = parser.parse_args()
     root_path = args.input
 
-    citys = os.listdir(root_path)
+    cities = os.listdir(root_path)
 
-    for city in tqdm.tqdm(citys):
+    for city in tqdm.tqdm(cities, desc='Validating data'):
+        geo_data_validation(os.path.join(root_path, city))
 
-        save_path = os.path.join(args.input, city)
-        print(save_path)
-        # 提取道路网络
-        plot_and_save_geojson(os.path.join(save_path, "road_data.geojson"), os.path.join(args.output, city), 'road')
-        # 提取土地利用数据
-        plot_and_save_geojson(os.path.join(save_path, "landuse_data.geojson"), os.path.join(args.output, city), 'landuse')
-        # 提取建筑物数据
-        plot_and_save_geojson(os.path.join(save_path, "buildings_data.geojson"), os.path.join(args.output, city), 'building')
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        futures = [executor.submit(process_city, city, args.input, args.output) for city in cities]
+        for future in tqdm.tqdm(concurrent.futures.as_completed(futures), total=len(cities), desc='Processing cities'):
+            future.result()
 
-        # 提取自然地物数据
-        plot_and_save_geojson(os.path.join(save_path, "nature_data.geojson"), os.path.join(args.output, city), 'nature')
-
+    print('Processing completed.')
+        
 
 
