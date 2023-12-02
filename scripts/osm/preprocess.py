@@ -5,150 +5,197 @@ import tqdm
 import geopandas as gpd
 import matplotlib.pyplot as plt
 import concurrent.futures
+import logging
+import pandas as pd
 
 def geo_data_validation(path):
 
     if os.path.exists(os.path.join(path, 'getdata_error.txt')):
-        print(f"Error occurred in {path}.")
+        logging.error(f"Error occurred in {path}.")
+        os.system(f"rm -rf {path}")
+
+
+def image_data_validation(path):
+    
+    if os.path.exists(os.path.join(path, 'plotting_img_error.txt')):
+        logging.error(f"Error occurred in {path}.")
 
         # remove data directory
         os.system(f"rm -rf {path}")
-    else :
-        print(f"Pass in {path}.")
+    
         
 
 def plot_and_save_geojson(file_name, out_root, plot_type, xlim=None, ylim=None, fig_size=(10, 10)):
-    try:
-        gdf = gpd.read_file(file_name)
 
+    gdf = gpd.read_file(file_name)
+    gdf = gdf.to_crs(epsg=3857)
+    
+    # todo 更据full image的大小调整fig_size
+    
+    fig, ax = plt.subplots(figsize=fig_size)
+    if xlim and ylim:
+        ax.set_xlim(xlim)
+        ax.set_ylim(ylim)
+    ax.axis('off')
+
+    if plot_type == 'landuse':
+        gdf['area'] = gdf.geometry.area
+
+        # 根据面积对地块进行排序（默认是升序，即小的在前）
+        gdf_sorted = gdf.sort_values(by='area', ascending=True)
+
+
+        # 绘制排序后的地块，使用透明度参数
+        gdf_sorted.plot(ax=ax, column='landuse', cmap='Accent', alpha=0.5, legend=True)
+
+        fig.savefig(os.path.join(out_root, 'landuse.jpg'), bbox_inches='tight', format='jpg')
+        plt.close(fig)
+
+    elif plot_type == 'building':
+
+        # 位置图
+        gdf.plot(ax=ax, color='grey')
         
-        # todo 更据full image的大小调整fig_size
-        
+        fig.savefig(os.path.join(out_root, 'building_location.jpg'), bbox_inches='tight', format='jpg')
+
+        # 清除当前的ax和fig，为高度图重新创建
+        plt.clf()
+        plt.close(fig)
         fig, ax = plt.subplots(figsize=fig_size)
+        if xlim and ylim:
+            ax.set_xlim(xlim)
+            ax.set_ylim(ylim)
         ax.axis('off')
 
-        if plot_type == 'landuse':
-            gdf.plot(ax=ax, column='landuse', cmap='Set3', legend=True)
-            fig.savefig(os.path.join(out_root, 'landuse.jpg'), bbox_inches='tight', format='jpg')
-            plt.close(fig)
 
-        elif plot_type == 'building':
+        # 判断'height'字段是否存在
+        if 'height' not in gdf.columns:
+            raise KeyError("Column 'height' not found in the data.")
 
-            # 位置图
-            gdf.plot(ax=ax, color='grey')
-            if xlim and ylim:
-                ax.set_xlim(xlim)
-                ax.set_ylim(ylim)
-            fig.savefig(os.path.join(out_root, 'building_location.jpg'), bbox_inches='tight', format='jpg')
+        
+        # 高度图
+        gdf.plot(ax=ax, column='height', cmap='viridis')
+        fig.savefig(os.path.join(out_root, 'building_height.jpg'), bbox_inches='tight', format='jpg')
+        plt.close(fig)
 
-            # 清除当前的ax和fig，为高度图重新创建
-            plt.clf()
-            plt.close(fig)
-            fig, ax = plt.subplots(figsize=fig_size)
-            ax.axis('off')
+    elif plot_type == 'road':
+        # 判断'highway'字段是否存在
+        if 'highway' not in gdf.columns:
+            raise KeyError("Column 'highway' not found in the data.")
 
+        gdf.plot(ax=ax, column='highway', cmap='tab20', legend=True)
+        fig.savefig(os.path.join(out_root, 'road.jpg'), bbox_inches='tight', format='jpg')
+        plt.close(fig)
 
-            # 判断'height'字段是否存在
-            if 'height' not in gdf.columns:
-                raise KeyError("Column 'height' not found in the data.")
+    elif plot_type == 'nature':
+        # 创建组合列，仅当相关列存在时
+        nature_cols = ['natural', 'water', 'waterway']
+        for col in nature_cols:
+            if col in gdf.columns:
+                gdf[col] = gdf[col].fillna('')
+            else:
+                gdf[col] = ''
+        gdf['nature_sum'] = gdf[nature_cols].agg('_'.join, axis=1)
 
+    
+        gdf.plot(ax=ax, column='nature_sum', cmap='Set3', legend=True)
+        fig.savefig(os.path.join(out_root, 'nature.jpg'), bbox_inches='tight', format='jpg')
+        plt.close(fig)
+
+        
             
-            # 高度图
-            gdf.plot(ax=ax, column='height', cmap='viridis')
-            fig.savefig(os.path.join(out_root, 'building_height.jpg'), bbox_inches='tight', format='jpg')
-            plt.close(fig)
-
-        elif plot_type == 'road':
-            # 判断'highway'字段是否存在
-            if 'highway' not in gdf.columns:
-                raise KeyError("Column 'highway' not found in the data.")
-
-            gdf.plot(ax=ax, column='highway', cmap='tab20', legend=True)
-            fig.savefig(os.path.join(out_root, 'road.jpg'), bbox_inches='tight', format='jpg')
-            plt.close(fig)
-
-        elif plot_type == 'nature':
-            # 创建组合列，仅当相关列存在时
-            nature_cols = ['natural', 'water', 'waterway']
-            for col in nature_cols:
-                if col in gdf.columns:
-                    gdf[col] = gdf[col].fillna('')
-                else:
-                    gdf[col] = ''
-            gdf['nature_sum'] = gdf[nature_cols].agg('_'.join, axis=1)
-
-            fig, ax = plt.subplots(figsize=fig_size)
-            ax.axis('off')
-            gdf.plot(ax=ax, column='nature_sum', cmap='Set3', legend=True)
-            fig.savefig(os.path.join(out_root, 'nature.jpg'), bbox_inches='tight', format='jpg')
-            plt.close(fig)
-            
-
-    except Exception as e:
-        # 输出错误信息到baddata.txt
-        with open(os.path.join(out_root, 'plotting_img_error.txt'), 'w') as file:
-            file.write(str(e))
         
 
 
 def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_filename, fig_size=(10, 10)):
     fig, ax = plt.subplots(figsize=fig_size)
-    
+    combined_gdf = gpd.GeoDataFrame(pd.concat([roads_gdf, landuse_gdf, buildings_gdf, nature_gdf], ignore_index=True), crs=roads_gdf.crs)
+    xlim = (combined_gdf.total_bounds[0], combined_gdf.total_bounds[2])  # Minx, Maxx
+    ylim = (combined_gdf.total_bounds[1], combined_gdf.total_bounds[3])  # Miny, Maxy
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)
+    ax.axis('off')
     # 如果有landuse数据，先绘制landuse层
     if not landuse_gdf.empty:
-        landuse_gdf.plot(ax=ax, color='lightgreen', alpha=0.5) 
+        landuse_gdf['area'] = landuse_gdf.geometry.area
 
+        # 根据面积对地块进行排序（默认是升序，即小的在前）
+        landuse_gdf = landuse_gdf.sort_values(by='area', ascending=True)
+        landuse_gdf.plot(ax=ax, column='landuse', cmap='Set3', alpha=0.5)
     # 绘制nature层
     if not nature_gdf.empty:
-        nature_gdf.plot(ax=ax, color='green', alpha=0.5) 
+        # 创建组合列，仅当相关列存在时
+        nature_cols = ['natural', 'water', 'waterway']
+        for col in nature_cols:
+            if col in nature_gdf.columns:
+                nature_gdf[col] = nature_gdf[col].fillna('')
+            else:
+                nature_gdf[col] = ''
+        nature_gdf['nature_sum'] = nature_gdf[nature_cols].agg('_'.join, axis=1)
+
+    
+        nature_gdf.plot(ax=ax, column='nature_sum', cmap='Set3', alpha=0.5)
 
     # 绘制roads层
     if not roads_gdf.empty:
-        roads_gdf.plot(ax=ax, color='grey', linewidth=1)
+        roads_gdf.plot(ax=ax, column='highway', cmap='tab20')
 
     # 绘制buildings层
     if not buildings_gdf.empty:
-        buildings_gdf.plot(ax=ax, color='beige', edgecolor='black', alpha=0.7)  
+        buildings_gdf.plot(ax=ax, color='grey', edgecolor='black', alpha=0.7)  
 
-    ax.axis('off') 
-    plt.savefig(output_filename, dpi=300, bbox_inches='tight', format='jpg')
+    
+    plt.savefig(output_filename, bbox_inches='tight', format='jpg')
     plt.close()
+
+    
+    return xlim, ylim
 
 
 
 def process_city(city, input_root, output_root):
     try:
-        print(f"Processing {city}...")
+        # print(f"Processing {city}...")
+
         save_path = os.path.join(input_root, city)
         output_path = os.path.join(output_root, city)
-        os.makedirs(output_path, exist_ok=True)
+        if not os.path.exists(output_path):
+            os.makedirs(output_path, exist_ok=True)
 
-        # 处理每种类型的数据
-        plot_and_save_geojson(os.path.join(save_path, "road_data.geojson"), output_path, 'road')
-        plot_and_save_geojson(os.path.join(save_path, "landuse_data.geojson"), output_path, 'landuse')
-        plot_and_save_geojson(os.path.join(save_path, "buildings_data.geojson"), output_path, 'building')
-        plot_and_save_geojson(os.path.join(save_path, "nature_data.geojson"), output_path, 'nature')
-
+        #if(os.path.exists(os.path.join(save_path, 'plotting_img_finish.txt'))):
+         #   return
 
         try:
-            roads_gdf = gpd.read_file(os.path.join(save_path, "road_data.geojson"))
-            landuse_gdf = gpd.read_file(os.path.join(save_path, "landuse_data.geojson"))
-            buildings_gdf = gpd.read_file(os.path.join(save_path, "buildings_data.geojson"))
-            nature_gdf = gpd.read_file(os.path.join(save_path, "nature_data.geojson"))
+            roads_gdf = gpd.read_file(os.path.join(save_path, "road_data.geojson")).to_crs(epsg=3857)
+            landuse_gdf = gpd.read_file(os.path.join(save_path, "landuse_data.geojson")).to_crs(epsg=3857)
+            buildings_gdf = gpd.read_file(os.path.join(save_path, "buildings_data.geojson")).to_crs(epsg=3857)
+            nature_gdf = gpd.read_file(os.path.join(save_path, "nature_data.geojson")).to_crs(epsg=3857)
             
         except Exception as e:
-            roads_gdf = gpd.GeoDataFrame()
-            landuse_gdf = gpd.GeoDataFrame()
-            buildings_gdf = gpd.GeoDataFrame()
-            nature_gdf = gpd.GeoDataFrame()
             with open(os.path.join(output_root, 'plotting_img_error.txt'), 'a') as file:
                 file.write(f"Error occurred in {city}: {str(e)}\n")
+            return 
 
-        plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, os.path.join(args.output, city, 'combined.jpg'))
+        xlim, ylim = plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, os.path.join(args.output, city, 'combined.jpg'))
+
+
+        # 处理每种类型的数据
+        plot_and_save_geojson(os.path.join(save_path, "road_data.geojson"), output_path, 'road', xlim, ylim)
+        plot_and_save_geojson(os.path.join(save_path, "landuse_data.geojson"), output_path, 'landuse', xlim, ylim)
+        plot_and_save_geojson(os.path.join(save_path, "buildings_data.geojson"), output_path, 'building', xlim, ylim)
+        plot_and_save_geojson(os.path.join(save_path, "nature_data.geojson"), output_path, 'nature', xlim, ylim)
+
+
+        
+
+        with open(os.path.join(save_path, 'plotting_img_finish.txt'), 'a') as file:
+            file.write(f"Success in {city}\n")
 
     except Exception as e:
-        with open(os.path.join(output_root, 'plotting_img_error.txt'), 'a') as file:
+        with open(os.path.join(save_path, 'plotting_img_error.txt'), 'a') as file:
             file.write(f"Error occurred in {city}: {str(e)}\n")
+        
+        return 
 
 
 if __name__ == '__main__':
@@ -160,7 +207,7 @@ if __name__ == '__main__':
     root_path = args.input
 
     cities = os.listdir(root_path)
-
+    #todo 还需要统一一下labels
     for city in tqdm.tqdm(cities, desc='Validating data'):
         geo_data_validation(os.path.join(root_path, city))
 
@@ -170,6 +217,9 @@ if __name__ == '__main__':
             future.result()
 
     print('Processing completed.')
-        
 
+    for city in tqdm.tqdm(cities, desc='Validating images'):
+        image_data_validation(os.path.join(args.output, city))
+        
+    print('Validation completed. Image data total size:', len(os.listdir(args.output)))
 

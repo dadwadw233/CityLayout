@@ -1,3 +1,4 @@
+# coding: utf-8
 from geopy.geocoders import Photon
 import time
 import tqdm
@@ -74,9 +75,34 @@ cities = [
     "Baoshan", "Jinshan", "Songjiang", "Qingpu", "Fengxian",
     "Chongming", "Nanhui", "Minhang", "Pudong", "Yangpu",
     "Hongkou", "Putuo", "Zhabei", "Jing'an", "Changning",
-    "Xuhui", "Huangpu", "Luwan", "Jiading", "Baoshan",
-    "Jinshan", "Songjiang", "Qingpu", "Fengxian", "Chongming",
+    "Xuhui", "Huangpu", "Luwan", "Barcelona", "Milan", "Munich", "Prague", "Vienna",
+    "Budapest", "Amsterdam", "Warsaw", "Brussels", "Bucharest",
+    "Saint Petersburg", "Hamburg", "Minsk", "Copenhagen", "Stockholm",
+    "Kiev", "Athens", "Dublin", "Nizhny Novgorod", "Lisbon",
+    "Manchester", "Helsinki", "Sofia", "Oporto", "Bratislava",
+    "Cologne", "Naples", "Birmingham", "Rotterdam", "Turin",
+    "Marseille", "Amsterdam", "Zagreb", "Krakow", "Frankfurt",
+    "Seville", "Oslo", "The Hague", "Düsseldorf", "Athens",
+    "Palermo", "Rotterdam", "Genoa", "Helsinki", "Stuttgart",
+    "Zurich", "Dortmund", "Málaga", "Leipzig", "Dresden",
+    "Hanover", "Gothenburg", "Dublin", "Antwerp", "Bremen",
+    "Sheffield", "Edinburgh", "Leeds", "Nuremberg", "Duisburg",
+    "Alicante", "Bristol", "Glasgow", "Lyon", "Valencia",
+    "Bologna", "Cairo", "Alexandria", "Giza", "Shubra El-Kheima", "Port Said",
+    "Suez", "Luxor", "El-Mahalla El-Kubra", "Tanta", "Asyut",
+    "Ismailia", "Fayyum", "Zagazig", "Aswan", "Damietta",
+    "São Paulo", "Rio de Janeiro", "Buenos Aires", "Lima", "Bogotá",
+    "Santiago", "Caracas", "Brasília", "Medellín", "Monterrey",
+    "Guadalajara", "Belém", "Porto Alegre", "Recife", "Puebla",
+    "Curitiba", "Fortaleza", "Manaus", "León", "Quito",
+    "Salvador", "Maracaibo", "Barranquilla", "Santa Cruz de la Sierra", "Guayaquil",
+    "Ciudad Juárez", "Tegucigalpa", "San José", "San Salvador", "San Pedro Sula",
 ]
+
+
+
+
+
 cities = list(set(cities))
 landmarcks = [
     "Eiffel Tower", "Louvre Museum", "Arc de Triomphe", "Notre-Dame de Paris", "Palace of Versailles",
@@ -111,6 +137,27 @@ landmarcks = [
     "Hoan Kiem Lake", "Hanoi Opera House", "Ho Chi Minh Mausoleum", "Temple of Literature", "Hanoi Old Quarter",
     "National Monument", "National Museum of Indonesia", "National Gallery of Indonesia", "National Museum of World Cultures", "National Museum of Natural History",
     "Petronas Towers", "Batu Caves", "Kuala Lumpur Tower", "KLCC Park", "Islamic Arts Museum Malaysia",
+    "Angkor Wat", "Bayon", "Ta Prohm", "Angkor Thom", "Banteay Srei",
+    "Wat Phra Kaew", "Wat Arun", "Wat Pho", "Grand Palace", "Jim Thompson House",
+    "Borobudur", "Prambanan", "Taman Sari", "Malioboro", "Mount Merapi",
+    "Bagan", "Shwedagon Pagoda", "Inle Lake", "Mandalay Palace", "Ananda Temple",
+    "Wat Phou", "Vat Phou", "Wat Xieng Thong", "Plain of Jars", "Pha That Luang",
+    "Petra", "Wadi Rum", "Jerash", "Dead Sea", "Amman Citadel",
+    "Pyramids of Giza", "Great Sphinx of Giza", "Karnak", "Valley of the Kings", "Luxor Temple",
+    "Hagia Sophia", "Topkapı Palace", "Blue Mosque", "Grand Bazaar", "Basilica Cistern",
+    "Taj Mahal", "Agra Fort", "Fatehpur Sikri", "Akbar's Tomb", "Mehtab Bagh",
+    "Forbidden City", "Temple of Heaven", "Tiananmen Square", "Summer Palace", "Beihai Park",
+    "lanzhou Bridge", "Yellow River Mother Sculpture", "Gansu Provincial Museum", "Baita Mountain Park", "Wuquan Mountain Park",
+    "Jiayuguan Pass", "Jiayuguan City Walls", "Wei-Jin Art Gallery", "Xuanbi Great Wall", "Jiayuguan Museum",
+    "Mogao Caves", "Mingsha Mountain and Crescent Spring", "Yumen Pass", "Yadan National Geological Park", "Dunhuang Museum",
+    "Maijishan Grottoes", "Giant Buddha Temple", "Shuiliandong", "Shimen Cave", "Shimen Cave",
+    "Labrang Monastery", "Sangke Grassland", "Gahai Lake", "Langmusi", "Xiahe",
+    "Mount Wutai", "Yungang Grottoes", "Hanging Temple", "Mount Heng", "Mount Heng",
+    "Mount Tai", "Confucius Temple", "Qufu Temple and Cemetery of Confucius", "Baotu Spring", "Daming Lake",
+    "Mount Huang", "Hongcun", "Tunxi Ancient Street", "Xidi", "Tangyue Memorial Archway",
+    "Mount Emei", "Leshan Giant Buddha", "Jiuzhaigou Valley", "Huanglong", "Mount Qingcheng",
+    "Mount Lushan", "Longhu Mountain", "Sanqing Mountain", "Jingdezhen Ceramic Historical Museum", "Fuliang Ancient Town",
+    "Mount Sanqingshan"
 ]
 landmark = list(set(landmarcks))
 with open("city_coordinates.txt", "w") as file:
