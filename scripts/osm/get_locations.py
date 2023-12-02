@@ -160,25 +160,49 @@ landmarcks = [
     "Mount Sanqingshan"
 ]
 landmark = list(set(landmarcks))
+
+
 with open("city_coordinates.txt", "w") as file:
+
+    
     for city in tqdm.tqdm(cities, desc='Processing cities'):
-        lat, lon = get_city_coordinates(city)
-        if lat and lon:
-            file.write(f"{city.replace(" ", "")} {lat} {lon}\n")
-        else:
-            print(f"{city} not found")
-        time.sleep(1)  
+        retries = 10    
+        while True:
+            try:
+                lat, lon = get_city_coordinates(city)
+                if lat and lon:
+                    file.write(f"{city.replace(" ", "")} {lat} {lon}\n")
+                else:
+                    print(f"{city} not found")
+                # time.sleep(0.5)  
+                break
+            except:
+                print(f"Error processing {city}, retrying...")
+                time.sleep(10)
+                retries -= 1
+                if retries == 0:
+                    break
 
 print("Coordinates extraction completed.")
 
 
 with open("landmark_coordinates.txt", "w") as file:
     for landmark in tqdm.tqdm(landmarcks, desc='Processing landmarks'):
-        lat, lon = get_city_coordinates(landmark)
-        if lat and lon:
-            file.write(f"{landmark.replace(" ", "")} {lat} {lon}\n")
-        else:
-            print(f"{landmark} not found")
-        time.sleep(1) 
+        retries = 10
+        while True:
+            try:
+                lat, lon = get_city_coordinates(landmark)
+                if lat and lon:
+                    file.write(f"{landmark.replace(" ", "")} {lat} {lon}\n")
+                else:
+                    print(f"{landmark} not found")
+                # time.sleep(0.5)  
+                break
+            except:
+                print(f"Error processing {landmark}, retrying...")
+                retries -= 1
+                time.sleep(10)
+                if retries == 0:
+                    break
 
 print("Coordinates extraction completed.")
