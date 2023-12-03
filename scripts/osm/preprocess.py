@@ -54,7 +54,7 @@ def plot_and_save_geojson(file_name, out_root, plot_type, xlim=None, ylim=None, 
     elif plot_type == 'building':
 
         # 位置图
-        gdf.plot(ax=ax, color='grey')
+        gdf.plot(ax=ax, color='grey', edgecolor='black')
         
         fig.savefig(os.path.join(out_root, 'building_location.jpg'), bbox_inches='tight', format='jpg')
 
@@ -121,7 +121,7 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
 
         # 根据面积对地块进行排序（默认是升序，即小的在前）
         landuse_gdf = landuse_gdf.sort_values(by='area', ascending=True)
-        landuse_gdf.plot(ax=ax, column='landuse', cmap='Set3', alpha=0.5)
+        landuse_gdf.plot(ax=ax, column='landuse', cmap='Accent', alpha=0.5)
     # 绘制nature层
     if not nature_gdf.empty:
         # 创建组合列，仅当相关列存在时
@@ -162,8 +162,8 @@ def process_city(city, input_root, output_root):
         if not os.path.exists(output_path):
             os.makedirs(output_path, exist_ok=True)
 
-        if(os.path.exists(os.path.join(save_path, 'plotting_img_finish.txt'))):
-            return
+        # if(os.path.exists(os.path.join(save_path, 'plotting_img_finish.txt'))):
+        #     return
 
         try:
             roads_gdf = gpd.read_file(os.path.join(save_path, "road_data.geojson")).to_crs(epsg=3857)
