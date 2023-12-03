@@ -56,7 +56,7 @@ if __name__ == '__main__':
                 if not os.path.exists(os.path.join(args.output_dir, city)):
                     os.mkdir(os.path.join(args.output_dir, city))
                 else:
-                    continue
+                    break
                 city_out_path = os.path.join(args.output_dir, city)
                 lat, lon = citys[city]
                 geo_redius = (args.radius/1000) / 111.319444

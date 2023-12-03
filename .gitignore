@@ -8,6 +8,8 @@ __pycache__/
 # C extensions
 *.so
 *nohup.out
+*.out
+*.log
 # Distribution / packaging
 .Python
 build/

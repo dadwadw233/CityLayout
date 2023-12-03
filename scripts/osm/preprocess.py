@@ -17,7 +17,7 @@ def geo_data_validation(path):
 
 def image_data_validation(path):
     
-    if os.path.exists(os.path.join(path, 'plotting_img_error.txt')):
+    if os.path.exists(os.path.join(path, 'plotting_img_error.txt')) or not os.path.exists(os.path.join(path, 'plotting_img_finish.txt')):
         logging.error(f"Error occurred in {path}.")
 
         # remove data directory
@@ -162,8 +162,8 @@ def process_city(city, input_root, output_root):
         if not os.path.exists(output_path):
             os.makedirs(output_path, exist_ok=True)
 
-        #if(os.path.exists(os.path.join(save_path, 'plotting_img_finish.txt'))):
-         #   return
+        if(os.path.exists(os.path.join(save_path, 'plotting_img_finish.txt'))):
+            return
 
         try:
             roads_gdf = gpd.read_file(os.path.join(save_path, "road_data.geojson")).to_crs(epsg=3857)
