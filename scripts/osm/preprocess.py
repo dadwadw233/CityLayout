@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import concurrent.futures
 import logging
 import pandas as pd
+import rasterio
+from shapely.geometry import Point, box
 
 def geo_data_validation(path):
 
@@ -22,7 +24,32 @@ def image_data_validation(path):
 
         # remove data directory
         os.system(f"rm -rf {path}")
+
+
+def plot_dem(dem_file, output_filename, fig_size=(10, 10), xlim=None, ylim=None):
+    with rasterio.open(dem_file) as src:
+        # 读取第一个波段的数据
+        dem = src.read(1)
+
+    # 使用 Matplotlib 生成图片
+    # print(dem)
+    # fig, ax = plt.subplots(figsize=fig_size)
+    # if xlim and ylim:
+    #     ax.set_xlim(xlim)
+    #     ax.set_ylim(ylim)
     
+    plt.figure(figsize=fig_size)
+    # if xlim and ylim:
+    #     plt.xlim(xlim)
+    #     plt.ylim(ylim)
+    plt.imshow(dem, cmap='gray')  # 或者使用其他colormap，如 'terrain'
+    plt.axis('off')
+    plt.savefig(output_filename)
+    plt.close()
+
+
+
+
         
 
 def plot_and_save_geojson(file_name, out_root, plot_type, xlim=None, ylim=None, fig_size=(10, 10)):
@@ -119,12 +146,12 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
     if not landuse_gdf.empty:
         landuse_gdf['area'] = landuse_gdf.geometry.area
 
-        # 根据面积对地块进行排序（默认是升序，即小的在前）
+        
         landuse_gdf = landuse_gdf.sort_values(by='area', ascending=True)
         landuse_gdf.plot(ax=ax, column='landuse', cmap='Accent', alpha=0.5)
-    # 绘制nature层
+    
     if not nature_gdf.empty:
-        # 创建组合列，仅当相关列存在时
+        
         nature_cols = ['natural', 'water', 'waterway']
         for col in nature_cols:
             if col in nature_gdf.columns:
@@ -136,11 +163,11 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
     
         nature_gdf.plot(ax=ax, column='nature_sum', cmap='Set3', alpha=0.5)
 
-    # 绘制roads层
+    
     if not roads_gdf.empty:
         roads_gdf.plot(ax=ax, column='highway', cmap='tab20')
 
-    # 绘制buildings层
+    
     if not buildings_gdf.empty:
         buildings_gdf.plot(ax=ax, color='grey', edgecolor='black', alpha=0.7)  
 
@@ -152,6 +179,19 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
     return xlim, ylim
 
 
+def plot_pop(pop_file, output_filename, fig_size=(10, 10), xlim=None, ylim=None):
+    with rasterio.open(pop_file) as src:
+        pop = src.read(1)
+
+    
+    plt.figure(figsize=fig_size)
+    # if xlim and ylim:
+    #     plt.xlim(xlim)
+    #     plt.ylim(ylim)
+    plt.imshow(pop, cmap='terrain')
+    plt.axis('off')
+    plt.savefig(output_filename)
+    plt.close()
 
 def process_city(city, input_root, output_root):
     try:
@@ -185,8 +225,8 @@ def process_city(city, input_root, output_root):
         plot_and_save_geojson(os.path.join(save_path, "buildings_data.geojson"), output_path, 'building', xlim, ylim)
         plot_and_save_geojson(os.path.join(save_path, "nature_data.geojson"), output_path, 'nature', xlim, ylim)
 
-
-        
+        plot_dem(os.path.join(save_path, 'dem_data.tif'), os.path.join(output_path, 'dem.jpg'), xlim=xlim, ylim=ylim)
+        # plot_pop(os.path.join(save_path, 'pop_data.tif'), os.path.join(output_path, 'pop.jpg'), xlim=xlim, ylim=ylim)
 
         with open(os.path.join(save_path, 'plotting_img_finish.txt'), 'a') as file:
             file.write(f"Success in {city}\n")

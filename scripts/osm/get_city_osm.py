@@ -5,6 +5,10 @@ import tqdm
 import os
 import elevation
 from shapely.geometry import Point, box
+import requests
+import rasterio
+from rasterio.features import shapes
+from rasterio.mask import mask
 
 def create_area_polygon(lat, lon, radius):
     
@@ -25,12 +29,62 @@ def clip_gdf_to_area(gdf, area_polygon):
     clipped_gdf['geometry'] = gdf['geometry'].intersection(area_polygon)
     return clipped_gdf
 
+def get_dem_data(city, south, north, west, east, output_path):
+    base_url = "https://portal.opentopography.org/API/globaldem"
+
+    params = {
+        "demtype": "SRTMGL1",  
+        "south": south,       
+        "north": north,       
+        "west": west,      
+        "east": east,      
+        "outputFormat": "GTiff", 
+        "API_Key": "316dad05d6a595c83c9ee3864394ad85"
+    }
+    response = requests.get(base_url, params=params)
+
+    if response.status_code == 200:
+        with open(os.path.join(output_path, f"dem_data.tif"), "wb") as file:
+            file.write(response.content)
+        # print("DEM data downloaded successfully.")
+    elif response.status_code == 400 or response.status_code == 500:
+        raise TimeoutError("Timeout error")
+    else :
+        raise Exception(f"Failed to retrieve data. Status code: {response.status_code}")
+    
+
+def clip_pop_file(filename, south, north, west, east, output_path):
+    geom = box(south, north, west, east)
+    geo_df = gpd.GeoDataFrame({'geometry': geom}, index=[0], crs='EPSG:4326')
+
+
+    # 打开 GeoTIFF 文件
+    with rasterio.open(filename) as src:
+        # 将 GeoDataFrame 的坐标系转换为与 TIFF 相同的坐标系
+        geo_df = geo_df.to_crs(crs=src.crs.data)
+
+        # 使用 Rasterio 的 mask 方法裁剪 TIFF 文件
+        out_image, out_transform = mask(src, shapes=geo_df.geometry, crop=True)
+        out_meta = src.meta.copy()
+
+    out_meta.update({"driver": "GTiff",
+                    "height": out_image.shape[1],
+                    "width": out_image.shape[2],
+                    "transform": out_transform})
+
+    output_tif = os.path.join(output_path, 'pop_data.tif')
+    with rasterio.open(output_tif, "w", **out_meta) as dest:
+        dest.write(out_image)
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--input', type=str, required=True, help='Input file (for city locations)')
     parser.add_argument('--output_dir', type=str, required=True, help='Output root directory')
     parser.add_argument('--radius', type=int, required=True, help='Radius of the city (meters))')
+    pop_file_path = '../../data/raw/pop/GHS_POP_E2030_GLOBE_R2023A_54009_100_V1_0.tif'
+
 
     args = parser.parse_args()
 
@@ -61,8 +115,9 @@ if __name__ == '__main__':
                 lat, lon = citys[city]
                 geo_redius = (args.radius/1000) / 111.319444
                 area_polygon = create_area_polygon(lat, lon, geo_redius)
-
+                get_dem_data(city, area_polygon.bounds[1], area_polygon.bounds[3], area_polygon.bounds[0], area_polygon.bounds[2], city_out_path)
                 
+                clip_pop_file(pop_file_path, area_polygon.bounds[1], area_polygon.bounds[3], area_polygon.bounds[0], area_polygon.bounds[2], city_out_path)
                 
                 # road_graph = ox.graph_from_point((lat, lon), network_type='all')
                 road_graph = ox.features_from_point((lat, lon), dist=args.radius, tags={'highway': True})
