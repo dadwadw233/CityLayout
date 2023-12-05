@@ -115,25 +115,30 @@ if __name__ == '__main__':
                 lat, lon = citys[city]
                 geo_redius = (args.radius/1000) / 111.319444
                 area_polygon = create_area_polygon(lat, lon, geo_redius)
-                get_dem_data(city, area_polygon.bounds[1], area_polygon.bounds[3], area_polygon.bounds[0], area_polygon.bounds[2], city_out_path)
+                # get_dem_data(city, area_polygon.bounds[1], area_polygon.bounds[3], area_polygon.bounds[0], area_polygon.bounds[2], city_out_path)
                 
-                clip_pop_file(pop_file_path, area_polygon.bounds[1], area_polygon.bounds[3], area_polygon.bounds[0], area_polygon.bounds[2], city_out_path)
+                # clip_pop_file(pop_file_path, area_polygon.bounds[1], area_polygon.bounds[3], area_polygon.bounds[0], area_polygon.bounds[2], city_out_path)
                 
                 # road_graph = ox.graph_from_point((lat, lon), network_type='all')
-                road_graph = ox.features_from_point((lat, lon), dist=args.radius, tags={'highway': True})
+                
                 # road_graph = ox.features_from_polygon(area_polygon, tags={'highway': True})
-                road_types = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'residential', 'service', 'motorway_link', 'trunk_link', 'primary_link', 'secondary_link', 'tertiary_link']
-                road_graph = road_graph[(road_graph['highway'] == 'primary') | (road_graph['highway'] == 'secondary') | (road_graph['highway'] == 'tertiary') | (road_graph['highway'] == 'residential') | (road_graph['highway'] == 'service') ]#  | (road_graph['highway'] == 'motorway') | (road_graph['highway'] == 'trunk')
+                road_types = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'residential', 'service']
+                road_query = {'highway': road_types}
+                road_graph = ox.features_from_point((lat, lon), dist=args.radius, tags=road_query)
+                # road_graph = road_graph[(road_graph['highway'] == 'primary') | (road_graph['highway'] == 'secondary') | (road_graph['highway'] == 'tertiary') | (road_graph['highway'] == 'residential') | (road_graph['highway'] == 'service') ]  # | (road_graph['highway'] == 'motorway') | (road_graph['highway'] == 'trunk')
                 road_graph = clip_gdf_to_area(road_graph, area_polygon)
 
 
-                landuse_query = {'landuse': True}
+                landuse_types = ['commercial', 'retail', 'industrial', 'depot', 'port', 'residual', 'farmland', 'meadow', 'orchard', 'vineyard', 'plant_nursery', 'forest', 'farmyard', 'grass', 'greenfield', 'military', 'railway', 'recreation_ground', 'fairground']
+                landuse_query = {'landuse': landuse_types}
                 landuse_data = ox.features_from_point((lat, lon), dist=args.radius, tags=landuse_query)
                 # landuse_data = ox.features_from_polygon(area_polygon, tags=landuse_query)
                 landuse_data = clip_gdf_to_area(landuse_data, area_polygon)
 
+                nature_types = ['tree', 'tree_row', 'wood', 'grassland', 'beach', 'water', 'wetland', 'bare_rock', 'hill', 'sand', 'valley']
+                nature_query = {'natural': nature_types}
 
-                nature_query = {'natural': True, 'water': True, 'waterway': True}
+                # nature_query = {'natural': True, 'water': True, 'waterway': True}
                 nature_data = ox.features_from_point((lat, lon), dist=args.radius, tags=nature_query)
                 # nature_data = ox.features_from_polygon(area_polygon, tags=nature_query)
                 nature_data = clip_gdf_to_area(nature_data, area_polygon)
