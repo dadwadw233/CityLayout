@@ -149,28 +149,112 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
         
         landuse_gdf = landuse_gdf.sort_values(by='area', ascending=True)
         landuse_gdf.plot(ax=ax, column='landuse', cmap='Accent', alpha=0.5)
+
+        # 绘制单独的landuse层
+        color_dict = {'commercial': '#EFCAC0', 'retail': '#EFCAC0', 'education': '#EF826B', 'industrial':'#D6CCED',
+                      'depot':'#D6CCED', 'port':'#D6CCED', 'residual':'#E5EBE8', 'farmland':'#DFF58D', 'meadow':'#DFF58D',
+                      'orchard':'#DFF58D', 'vineyard':'#DFF58D', 'plant_nursery':'#DFF58D', 'forest':'#16F53E',
+                      'farmyard': '#F0CB60', 'grass': '#B4F59D', 'greenfield':'#B4F59D', 'military':'#EF4631', 'railway':'#B884F0',
+                      'recreation_ground':'#F07D00', 'fairground':'#F07D00', 'default':'#8F8F8F'}
+        
+        
+        fig_, ax_ = plt.subplots(figsize=fig_size)
+        ax_.set_xlim(xlim)
+        ax_.set_ylim(ylim)
+
+        ax_.axis('off')
+
+        for landuse_type in landuse_gdf['landuse'].unique():
+            # 只选取当前 landuse 类型的数据
+            gdf_type = landuse_gdf[landuse_gdf['landuse'] == landuse_type]
+
+            if landuse_type in color_dict.keys():
+                gdf_type.plot(ax=ax_, color=color_dict.get(landuse_type, '#FFFFFF'), alpha=0.5)
+                gdf_type.plot(ax=ax, color=color_dict.get(landuse_type, '#FFFFFF'), alpha=0.5)
+        
+        plt.savefig(os.path.join(os.path.dirname(output_filename), 'landuse.jpg'), bbox_inches='tight', format='jpg')
+
+        plt.close(fig_)
+
+
     
     if not nature_gdf.empty:
         
-        nature_cols = ['natural', 'water', 'waterway']
+        nature_cols = ['natural']
         for col in nature_cols:
             if col in nature_gdf.columns:
                 nature_gdf[col] = nature_gdf[col].fillna('')
             else:
                 nature_gdf[col] = ''
-        nature_gdf['nature_sum'] = nature_gdf[nature_cols].agg('_'.join, axis=1)
+        # nature_gdf['nature_sum'] = nature_gdf[nature_cols].agg('_'.join, axis=1)
 
     
-        nature_gdf.plot(ax=ax, column='nature_sum', cmap='Set3', alpha=0.5)
+        # nature_gdf.plot(ax=ax, column='nature_sum', cmap='Set3', alpha=0.5)
+
+        color_dict = {'grassland': '#A8EB83', 'tree': '#1CEF26', 'tree_row': '#1CEF26', 'wood': '#1CEF26'
+                      , 'beach': '#D5E4ED', 'water': '#418DF0', 'wetland': '#51D5EB', 'bare_rock': '#E5F2D3'
+                      , 'hill': '#CAF582', 'sand': '#EDE6B0', 'valley': '#F0BA60', 'default': '#BFBFBF'}
+
+        fig_, ax_ = plt.subplots(figsize=fig_size)
+        ax_.set_xlim(xlim)
+        ax_.set_ylim(ylim)
+        ax_.axis('off')
+        
+        for nature_type in nature_gdf['natural'].unique():
+            
+            gdf_type = nature_gdf[nature_gdf['natural'] == nature_type]
+
+            if nature_type in color_dict.keys():
+                gdf_type.plot(ax=ax_, color=color_dict[nature_type], edgecolor='black', alpha=0.5, legend=True)
+                gdf_type.plot(ax=ax, color=color_dict[nature_type], edgecolor='black', alpha=0.5)
+        
+        plt.savefig(os.path.join(os.path.dirname(output_filename), 'nature.jpg'), bbox_inches='tight', format='jpg')
+
+        plt.close(fig_)
 
     
     if not roads_gdf.empty:
-        roads_gdf.plot(ax=ax, column='highway', cmap='tab20')
+        
 
+        fig_, ax_ = plt.subplots(figsize=fig_size)
+        ax_.set_xlim(xlim)
+        ax_.set_ylim(ylim)
+        ax_.axis('off')
+
+        roads_gdf.plot(ax=ax_, column='highway', cmap='tab20', legend=True)
+        roads_gdf.plot(ax=ax, column='highway', cmap='tab20')
+        plt.savefig(os.path.join(os.path.dirname(output_filename), 'road.jpg'), bbox_inches='tight', format='jpg')
+        plt.close(fig_)
+        
     
     if not buildings_gdf.empty:
         buildings_gdf.plot(ax=ax, color='grey', edgecolor='black', alpha=0.7)  
 
+        fig_, ax_ = plt.subplots(figsize=fig_size)
+        ax_.set_xlim(xlim)
+        ax_.set_ylim(ylim)
+        ax_.axis('off')
+
+        buildings_gdf.plot(ax=ax_, color='grey', edgecolor='black', alpha=0.7)
+        plt.savefig(os.path.join(os.path.dirname(output_filename), 'building_location.jpg'), bbox_inches='tight', format='jpg')
+
+        plt.close(fig_)
+
+        #  绘制高度数据
+        # 判断'height'字段是否存在
+        if 'height' in buildings_gdf.columns:
+            
+            fig_, ax_ = plt.subplots(figsize=fig_size)
+            ax_.set_xlim(xlim)
+            ax_.set_ylim(ylim)
+            ax_.axis('off')
+
+            buildings_gdf.plot(ax=ax_, column='height', cmap='viridis')
+            plt.savefig(os.path.join(os.path.dirname(output_filename), 'building_height.jpg'), bbox_inches='tight', format='jpg')
+            plt.close(fig_)
+
+
+    
     
     plt.savefig(output_filename, bbox_inches='tight', format='jpg')
     plt.close()
@@ -220,12 +304,12 @@ def process_city(city, input_root, output_root):
 
 
         # 处理每种类型的数据
-        plot_and_save_geojson(os.path.join(save_path, "road_data.geojson"), output_path, 'road', xlim, ylim)
-        plot_and_save_geojson(os.path.join(save_path, "landuse_data.geojson"), output_path, 'landuse', xlim, ylim)
-        plot_and_save_geojson(os.path.join(save_path, "buildings_data.geojson"), output_path, 'building', xlim, ylim)
-        plot_and_save_geojson(os.path.join(save_path, "nature_data.geojson"), output_path, 'nature', xlim, ylim)
+        # plot_and_save_geojson(os.path.join(save_path, "road_data.geojson"), output_path, 'road', xlim, ylim)
+        # plot_and_save_geojson(os.path.join(save_path, "landuse_data.geojson"), output_path, 'landuse', xlim, ylim)
+        # plot_and_save_geojson(os.path.join(save_path, "buildings_data.geojson"), output_path, 'building', xlim, ylim)
+        # plot_and_save_geojson(os.path.join(save_path, "nature_data.geojson"), output_path, 'nature', xlim, ylim)
 
-        plot_dem(os.path.join(save_path, 'dem_data.tif'), os.path.join(output_path, 'dem.jpg'), xlim=xlim, ylim=ylim)
+        # plot_dem(os.path.join(save_path, 'dem_data.tif'), os.path.join(output_path, 'dem.jpg'), xlim=xlim, ylim=ylim)
         # plot_pop(os.path.join(save_path, 'pop_data.tif'), os.path.join(output_path, 'pop.jpg'), xlim=xlim, ylim=ylim)
 
         with open(os.path.join(save_path, 'plotting_img_finish.txt'), 'a') as file:
@@ -240,8 +324,8 @@ def process_city(city, input_root, output_root):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input', type=str, required=True, help='Input file')
-    parser.add_argument('--output', type=str, required=True, help='Output file')
+    parser.add_argument('--input', type=str, required=False, help='Input file', default='/home/admin/workspace/yuyuanhong/code/CityLayout/data/raw/osm/cities')
+    parser.add_argument('--output', type=str, required=False, help='Output file', default='/home/admin/workspace/yuyuanhong/code/CityLayout/data/raw/osm/cities')
 
     args = parser.parse_args()
     root_path = args.input

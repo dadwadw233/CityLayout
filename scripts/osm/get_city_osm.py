@@ -9,6 +9,7 @@ import requests
 import rasterio
 from rasterio.features import shapes
 from rasterio.mask import mask
+import pandas as pd
 
 def create_area_polygon(lat, lon, radius):
     
@@ -76,7 +77,12 @@ def clip_pop_file(filename, south, north, west, east, output_path):
     with rasterio.open(output_tif, "w", **out_meta) as dest:
         dest.write(out_image)
 
-
+def convert_to_polygon(geom):
+    if geom.geom_type == 'Point':
+        return geom.buffer(0.0001) 
+    elif geom.geom_type == 'LineString':
+        return geom.buffer(0.0001)
+    return geom
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -115,11 +121,7 @@ if __name__ == '__main__':
                 lat, lon = citys[city]
                 geo_redius = (args.radius/1000) / 111.319444
                 area_polygon = create_area_polygon(lat, lon, geo_redius)
-                # get_dem_data(city, area_polygon.bounds[1], area_polygon.bounds[3], area_polygon.bounds[0], area_polygon.bounds[2], city_out_path)
-                
-                # clip_pop_file(pop_file_path, area_polygon.bounds[1], area_polygon.bounds[3], area_polygon.bounds[0], area_polygon.bounds[2], city_out_path)
-                
-                # road_graph = ox.graph_from_point((lat, lon), network_type='all')
+
                 
                 # road_graph = ox.features_from_polygon(area_polygon, tags={'highway': True})
                 road_types = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'residential', 'service']
@@ -134,20 +136,36 @@ if __name__ == '__main__':
                 landuse_data = ox.features_from_point((lat, lon), dist=args.radius, tags=landuse_query)
                 # landuse_data = ox.features_from_polygon(area_polygon, tags=landuse_query)
                 landuse_data = clip_gdf_to_area(landuse_data, area_polygon)
+                landuse_data['geometry'] = landuse_data['geometry'].apply(convert_to_polygon)
+
+                default_gdf = gpd.GeoDataFrame({'geometry': [area_polygon], 'landuse': ['default']}, crs='EPSG:4326')
+                default_gdf = default_gdf.to_crs(landuse_data.crs)
+                filled_gdf  = gpd.overlay(default_gdf, landuse_data, how='difference')
+                # print(landuse_data.geometry.type.unique())
+                # print(default_gdf.geometry.type.unique())
+                landuse_data = gpd.GeoDataFrame(pd.concat([landuse_data, filled_gdf], ignore_index=True))
 
                 nature_types = ['tree', 'tree_row', 'wood', 'grassland', 'beach', 'water', 'wetland', 'bare_rock', 'hill', 'sand', 'valley']
                 nature_query = {'natural': nature_types}
-
-                # nature_query = {'natural': True, 'water': True, 'waterway': True}
                 nature_data = ox.features_from_point((lat, lon), dist=args.radius, tags=nature_query)
-                # nature_data = ox.features_from_polygon(area_polygon, tags=nature_query)
                 nature_data = clip_gdf_to_area(nature_data, area_polygon)
+                nature_data['geometry'] = nature_data['geometry'].apply(convert_to_polygon)
+
+                default_gdf = gpd.GeoDataFrame({'geometry': [area_polygon], 'natural': ['default']}, crs='EPSG:4326')
+                default_gdf = default_gdf.to_crs(nature_data.crs)
+                filled_gdf  = gpd.overlay(default_gdf, nature_data, how='difference')
+                
+                nature_data = gpd.GeoDataFrame(pd.concat([nature_data, filled_gdf], ignore_index=True))
+                
+
 
 
                 buildings_query = {'building': True}
                 buildings_data = ox.features_from_point((lat, lon), dist=args.radius, tags=buildings_query)
                 # buildings_data = ox.features_from_polygon(area_polygon, tags=buildings_query)
                 buildings_data = clip_gdf_to_area(buildings_data, area_polygon)
+
+
 
 
 
