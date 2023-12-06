@@ -1,5 +1,6 @@
 # coding: utf-8
-from geopy.geocoders import Photon
+from geopy.geocoders import Photon, Nominatim
+from geopy.exc import GeocoderTimedOut
 import time
 import tqdm
 
@@ -9,6 +10,17 @@ def get_city_coordinates(city_name):
     if location:
         return (location.latitude, location.longitude)
     else:
+        return (None, None)
+    
+def get_city_coordinates_withproxy(city_name):
+    geolocator = Nominatim(user_agent="city_locator")
+    try:
+        location = geolocator.geocode(city_name)
+        if location:
+            return (location.latitude, location.longitude)
+        else:
+            return (None, None)
+    except GeocoderTimedOut:
         return (None, None)
 
 cities = [
@@ -164,7 +176,7 @@ with open("city_coordinates.txt", "w") as file:
         retries = 10    
         while True:
             try:
-                lat, lon = get_city_coordinates(city)
+                lat, lon = get_city_coordinates_withproxy(city)
                 if lat and lon:
                     file.write(f"{city.replace(" ", "")} {lat} {lon}\n")
                 else:
@@ -186,7 +198,7 @@ with open("landmark_coordinates.txt", "w") as file:
         retries = 10
         while True:
             try:
-                lat, lon = get_city_coordinates(landmark)
+                lat, lon = get_city_coordinates_withproxy(landmark)
                 if lat and lon:
                     file.write(f"{landmark.replace(" ", "-").replace(",", "")} {lat} {lon}\n")
                 else:
