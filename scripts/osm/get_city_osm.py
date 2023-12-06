@@ -10,6 +10,11 @@ import rasterio
 from rasterio.features import shapes
 from rasterio.mask import mask
 import pandas as pd
+import aiohttp
+import asyncio
+from http.client import HTTPException
+from requests.exceptions import RequestException
+import time
 
 def create_area_polygon(lat, lon, radius):
     
@@ -203,6 +208,23 @@ if __name__ == '__main__':
                 else:
                     print(f"Timeout error occured when processing {city}: {e}, retrying...")
                     retries -= 1
+                    time.sleep(10)
+                    continue
+            except HTTPException as e:
+                if retries == 0:
+                    print(f"HTTPException error occured when processing {city}: {e}")
+                else:
+                    print(f"HTTPException error occured when processing {city}: {e}, retrying...")
+                    retries -= 1
+                    time.sleep(10)
+                    continue
+            except RequestException as e:
+                if retries == 0:
+                    print(f"RequestException error occured when processing {city}: {e}")
+                else:
+                    print(f"RequestException error occured when processing {city}: {e}, retrying...")
+                    retries -= 1
+                    time.sleep(10)
                     continue
             except Exception as e:
                 print(f"Error occured when processing {city}: {e}")
