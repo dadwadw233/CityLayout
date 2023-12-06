@@ -136,8 +136,11 @@ if __name__ == '__main__':
                 # road_graph = road_graph[(road_graph['highway'] == 'primary') | (road_graph['highway'] == 'secondary') | (road_graph['highway'] == 'tertiary') | (road_graph['highway'] == 'residential') | (road_graph['highway'] == 'service') ]  # | (road_graph['highway'] == 'motorway') | (road_graph['highway'] == 'trunk')
                 road_graph = clip_gdf_to_area(road_graph, area_polygon)
 
+                # print('road done')
 
-                landuse_types = ['commercial', 'retail', 'industrial', 'depot', 'port', 'residual', 'farmland', 'meadow', 'orchard', 'vineyard', 'plant_nursery', 'forest', 'farmyard', 'grass', 'greenfield', 'military', 'railway', 'recreation_ground', 'fairground']
+                landuse_types = ['commercial', 'retail', 'industrial', 'depot', 'port', 'residual', 
+                                 'farmland', 'meadow', 'orchard', 'vineyard', 'plant_nursery', 'forest', 
+                                 'farmyard', 'grass', 'greenfield', 'military', 'railway', 'recreation_ground', 'fairground']
                 landuse_query = {'landuse': landuse_types}
                 landuse_data = ox.features_from_bbox(north=area_polygon.bounds[3], south=area_polygon.bounds[1], east=area_polygon.bounds[2], west=area_polygon.bounds[0], tags=landuse_query)
                 # landuse_data = ox.features_from_point((lat, lon), dist=args.radius, tags=landuse_query)
@@ -152,6 +155,9 @@ if __name__ == '__main__':
                 # print(default_gdf.geometry.type.unique())
                 landuse_data = gpd.GeoDataFrame(pd.concat([landuse_data, filled_gdf], ignore_index=True))
 
+                # print('landuse done')
+
+
                 nature_types = ['tree', 'tree_row', 'wood', 'grassland', 'beach', 'water', 'wetland', 'bare_rock', 'hill', 'sand', 'valley']
                 nature_query = {'natural': nature_types}
                 nature_data = ox.features_from_bbox(north=area_polygon.bounds[3], south=area_polygon.bounds[1], east=area_polygon.bounds[2], west=area_polygon.bounds[0], tags=nature_query)
@@ -165,7 +171,7 @@ if __name__ == '__main__':
                 
                 nature_data = gpd.GeoDataFrame(pd.concat([nature_data, filled_gdf], ignore_index=True))
                 
-
+                # print('nature done')
 
 
                 buildings_query = {'building': True}
@@ -174,7 +180,7 @@ if __name__ == '__main__':
                 buildings_data = ox.features_from_bbox(north=area_polygon.bounds[3], south=area_polygon.bounds[1], east=area_polygon.bounds[2], west=area_polygon.bounds[0], tags=buildings_query)
                 buildings_data = clip_gdf_to_area(buildings_data, area_polygon)
 
-
+                # print('buildings done')
 
 
 
