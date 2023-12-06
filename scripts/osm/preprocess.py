@@ -19,7 +19,7 @@ def geo_data_validation(path):
 
 def image_data_validation(path):
     
-    if os.path.exists(os.path.join(path, 'plotting_img_error.txt')) or not os.path.exists(os.path.join(path, 'plotting_img_finish.txt')):
+    if not os.path.exists(os.path.join(path, 'plotting_img_finish.txt')):
         logging.error(f"Error occurred in {path}.")
 
         # remove data directory
@@ -215,14 +215,24 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
     
     if not roads_gdf.empty:
         
+        color_dict = {'motorway': 'red', 'trunk': 'orange', 'primary': 'yellow', 'secondary': 'green',
+                        'tertiary': 'pink', 'residential': 'blue', 'service': 'grey'
+                        }
 
         fig_, ax_ = plt.subplots(figsize=fig_size)
         ax_.set_xlim(xlim)
         ax_.set_ylim(ylim)
         ax_.axis('off')
 
-        roads_gdf.plot(ax=ax_, column='highway', cmap='tab20', legend=True)
-        roads_gdf.plot(ax=ax, column='highway', cmap='tab20')
+        for road_type in roads_gdf['highway'].unique():
+            gdf_type = roads_gdf[roads_gdf['highway'] == road_type]
+
+            if road_type in color_dict.keys():
+                gdf_type.plot(ax=ax_, color=color_dict[road_type], alpha=0.5, legend=True)
+                gdf_type.plot(ax=ax, color=color_dict[road_type], alpha=0.5)
+
+        # roads_gdf.plot(ax=ax_, column='highway', cmap='tab20', legend=True)
+        # roads_gdf.plot(ax=ax, column='highway', cmap='tab20')
         plt.savefig(os.path.join(os.path.dirname(output_filename), 'road.jpg'), bbox_inches='tight', format='jpg')
         plt.close(fig_)
         
