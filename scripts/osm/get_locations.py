@@ -168,6 +168,10 @@ landmarks = [
 
 landmarks = list(set(landmarks))
 
+radius = 1000;
+geo_redius = (radius/1000) / 111.319444
+dx = [0,0,-1,-1,1,1,-1,1]
+dy = [-1,1,-1,1,-1,1,0,0]
 
 with open("city_coordinates.txt", "w") as file:
 
@@ -179,6 +183,10 @@ with open("city_coordinates.txt", "w") as file:
                 lat, lon = get_city_coordinates_withproxy(city)
                 if lat and lon:
                     file.write(f"{city.replace(" ", "")} {lat} {lon}\n")
+                    for i in range(8):
+                        lat2 = lat + geo_redius * dx[i]
+                        lon2 = lon + geo_redius * dy[i]
+                        file.write(f"{city.replace(" ", "")}-{i} {lat2} {lon2}\n")
                 else:
                     print(f"{city} not found")
                 # time.sleep(0.5)  
@@ -201,6 +209,10 @@ with open("landmark_coordinates.txt", "w") as file:
                 lat, lon = get_city_coordinates_withproxy(landmark)
                 if lat and lon:
                     file.write(f"{landmark.replace(" ", "-").replace(",", "")} {lat} {lon}\n")
+                    for i in range(8):
+                        lat2 = lat + geo_redius * dx[i]
+                        lon2 = lon + geo_redius * dy[i]
+                        file.write(f"{landmark.replace(" ", "-").replace(",", "")}-{i} {lat2} {lon2}\n")
                 else:
                     print(f"{landmark} not found")
                 # time.sleep(0.5)  
