@@ -9,6 +9,8 @@ import logging
 import pandas as pd
 import rasterio
 from shapely.geometry import Point, box
+from PIL import Image
+import numpy as np
 
 def geo_data_validation(path):
 
@@ -171,7 +173,7 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
             if landuse_type in color_dict.keys():
                 gdf_type.plot(ax=ax_, color=color_dict.get(landuse_type, '#FFFFFF'), alpha=0.5)
                 gdf_type.plot(ax=ax, color=color_dict.get(landuse_type, '#FFFFFF'), alpha=0.5)
-        
+        fig_.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
         plt.savefig(os.path.join(os.path.dirname(output_filename), 'landuse.jpg'), bbox_inches='tight', format='jpg')
 
         plt.close(fig_)
@@ -205,9 +207,9 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
             gdf_type = nature_gdf[nature_gdf['natural'] == nature_type]
 
             if nature_type in color_dict.keys():
-                gdf_type.plot(ax=ax_, color=color_dict[nature_type], edgecolor='black', alpha=0.5, legend=True)
+                gdf_type.plot(ax=ax_, color=color_dict[nature_type], edgecolor='black')
                 gdf_type.plot(ax=ax, color=color_dict[nature_type], edgecolor='black', alpha=0.5)
-        
+        fig_.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
         plt.savefig(os.path.join(os.path.dirname(output_filename), 'nature.jpg'), bbox_inches='tight', format='jpg')
 
         plt.close(fig_)
@@ -228,11 +230,12 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
             gdf_type = roads_gdf[roads_gdf['highway'] == road_type]
 
             if road_type in color_dict.keys():
-                gdf_type.plot(ax=ax_, color=color_dict[road_type], alpha=0.5, legend=True)
+                gdf_type.plot(ax=ax_, color=color_dict[road_type])
                 gdf_type.plot(ax=ax, color=color_dict[road_type], alpha=0.5)
 
         # roads_gdf.plot(ax=ax_, column='highway', cmap='tab20', legend=True)
         # roads_gdf.plot(ax=ax, column='highway', cmap='tab20')
+        fig_.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
         plt.savefig(os.path.join(os.path.dirname(output_filename), 'road.jpg'), bbox_inches='tight', format='jpg')
         plt.close(fig_)
         
@@ -245,7 +248,8 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
         ax_.set_ylim(ylim)
         ax_.axis('off')
 
-        buildings_gdf.plot(ax=ax_, color='grey', edgecolor='black', alpha=0.7)
+        buildings_gdf.plot(ax=ax_, color='grey', edgecolor='black')
+        fig_.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
         plt.savefig(os.path.join(os.path.dirname(output_filename), 'building_location.jpg'), bbox_inches='tight', format='jpg')
 
         plt.close(fig_)
@@ -260,12 +264,13 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
             ax_.axis('off')
 
             buildings_gdf.plot(ax=ax_, column='height', cmap='viridis')
+            fig_.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
             plt.savefig(os.path.join(os.path.dirname(output_filename), 'building_height.jpg'), bbox_inches='tight', format='jpg')
             plt.close(fig_)
 
 
     
-    
+    fig.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
     plt.savefig(output_filename, bbox_inches='tight', format='jpg')
     plt.close()
 
@@ -296,9 +301,9 @@ def process_city(city, input_root, output_root):
         if not os.path.exists(output_path):
             os.makedirs(output_path, exist_ok=True)
 
-        if(os.path.exists(os.path.join(save_path, 'plotting_img_finish.txt'))):
-            print(f"Already processed {city}.")
-            return
+        # if(os.path.exists(os.path.join(save_path, 'plotting_img_finish.txt'))):
+        #     print(f"Already processed {city}.")
+        #     return
 
         try:
             roads_gdf = gpd.read_file(os.path.join(save_path, "road_data.geojson")).to_crs(epsg=3857)
@@ -331,6 +336,62 @@ def process_city(city, input_root, output_root):
             file.write(f"Error occurred in {city}: {str(e)}\n")
         
         return 
+    
+
+def hex_to_rgb(hex_color):
+    hex_color = hex_color.lstrip('#')
+    lv = len(hex_color)
+    return tuple(int(hex_color[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
+
+
+
+def generate_trainning_data(path, color_to_label, type='nature'):
+
+    original_img = np.array(Image.open(os.path.join(path, type + '.jpg')))
+
+    # print(original_img.shape)
+    # 初始化二值图像字典
+    binary_images = {label: np.zeros(original_img.shape[:2], dtype=np.uint8) for label in color_to_label.values()}
+
+    # 遍历原始图像的每个像素
+    for i,j in np.ndindex(original_img.shape[:2]):
+        pixel = original_img[i, j]
+        
+        pixel_tuple = tuple(pixel)
+        
+        if pixel_tuple in color_to_label.keys():
+            label = color_to_label[pixel_tuple]
+            # if (tuple(pixel)!=(191,191,191) and tuple(pixel)!=(255,255,255)):
+            #     print(pixel)
+            binary_images[label][i, j] = 1
+    
+    
+    multi_channel_img = np.stack(list(binary_images.values()), axis=-1)
+
+    num_channels = multi_channel_img.shape[2]
+    
+    if(num_channels == 1):
+        fig, ax = plt.subplots(figsize=(20, 20))
+        ax.imshow(multi_channel_img[:, :, 0], cmap='gray')  # 使用灰度图展示
+        ax.set_title(f'Channel {0+1}')
+        ax.axis('off')
+        
+    else: 
+        fig, axes = plt.subplots(1, num_channels, figsize=(20, 5))  # 调整大小
+
+        for i in range(num_channels):
+            ax = axes[i]
+            ax.imshow(multi_channel_img[:, :, i], cmap='gray')  # 使用灰度图展示
+            ax.set_title(f'Channel {i+1}')
+            ax.axis('off')
+
+    plt.tight_layout()
+    plt.show()
+    plt.savefig(os.path.join(path, type + '_multi_channel.jpg'))
+    print(np.count_nonzero(multi_channel_img))
+    print(path)
+    exit(0)
+    np.save(os.path.join(path, type + '.npy'), multi_channel_img)
 
 
 if __name__ == '__main__':
@@ -343,18 +404,46 @@ if __name__ == '__main__':
 
     cities = os.listdir(root_path)
     #todo 还需要统一一下labels
-    for city in tqdm.tqdm(cities, desc='Validating data'):
-        geo_data_validation(os.path.join(root_path, city))
+    # for city in tqdm.tqdm(cities, desc='Validating data'):
+    #     geo_data_validation(os.path.join(root_path, city))
 
-    with concurrent.futures.ProcessPoolExecutor() as executor:
-        futures = [executor.submit(process_city, city, args.input, args.output) for city in cities]
-        for future in tqdm.tqdm(concurrent.futures.as_completed(futures), total=len(cities), desc='Processing cities'):
-            future.result()
+    # with concurrent.futures.ProcessPoolExecutor() as executor:
+    #     futures = [executor.submit(process_city, city, args.input, args.output) for city in cities]
+    #     for future in tqdm.tqdm(concurrent.futures.as_completed(futures), total=len(cities), desc='Processing cities'):
+    #         future.result()
 
-    print('Processing completed.')
+    # print('Processing completed.')
 
-    for city in tqdm.tqdm(cities, desc='Validating images'):
-        image_data_validation(os.path.join(args.output, city))
+    # for city in tqdm.tqdm(cities, desc='Validating images'):
+    #     image_data_validation(os.path.join(args.output, city))
         
-    print('Validation completed. Image data total size:', len(os.listdir(args.output)))
+    # print('Validation completed. Image data total size:', len(os.listdir(args.output)))
+
+    for city in tqdm.tqdm(cities, desc='Generating training data'):
+        
+        # nature_color_to_label = {
+        #     "#A8EB83": "grassland",
+        #     "#1CEF26": "tree",
+        #     "#D5E4ED": "beach",
+        #     "#418DF0": "water",
+        #     "#51D5EB": "wetland",
+        #     "#E5F2D3": "bare_rock",
+        #     "#CAF582": "hill",
+        #     "#EDE6B0": "sand",
+        #     "#F0BA60": "valley",
+        #     "#BFBFBF": "default"
+        # }
+        # nature_color_to_label = {hex_to_rgb(color): label for color, label in nature_color_to_label.items()}
+        # # print(nature_color_to_label)
+        # # exit(0)
+        # generate_trainning_data(os.path.join(args.output, city), nature_color_to_label)
+
+        building_color_to_label = {
+            "#808080": "building",
+        }
+        building_color_to_label = {hex_to_rgb(color): label for color, label in building_color_to_label.items()}
+        generate_trainning_data(os.path.join(args.output, city), building_color_to_label, type='building_location')
+
+
+
 
