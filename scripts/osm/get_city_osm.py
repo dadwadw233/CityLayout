@@ -121,6 +121,7 @@ if __name__ == '__main__':
                 if not os.path.exists(os.path.join(args.output_dir, city)):
                     os.mkdir(os.path.join(args.output_dir, city))
                 else:
+                    print(f"OSM data for {city} already exists, skipping...")
                     break
                 city_out_path = os.path.join(args.output_dir, city)
                 lat, lon = citys[city]

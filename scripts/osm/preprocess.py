@@ -296,8 +296,9 @@ def process_city(city, input_root, output_root):
         if not os.path.exists(output_path):
             os.makedirs(output_path, exist_ok=True)
 
-        # if(os.path.exists(os.path.join(save_path, 'plotting_img_finish.txt'))):
-        #     return
+        if(os.path.exists(os.path.join(save_path, 'plotting_img_finish.txt'))):
+            print(f"Already processed {city}.")
+            return
 
         try:
             roads_gdf = gpd.read_file(os.path.join(save_path, "road_data.geojson")).to_crs(epsg=3857)
