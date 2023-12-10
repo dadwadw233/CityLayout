@@ -11,12 +11,26 @@ import rasterio
 from shapely.geometry import Point, box
 from PIL import Image
 import numpy as np
+from rasterio.features import rasterize
+from io import BytesIO
+import h5py
 
 def geo_data_validation(path):
 
     if os.path.exists(os.path.join(path, 'getdata_error.txt')):
         logging.error(f"Error occurred in {path}.")
         os.system(f"rm -rf {path}")
+
+    if os.path.exists(os.path.join(path, 'plotting_img_finish.txt')):
+        os.system(f"rm  {os.path.join(path, 'plotting_img_finish.txt')}")
+
+    if os.path.exists(os.path.join(path, 'plotting_img_error.txt')):
+        os.system(f"rm  {os.path.join(path, 'plotting_img_error.txt')}")
+
+    # delete file which is not geojson
+    for file in os.listdir(path):
+        if not file.endswith('.geojson'):
+            os.system(f"rm  {os.path.join(path, file)}")
 
 
 def image_data_validation(path):
@@ -132,8 +146,6 @@ def plot_and_save_geojson(file_name, out_root, plot_type, xlim=None, ylim=None, 
         plt.close(fig)
 
         
-            
-        
 
 
 def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_filename, fig_size=(10, 10)):
@@ -141,11 +153,18 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
     combined_gdf = gpd.GeoDataFrame(pd.concat([roads_gdf, landuse_gdf, buildings_gdf, nature_gdf], ignore_index=True), crs=roads_gdf.crs)
     xlim = (combined_gdf.total_bounds[0], combined_gdf.total_bounds[2])  # Minx, Maxx
     ylim = (combined_gdf.total_bounds[1], combined_gdf.total_bounds[3])  # Miny, Maxy
+
+    
+
+
+
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     ax.axis('off')
-    # 如果有landuse数据，先绘制landuse层
+    plt.axis('off')
+
     if not landuse_gdf.empty:
+        feature_img_dict = {}
         landuse_gdf['area'] = landuse_gdf.geometry.area
 
         
@@ -159,6 +178,9 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
                       'farmyard': '#F0CB60', 'grass': '#B4F59D', 'greenfield':'#B4F59D', 'military':'#EF4631', 'railway':'#B884F0',
                       'recreation_ground':'#F07D00', 'fairground':'#F07D00', 'default':'#8F8F8F'}
         
+        feature_list = ['commercial', 'retail', 'education', 'industrial', 
+                        'residual', 'forest', 'grass', 'greenfield', 
+                        'railway', 'recreation_ground', 'default']
         
         fig_, ax_ = plt.subplots(figsize=fig_size)
         ax_.set_xlim(xlim)
@@ -173,15 +195,52 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
             if landuse_type in color_dict.keys():
                 gdf_type.plot(ax=ax_, color=color_dict.get(landuse_type, '#FFFFFF'), alpha=0.5)
                 gdf_type.plot(ax=ax, color=color_dict.get(landuse_type, '#FFFFFF'), alpha=0.5)
+            
+            if landuse_type in feature_list:
+                
+                gdf_type.plot(cmap='gray')
+                
+                buf = BytesIO()
+                plt.savefig(buf, format='png')
+                buf.seek(0)
+
+                image = Image.open(buf)
+                image_array = np.array(image)
+                data = ~image_array[:, :, 0:1]
+                data[data != 0] = 1
+                feature_img_dict[landuse_type] = data
+
+                plt.close()
+                buf.close()
+        
+        for feature in feature_list:
+            
+            if feature not in feature_img_dict.keys():
+                feature_img_dict[feature] = np.zeros((image_array.shape[0], image_array.shape[1], 1))
+
         fig_.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
         plt.savefig(os.path.join(os.path.dirname(output_filename), 'landuse.jpg'), bbox_inches='tight', format='jpg')
 
         plt.close(fig_)
 
+        # fig, axs = plt.subplots(1, len(feature_img_dict), figsize=(20, 8))  
+        # for index,label in enumerate(feature_list):
+            
+        #     ax_inner = axs[index]
+        #     ax_inner.axis('off')
+        #     ax_inner.imshow(feature_img_dict[label], cmap='gray')
+        #     ax_inner.set_title(f'Label {label}')
+            
+        # plt.savefig(os.path.join(os.path.dirname(output_filename), 'landuse_multi_channel.jpg'))
+        # plt.close(fig)
+
+        landuse_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
+        np.save(os.path.join(os.path.dirname(output_filename), 'landuse.npy'), landuse_matrix)
+        
 
     
     if not nature_gdf.empty:
-        
+        feature_img_dict = {}
         nature_cols = ['natural']
         for col in nature_cols:
             if col in nature_gdf.columns:
@@ -196,6 +255,8 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
         color_dict = {'grassland': '#A8EB83', 'tree': '#1CEF26', 'tree_row': '#1CEF26', 'wood': '#1CEF26'
                       , 'beach': '#D5E4ED', 'water': '#418DF0', 'wetland': '#51D5EB', 'bare_rock': '#E5F2D3'
                       , 'hill': '#CAF582', 'sand': '#EDE6B0', 'valley': '#F0BA60', 'default': '#BFBFBF'}
+        
+        feature_list = ['grassland', 'tree', 'beach', 'water','hill', 'sand', 'valley', 'default']
 
         fig_, ax_ = plt.subplots(figsize=fig_size)
         ax_.set_xlim(xlim)
@@ -209,17 +270,59 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
             if nature_type in color_dict.keys():
                 gdf_type.plot(ax=ax_, color=color_dict[nature_type], edgecolor='black')
                 gdf_type.plot(ax=ax, color=color_dict[nature_type], edgecolor='black', alpha=0.5)
+
+            if nature_type in feature_list:
+                    
+                    gdf_type.plot(cmap='gray')
+                    
+                    buf = BytesIO()
+                    plt.savefig(buf, format='png')
+                    buf.seek(0)
+    
+
+                    image = Image.open(buf)
+                    image_array = np.array(image)
+                    data = ~image_array[:, :, 0:1]
+                    data[data != 0] = 1
+                    feature_img_dict[nature_type] = data
+
+                    plt.close()
+                    buf.close()
+
+        for feature in feature_list:
+                
+                if feature not in feature_img_dict.keys():
+                    feature_img_dict[feature] = np.zeros((image_array.shape[0], image_array.shape[1], 1))
+
+
         fig_.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
         plt.savefig(os.path.join(os.path.dirname(output_filename), 'nature.jpg'), bbox_inches='tight', format='jpg')
 
         plt.close(fig_)
 
+        # fig, axs = plt.subplots(1, len(feature_img_dict), figsize=(20, 8))
+        # for index,label in enumerate(feature_list):
+                
+        #     ax_inner = axs[index]
+        #     ax_inner.axis('off')
+        #     ax_inner.imshow(feature_img_dict[label], cmap='gray')
+        #     ax_inner.set_title(f'Label {label}')
+
+        # plt.savefig(os.path.join(os.path.dirname(output_filename), 'nature_multi_channel.jpg'))
+        # plt.close(fig)
+
+        nature_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
+        np.save(os.path.join(os.path.dirname(output_filename), 'nature.npy'), nature_matrix)
+
     
     if not roads_gdf.empty:
-        
+        feature_img_dict = {}
+
         color_dict = {'motorway': 'red', 'trunk': 'orange', 'primary': 'yellow', 'secondary': 'green',
                         'tertiary': 'pink', 'residential': 'blue', 'service': 'grey'
                         }
+
+        feature_list = ['motorway', 'trunk', 'primary', 'secondary', 'residential', 'service']
 
         fig_, ax_ = plt.subplots(figsize=fig_size)
         ax_.set_xlim(xlim)
@@ -233,14 +336,53 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
                 gdf_type.plot(ax=ax_, color=color_dict[road_type])
                 gdf_type.plot(ax=ax, color=color_dict[road_type], alpha=0.5)
 
+            if road_type in feature_list:
+                        
+                gdf_type.plot(cmap='gray')
+                
+                buf = BytesIO()
+                plt.savefig(buf, format='png')
+                buf.seek(0)
+
+
+                image = Image.open(buf)
+                image_array = np.array(image)
+                data = ~image_array[:, :, 0:1]
+                data[data != 0] = 1
+                feature_img_dict[road_type] = data
+
+                plt.close()
+                buf.close()
+        
+        for feature in feature_list:
+                    
+                    if feature not in feature_img_dict.keys():
+                        feature_img_dict[feature] = np.zeros((image_array.shape[0], image_array.shape[1], 1))
+
         # roads_gdf.plot(ax=ax_, column='highway', cmap='tab20', legend=True)
         # roads_gdf.plot(ax=ax, column='highway', cmap='tab20')
         fig_.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
         plt.savefig(os.path.join(os.path.dirname(output_filename), 'road.jpg'), bbox_inches='tight', format='jpg')
         plt.close(fig_)
+
+        # fig, axs = plt.subplots(1, len(feature_img_dict), figsize=(20, 8))
+        # for index,label in enumerate(feature_list):
+                        
+        #     ax_inner = axs[index]
+        #     ax_inner.axis('off')
+        #     ax_inner.imshow(feature_img_dict[label], cmap='gray')
+        #     ax_inner.set_title(f'Label {label}')
+
+        # plt.savefig(os.path.join(os.path.dirname(output_filename), 'road_multi_channel.jpg'))
+        # plt.close(fig)
+
+        road_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
+        np.save(os.path.join(os.path.dirname(output_filename), 'road.npy'), road_matrix)
+
         
     
     if not buildings_gdf.empty:
+
         buildings_gdf.plot(ax=ax, color='grey', edgecolor='black', alpha=0.7)  
 
         fig_, ax_ = plt.subplots(figsize=fig_size)
@@ -267,6 +409,35 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
             fig_.subplots_adjust(left=0, bottom=0, right=1, top=1, wspace=0, hspace=0)
             plt.savefig(os.path.join(os.path.dirname(output_filename), 'building_height.jpg'), bbox_inches='tight', format='jpg')
             plt.close(fig_)
+
+        buildings_gdf.plot(cmap='gray')
+                
+        buf = BytesIO()
+        plt.savefig(buf, format='png')
+        buf.seek(0)
+
+        image = Image.open(buf)
+        image_array = np.array(image)
+        data = ~image_array[:, :, 0:1]
+        data[data != 0] = 1
+        feature_img_dict[road_type] = data
+        
+        plt.close()
+        buf.close()
+
+        # fig, axs = plt.subplots(1, 1, figsize=(20, 8))
+        # ax_inner = axs
+        # ax_inner.axis('off')
+        # ax_inner.imshow(feature_img_dict[road_type], cmap='gray')
+        # ax_inner.set_title(f'Label building')
+
+        # plt.savefig(os.path.join(os.path.dirname(output_filename), 'building_multi_channel.jpg'))
+        # plt.close(fig)
+
+
+        building_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
+        np.save(os.path.join(os.path.dirname(output_filename), 'building.npy'), building_matrix)
+
 
 
     
@@ -319,7 +490,6 @@ def process_city(city, input_root, output_root):
         xlim, ylim = plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, os.path.join(args.output, city, 'combined.jpg'))
 
 
-        # 处理每种类型的数据
         # plot_and_save_geojson(os.path.join(save_path, "road_data.geojson"), output_path, 'road', xlim, ylim)
         # plot_and_save_geojson(os.path.join(save_path, "landuse_data.geojson"), output_path, 'landuse', xlim, ylim)
         # plot_and_save_geojson(os.path.join(save_path, "buildings_data.geojson"), output_path, 'building', xlim, ylim)
@@ -344,54 +514,13 @@ def hex_to_rgb(hex_color):
     return tuple(int(hex_color[i:i + lv // 3], 16) for i in range(0, lv, lv // 3))
 
 
+def dump_h5py(path, output_path):
+    with h5py.File(output_path, 'w') as f:
+        for file in os.listdir(path):
+            if file.endswith('.npy'):
+                data = np.load(os.path.join(path, file))
+                f.create_dataset(file[:-4], data=data)
 
-def generate_trainning_data(path, color_to_label, type='nature'):
-
-    original_img = np.array(Image.open(os.path.join(path, type + '.jpg')))
-
-    # print(original_img.shape)
-    # 初始化二值图像字典
-    binary_images = {label: np.zeros(original_img.shape[:2], dtype=np.uint8) for label in color_to_label.values()}
-
-    # 遍历原始图像的每个像素
-    for i,j in np.ndindex(original_img.shape[:2]):
-        pixel = original_img[i, j]
-        
-        pixel_tuple = tuple(pixel)
-        
-        if pixel_tuple in color_to_label.keys():
-            label = color_to_label[pixel_tuple]
-            # if (tuple(pixel)!=(191,191,191) and tuple(pixel)!=(255,255,255)):
-            #     print(pixel)
-            binary_images[label][i, j] = 1
-    
-    
-    multi_channel_img = np.stack(list(binary_images.values()), axis=-1)
-
-    num_channels = multi_channel_img.shape[2]
-    
-    if(num_channels == 1):
-        fig, ax = plt.subplots(figsize=(20, 20))
-        ax.imshow(multi_channel_img[:, :, 0], cmap='gray')  # 使用灰度图展示
-        ax.set_title(f'Channel {0+1}')
-        ax.axis('off')
-        
-    else: 
-        fig, axes = plt.subplots(1, num_channels, figsize=(20, 5))  # 调整大小
-
-        for i in range(num_channels):
-            ax = axes[i]
-            ax.imshow(multi_channel_img[:, :, i], cmap='gray')  # 使用灰度图展示
-            ax.set_title(f'Channel {i+1}')
-            ax.axis('off')
-
-    plt.tight_layout()
-    plt.show()
-    plt.savefig(os.path.join(path, type + '_multi_channel.jpg'))
-    print(np.count_nonzero(multi_channel_img))
-    print(path)
-    exit(0)
-    np.save(os.path.join(path, type + '.npy'), multi_channel_img)
 
 
 if __name__ == '__main__':
@@ -404,46 +533,25 @@ if __name__ == '__main__':
 
     cities = os.listdir(root_path)
     #todo 还需要统一一下labels
-    # for city in tqdm.tqdm(cities, desc='Validating data'):
-    #     geo_data_validation(os.path.join(root_path, city))
+    for city in tqdm.tqdm(cities, desc='Validating data'):
+        geo_data_validation(os.path.join(root_path, city))
 
-    # with concurrent.futures.ProcessPoolExecutor() as executor:
-    #     futures = [executor.submit(process_city, city, args.input, args.output) for city in cities]
-    #     for future in tqdm.tqdm(concurrent.futures.as_completed(futures), total=len(cities), desc='Processing cities'):
-    #         future.result()
+    print('Validation and initialize completed. Geo data total size:', len(os.listdir(args.input)))
 
-    # print('Processing completed.')
+    with concurrent.futures.ProcessPoolExecutor(max_workers=64) as executor:
+        futures = [executor.submit(process_city, city, args.input, args.output) for city in cities]
+        for future in tqdm.tqdm(concurrent.futures.as_completed(futures), total=len(cities), desc='Processing cities'):
+            future.result()
 
-    # for city in tqdm.tqdm(cities, desc='Validating images'):
-    #     image_data_validation(os.path.join(args.output, city))
+    print('Processing completed.')
+
+    for city in tqdm.tqdm(cities, desc='Validating images'):
+        image_data_validation(os.path.join(args.output, city))
         
-    # print('Validation completed. Image data total size:', len(os.listdir(args.output)))
-
-    for city in tqdm.tqdm(cities, desc='Generating training data'):
-        
-        # nature_color_to_label = {
-        #     "#A8EB83": "grassland",
-        #     "#1CEF26": "tree",
-        #     "#D5E4ED": "beach",
-        #     "#418DF0": "water",
-        #     "#51D5EB": "wetland",
-        #     "#E5F2D3": "bare_rock",
-        #     "#CAF582": "hill",
-        #     "#EDE6B0": "sand",
-        #     "#F0BA60": "valley",
-        #     "#BFBFBF": "default"
-        # }
-        # nature_color_to_label = {hex_to_rgb(color): label for color, label in nature_color_to_label.items()}
-        # # print(nature_color_to_label)
-        # # exit(0)
-        # generate_trainning_data(os.path.join(args.output, city), nature_color_to_label)
-
-        building_color_to_label = {
-            "#808080": "building",
-        }
-        building_color_to_label = {hex_to_rgb(color): label for color, label in building_color_to_label.items()}
-        generate_trainning_data(os.path.join(args.output, city), building_color_to_label, type='building_location')
+    print('Validation completed. Image data total size:', len(os.listdir(args.output)))
 
 
+    for city in tqdm.tqdm(cities, desc='Dumping h5py'):
+        dump_h5py(os.path.join(args.output, city), os.path.join(args.output, city, city+'.h5'))
 
 
