@@ -38,7 +38,7 @@ if __name__ == '__main__':
 
         print(data['road'].shape)
 
-        plt.imshow(data['road'][0][0].cpu().numpy())
+        plt.imshow(data['road'][0][4].cpu().numpy())
         plt.show()
         plt.savefig('test.png')
         exit(0)

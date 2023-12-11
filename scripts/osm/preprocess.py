@@ -14,6 +14,7 @@ import numpy as np
 from rasterio.features import rasterize
 from io import BytesIO
 import h5py
+from collections import OrderedDict
 
 def geo_data_validation(path):
 
@@ -72,8 +73,6 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
 
     
 
-
-
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     ax.axis('off')
@@ -116,8 +115,14 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
                 
                 gdf_type.plot(cmap='gray')
                 
+                plt.axis('off')
+                # set xlim and ylim
+                plt.xlim(xlim)
+                plt.ylim(ylim)
+                plt.tight_layout()
+                # save image to buffer
                 buf = BytesIO()
-                plt.savefig(buf, format='png')
+                plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
                 buf.seek(0)
 
                 image = Image.open(buf)
@@ -130,7 +135,6 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
                 buf.close()
         
         for feature in feature_list:
-            
             if feature not in feature_img_dict.keys():
                 feature_img_dict[feature] = np.zeros((image_array.shape[0], image_array.shape[1], 1))
 
@@ -150,6 +154,7 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
         # plt.savefig(os.path.join(os.path.dirname(output_filename), 'landuse_multi_channel.jpg'))
         # plt.close(fig)
 
+        feature_img_dict = {k : feature_img_dict[k] for k in sorted(feature_img_dict.keys())}
         landuse_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
         np.save(os.path.join(os.path.dirname(output_filename), 'landuse.npy'), landuse_matrix)
         
@@ -190,9 +195,16 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
             if nature_type in feature_list:
                     
                     gdf_type.plot(cmap='gray')
+
                     
+                    plt.axis('off')
+                    # set xlim and ylim
+                    plt.xlim(xlim)
+                    plt.ylim(ylim)
+                    plt.tight_layout()
+                    # save image to buffer
                     buf = BytesIO()
-                    plt.savefig(buf, format='png')
+                    plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
                     buf.seek(0)
     
 
@@ -226,7 +238,7 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
 
         # plt.savefig(os.path.join(os.path.dirname(output_filename), 'nature_multi_channel.jpg'))
         # plt.close(fig)
-
+        feature_img_dict = {k : feature_img_dict[k] for k in sorted(feature_img_dict.keys())}
         nature_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
         np.save(os.path.join(os.path.dirname(output_filename), 'nature.npy'), nature_matrix)
 
@@ -256,8 +268,15 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
                         
                 gdf_type.plot(cmap='gray')
                 
+                # set axis off
+                plt.axis('off')
+                # set xlim and ylim
+                plt.xlim(xlim)
+                plt.ylim(ylim)
+                plt.tight_layout()
+                # save image to buffer
                 buf = BytesIO()
-                plt.savefig(buf, format='png')
+                plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
                 buf.seek(0)
 
 
@@ -292,6 +311,7 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
         # plt.savefig(os.path.join(os.path.dirname(output_filename), 'road_multi_channel.jpg'))
         # plt.close(fig)
 
+        feature_img_dict = {k : feature_img_dict[k] for k in sorted(feature_img_dict.keys())}
         road_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
         np.save(os.path.join(os.path.dirname(output_filename), 'road.npy'), road_matrix)
 
@@ -327,9 +347,16 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
             plt.close(fig_)
 
         buildings_gdf.plot(cmap='gray')
-                
+
+        # set axis off
+        plt.axis('off')
+        # set xlim and ylim
+        plt.xlim(xlim)
+        plt.ylim(ylim)
+        plt.tight_layout()
+        # save image to buffer
         buf = BytesIO()
-        plt.savefig(buf, format='png')
+        plt.savefig(buf, format='png', bbox_inches='tight', pad_inches=0)
         buf.seek(0)
 
         image = Image.open(buf)
@@ -350,7 +377,7 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
         # plt.savefig(os.path.join(os.path.dirname(output_filename), 'building_multi_channel.jpg'))
         # plt.close(fig)
 
-
+        feature_img_dict = {k : feature_img_dict[k] for k in sorted(feature_img_dict.keys())}
         building_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
         np.save(os.path.join(os.path.dirname(output_filename), 'building.npy'), building_matrix)
 
@@ -446,7 +473,13 @@ if __name__ == '__main__':
 
     print('Validation and initialize completed. Geo data total size:', len(os.listdir(args.input)))
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=64) as executor:
+    # city_test_name = 'Zurich-7'
+
+    # process_city(city_test_name, args.input, args.output)
+
+    # exit(0)
+
+    with concurrent.futures.ProcessPoolExecutor() as executor:
         futures = [executor.submit(process_city, city, args.input, args.output) for city in cities]
         for future in tqdm.tqdm(concurrent.futures.as_completed(futures), total=len(cities), desc='Processing cities'):
             future.result()
