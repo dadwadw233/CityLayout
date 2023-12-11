@@ -14,7 +14,7 @@ import argparse
 
 from accelerate import Accelerator
 
-
+import matplotlib.pyplot as plt
 from utils.utils import cycle
 
 
@@ -38,8 +38,11 @@ if __name__ == '__main__':
 
         print(data['road'].shape)
 
+        plt.imshow(data['road'][0][0].cpu().numpy())
+        plt.show()
+        plt.savefig('test.png')
+        exit(0)
         print('-------------------')
 
     print('done')
 
-    
