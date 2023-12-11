@@ -182,13 +182,13 @@ with open("city_coordinates.txt", "w") as file:
             try:
                 lat, lon = get_city_coordinates_withproxy(city)
                 if lat and lon:
-                    file.write(f"{city.replace(" ", "")} {lat} {lon}\n")
+                    file.write(f'{city.replace(" ", "")} {lat} {lon}\n')
                     for i in range(8):
                         lat2 = lat + geo_redius * dx[i]
                         lon2 = lon + geo_redius * dy[i]
-                        file.write(f"{city.replace(" ", "")}-{i} {lat2} {lon2}\n")
+                        file.write(f'{city.replace(" ", "")}-{i} {lat2} {lon2}\n')
                 else:
-                    print(f"{city} not found")
+                    print(f'{city} not found')
                 # time.sleep(0.5)  
                 break
             except:
@@ -208,13 +208,13 @@ with open("landmark_coordinates.txt", "w") as file:
             try:
                 lat, lon = get_city_coordinates_withproxy(landmark)
                 if lat and lon:
-                    file.write(f"{landmark.replace(" ", "-").replace(",", "")} {lat} {lon}\n")
+                    file.write(f'{landmark.replace(" ", "-").replace(",", "")} {lat} {lon}\n')
                     for i in range(8):
                         lat2 = lat + geo_redius * dx[i]
                         lon2 = lon + geo_redius * dy[i]
-                        file.write(f"{landmark.replace(" ", "-").replace(",", "")}-{i} {lat2} {lon2}\n")
+                        file.write(f'{landmark.replace(" ", "-").replace(",", "")}-{i} {lat2} {lon2}\n')
                 else:
-                    print(f"{landmark} not found")
+                    print(f'{landmark} not found')
                 # time.sleep(0.5)  
                 break
             except:
