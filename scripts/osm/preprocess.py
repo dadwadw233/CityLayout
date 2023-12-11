@@ -61,91 +61,7 @@ def plot_dem(dem_file, output_filename, fig_size=(10, 10), xlim=None, ylim=None)
     plt.imshow(dem, cmap='gray')  # 或者使用其他colormap，如 'terrain'
     plt.axis('off')
     plt.savefig(output_filename)
-    plt.close()
-
-
-
-
-        
-
-def plot_and_save_geojson(file_name, out_root, plot_type, xlim=None, ylim=None, fig_size=(10, 10)):
-
-    gdf = gpd.read_file(file_name)
-    gdf = gdf.to_crs(epsg=3857)
-    
-    # todo 更据full image的大小调整fig_size
-    
-    fig, ax = plt.subplots(figsize=fig_size)
-    if xlim and ylim:
-        ax.set_xlim(xlim)
-        ax.set_ylim(ylim)
-    ax.axis('off')
-
-    if plot_type == 'landuse':
-        gdf['area'] = gdf.geometry.area
-
-        # 根据面积对地块进行排序（默认是升序，即小的在前）
-        gdf_sorted = gdf.sort_values(by='area', ascending=True)
-
-
-        # 绘制排序后的地块，使用透明度参数
-        gdf_sorted.plot(ax=ax, column='landuse', cmap='Accent', alpha=0.5, legend=True)
-
-        fig.savefig(os.path.join(out_root, 'landuse.jpg'), bbox_inches='tight', format='jpg')
-        plt.close(fig)
-
-    elif plot_type == 'building':
-
-        # 位置图
-        gdf.plot(ax=ax, color='grey', edgecolor='black')
-        
-        fig.savefig(os.path.join(out_root, 'building_location.jpg'), bbox_inches='tight', format='jpg')
-
-        # 清除当前的ax和fig，为高度图重新创建
-        plt.clf()
-        plt.close(fig)
-        fig, ax = plt.subplots(figsize=fig_size)
-        if xlim and ylim:
-            ax.set_xlim(xlim)
-            ax.set_ylim(ylim)
-        ax.axis('off')
-
-
-        # 判断'height'字段是否存在
-        if 'height' not in gdf.columns:
-            raise KeyError("Column 'height' not found in the data.")
-
-        
-        # 高度图
-        gdf.plot(ax=ax, column='height', cmap='viridis')
-        fig.savefig(os.path.join(out_root, 'building_height.jpg'), bbox_inches='tight', format='jpg')
-        plt.close(fig)
-
-    elif plot_type == 'road':
-        # 判断'highway'字段是否存在
-        if 'highway' not in gdf.columns:
-            raise KeyError("Column 'highway' not found in the data.")
-
-        gdf.plot(ax=ax, column='highway', cmap='tab20', legend=True)
-        fig.savefig(os.path.join(out_root, 'road.jpg'), bbox_inches='tight', format='jpg')
-        plt.close(fig)
-
-    elif plot_type == 'nature':
-        # 创建组合列，仅当相关列存在时
-        nature_cols = ['natural', 'water', 'waterway']
-        for col in nature_cols:
-            if col in gdf.columns:
-                gdf[col] = gdf[col].fillna('')
-            else:
-                gdf[col] = ''
-        gdf['nature_sum'] = gdf[nature_cols].agg('_'.join, axis=1)
-
-    
-        gdf.plot(ax=ax, column='nature_sum', cmap='Set3', legend=True)
-        fig.savefig(os.path.join(out_root, 'nature.jpg'), bbox_inches='tight', format='jpg')
-        plt.close(fig)
-
-        
+    plt.close()        
 
 
 def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_filename, fig_size=(10, 10)):
@@ -489,14 +405,6 @@ def process_city(city, input_root, output_root):
 
         xlim, ylim = plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, os.path.join(args.output, city, 'combined.jpg'))
 
-
-        # plot_and_save_geojson(os.path.join(save_path, "road_data.geojson"), output_path, 'road', xlim, ylim)
-        # plot_and_save_geojson(os.path.join(save_path, "landuse_data.geojson"), output_path, 'landuse', xlim, ylim)
-        # plot_and_save_geojson(os.path.join(save_path, "buildings_data.geojson"), output_path, 'building', xlim, ylim)
-        # plot_and_save_geojson(os.path.join(save_path, "nature_data.geojson"), output_path, 'nature', xlim, ylim)
-
-        # plot_dem(os.path.join(save_path, 'dem_data.tif'), os.path.join(output_path, 'dem.jpg'), xlim=xlim, ylim=ylim)
-        # plot_pop(os.path.join(save_path, 'pop_data.tif'), os.path.join(output_path, 'pop.jpg'), xlim=xlim, ylim=ylim)
 
         with open(os.path.join(save_path, 'plotting_img_finish.txt'), 'a') as file:
             file.write(f"Success in {city}\n")
