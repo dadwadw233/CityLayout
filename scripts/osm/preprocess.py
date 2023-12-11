@@ -154,7 +154,7 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
         # plt.savefig(os.path.join(os.path.dirname(output_filename), 'landuse_multi_channel.jpg'))
         # plt.close(fig)
 
-        feature_img_dict = {k : feature_img_dict[k] for k in sorted(feature_img_dict.keys())}
+        feature_img_dict = {k : feature_img_dict[k] for k in feature_list}
         landuse_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
         np.save(os.path.join(os.path.dirname(output_filename), 'landuse.npy'), landuse_matrix)
         
@@ -238,7 +238,7 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
 
         # plt.savefig(os.path.join(os.path.dirname(output_filename), 'nature_multi_channel.jpg'))
         # plt.close(fig)
-        feature_img_dict = {k : feature_img_dict[k] for k in sorted(feature_img_dict.keys())}
+        feature_img_dict = {k : feature_img_dict[k] for k in feature_list}
         nature_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
         np.save(os.path.join(os.path.dirname(output_filename), 'nature.npy'), nature_matrix)
 
@@ -311,7 +311,7 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
         # plt.savefig(os.path.join(os.path.dirname(output_filename), 'road_multi_channel.jpg'))
         # plt.close(fig)
 
-        feature_img_dict = {k : feature_img_dict[k] for k in sorted(feature_img_dict.keys())}
+        feature_img_dict = {k : feature_img_dict[k] for k in feature_list}
         road_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
         np.save(os.path.join(os.path.dirname(output_filename), 'road.npy'), road_matrix)
 
@@ -377,7 +377,7 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
         # plt.savefig(os.path.join(os.path.dirname(output_filename), 'building_multi_channel.jpg'))
         # plt.close(fig)
 
-        feature_img_dict = {k : feature_img_dict[k] for k in sorted(feature_img_dict.keys())}
+        feature_img_dict = {k : feature_img_dict[k] for k in feature_list}
         building_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
         np.save(os.path.join(os.path.dirname(output_filename), 'building.npy'), building_matrix)
 
@@ -467,7 +467,7 @@ if __name__ == '__main__':
     root_path = args.input
 
     cities = os.listdir(root_path)
-    #todo 还需要统一一下labels
+    # todo 还需要统一一下labels
     for city in tqdm.tqdm(cities, desc='Validating data'):
         geo_data_validation(os.path.join(root_path, city))
 
