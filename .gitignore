@@ -4,9 +4,13 @@ __pycache__/
 *$py.class
 /data
 /cache
+**/cache
+**/private
 # C extensions
 *.so
-
+*nohup.out
+*.out
+*.log
 # Distribution / packaging
 .Python
 build/
