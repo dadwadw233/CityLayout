@@ -377,7 +377,7 @@ def plot_combined_map(roads_gdf, landuse_gdf, buildings_gdf, nature_gdf, output_
         # plt.savefig(os.path.join(os.path.dirname(output_filename), 'building_multi_channel.jpg'))
         # plt.close(fig)
 
-        feature_img_dict = {k : feature_img_dict[k] for k in feature_list}
+        
         building_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
         np.save(os.path.join(os.path.dirname(output_filename), 'building.npy'), building_matrix)
 
