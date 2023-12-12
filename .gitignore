@@ -5,6 +5,7 @@ __pycache__/
 /data
 /cache
 **/cache
+**/private
 # C extensions
 *.so
 *nohup.out
