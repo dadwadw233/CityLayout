@@ -1,0 +1,21 @@
+path:
+  input: "./city_coordinates.txt"
+  output: "../../data/raw/osm/cities"
+  pop_file_path: '../../data/raw/pop/GHS_POP_E2030_GLOBE_R2023A_54009_100_V1_0.tif'
+
+data:
+  # The radius in **meters** to search for landmarks
+  radius: 1000
+  road_types: ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'residential', 'service']
+  landuse_types: ['commercial', 'retail', 'industrial', 'depot', 'port', 'residual', 
+                                 'farmland', 'meadow', 'orchard', 'vineyard', 'plant_nursery', 'forest', 
+                                 'farmyard', 'grass', 'greenfield', 'military', 'railway', 'recreation_ground', 'fairground']
+  nature_types:  ['tree', 'tree_row', 'wood', 'grassland', 'beach', 'water', 'wetland', 'bare_rock', 'hill', 'sand', 'valley']
+  dem_type: 'SRTMGL1'
+  crs: 'EPSG:4326'
+
+
+network:
+  # The number of retries to attempt when a request fails
+  retries: 10
+

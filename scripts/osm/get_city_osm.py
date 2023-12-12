@@ -15,6 +15,11 @@ import asyncio
 from http.client import HTTPException
 from requests.exceptions import RequestException
 import time
+import yaml
+def load_config(config_path):
+    with open(config_path, 'r') as file:
+        config = yaml.safe_load(file)
+    return config
 
 def create_area_polygon(lat, lon, radius):
     
@@ -35,17 +40,18 @@ def clip_gdf_to_area(gdf, area_polygon):
     clipped_gdf['geometry'] = gdf['geometry'].intersection(area_polygon)
     return clipped_gdf
 
-def get_dem_data(city, south, north, west, east, output_path):
+def get_dem_data(city, south, north, west, east, output_path, API_Key = None, dem_type = 'SRTMGL1'):
     base_url = "https://portal.opentopography.org/API/globaldem"
-
+    if API_Key is None:
+        raise Exception("API key is required to download data from OpenTopography.")
     params = {
-        "demtype": "SRTMGL1",  
+        "demtype": dem_type,  
         "south": south,       
         "north": north,       
         "west": west,      
         "east": east,      
         "outputFormat": "GTiff", 
-        "API_Key": "316dad05d6a595c83c9ee3864394ad85"
+        "API_Key": API_Key
     }
     response = requests.get(base_url, params=params)
 
@@ -91,19 +97,27 @@ def convert_to_polygon(geom):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--input', type=str, required=True, help='Input file (for city locations)')
-    parser.add_argument('--output_dir', type=str, required=True, help='Output root directory')
-    parser.add_argument('--radius', type=int, required=True, help='Radius of the city (meters))')
-    pop_file_path = '../../data/raw/pop/GHS_POP_E2030_GLOBE_R2023A_54009_100_V1_0.tif'
+    parser.add_argument('--config', type=str, required=False, default='../../config/data/osm_landmarks.yaml', help='config file path')
 
+    yaml_config = load_config(parser.parse_args().config)
 
-    args = parser.parse_args()
+    input_file = yaml_config['path']['input']
+    output_dir = yaml_config['path']['output']
+    pop_file_path = yaml_config['path']['pop_file_path']
+
+    radius = yaml_config['data']['radius']
+
+    
+    
 
     # Load city locations
     citys = dict()
     ox.settings.all_oneway=True
 
-    with open(args.input, 'r') as f:
+    if not os.path.exists(input_file):
+        raise Exception(f"Input file {input_file} does not exist.")
+    
+    with open(input_file, 'r') as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -115,22 +129,22 @@ if __name__ == '__main__':
     
 
     for city in tqdm.tqdm(citys.keys(), desc='Processing cities'):
-        retries = 10
+        retries = yaml_config['network']['retries']
         while retries > 0:
             try:
-                if not os.path.exists(os.path.join(args.output_dir, city)):
-                    os.mkdir(os.path.join(args.output_dir, city))
+                if not os.path.exists(os.path.join(output_dir, city)):
+                    os.mkdir(os.path.join(output_dir, city))
                 else:
                     print(f"OSM data for {city} already exists, skipping...")
                     break
-                city_out_path = os.path.join(args.output_dir, city)
+                city_out_path = os.path.join(output_dir, city)
                 lat, lon = citys[city]
-                geo_redius = (args.radius/1000) / 111.319444
+                geo_redius = (radius/1000) / 111.319444
                 area_polygon = create_area_polygon(lat, lon, geo_redius)
 
                 
                 # road_graph = ox.features_from_polygon(area_polygon, tags={'highway': True})
-                road_types = ['motorway', 'trunk', 'primary', 'secondary', 'tertiary', 'residential', 'service']
+                road_types = yaml_config['data']['road_types']
                 road_query = {'highway': road_types}
                 road_graph = ox.features_from_bbox(north=area_polygon.bounds[3], south=area_polygon.bounds[1], east=area_polygon.bounds[2], west=area_polygon.bounds[0], tags=road_query)
                 # road_graph = ox.features_from_point((lat, lon), dist=args.radius, tags=road_query)
@@ -139,9 +153,7 @@ if __name__ == '__main__':
 
                 # print('road done')
 
-                landuse_types = ['commercial', 'retail', 'industrial', 'depot', 'port', 'residual', 
-                                 'farmland', 'meadow', 'orchard', 'vineyard', 'plant_nursery', 'forest', 
-                                 'farmyard', 'grass', 'greenfield', 'military', 'railway', 'recreation_ground', 'fairground']
+                landuse_types = yaml_config['data']['landuse_types']
                 landuse_query = {'landuse': landuse_types}
                 landuse_data = ox.features_from_bbox(north=area_polygon.bounds[3], south=area_polygon.bounds[1], east=area_polygon.bounds[2], west=area_polygon.bounds[0], tags=landuse_query)
                 # landuse_data = ox.features_from_point((lat, lon), dist=args.radius, tags=landuse_query)
@@ -159,7 +171,7 @@ if __name__ == '__main__':
                 # print('landuse done')
 
 
-                nature_types = ['tree', 'tree_row', 'wood', 'grassland', 'beach', 'water', 'wetland', 'bare_rock', 'hill', 'sand', 'valley']
+                nature_types = yaml_config['data']['nature_types']
                 nature_query = {'natural': nature_types}
                 nature_data = ox.features_from_bbox(north=area_polygon.bounds[3], south=area_polygon.bounds[1], east=area_polygon.bounds[2], west=area_polygon.bounds[0], tags=nature_query)
                 # nature_data = ox.features_from_point((lat, lon), dist=args.radius, tags=nature_query)
