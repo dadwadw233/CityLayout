@@ -1,0 +1,1454 @@
+[
+    {
+        "label": "os",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "os",
+        "description": "os",
+        "detail": "os",
+        "documentation": {}
+    },
+    {
+        "label": "argparse",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "argparse",
+        "description": "argparse",
+        "detail": "argparse",
+        "documentation": {}
+    },
+    {
+        "label": "numpy",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "numpy",
+        "description": "numpy",
+        "detail": "numpy",
+        "documentation": {}
+    },
+    {
+        "label": "tqdm",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "tqdm",
+        "description": "tqdm",
+        "detail": "tqdm",
+        "documentation": {}
+    },
+    {
+        "label": "geopandas",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "geopandas",
+        "description": "geopandas",
+        "detail": "geopandas",
+        "documentation": {}
+    },
+    {
+        "label": "osmnx",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "osmnx",
+        "description": "osmnx",
+        "detail": "osmnx",
+        "documentation": {}
+    },
+    {
+        "label": "elevation",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "elevation",
+        "description": "elevation",
+        "detail": "elevation",
+        "documentation": {}
+    },
+    {
+        "label": "Point",
+        "importPath": "shapely.geometry",
+        "description": "shapely.geometry",
+        "isExtraImport": true,
+        "detail": "shapely.geometry",
+        "documentation": {}
+    },
+    {
+        "label": "box",
+        "importPath": "shapely.geometry",
+        "description": "shapely.geometry",
+        "isExtraImport": true,
+        "detail": "shapely.geometry",
+        "documentation": {}
+    },
+    {
+        "label": "Point",
+        "importPath": "shapely.geometry",
+        "description": "shapely.geometry",
+        "isExtraImport": true,
+        "detail": "shapely.geometry",
+        "documentation": {}
+    },
+    {
+        "label": "box",
+        "importPath": "shapely.geometry",
+        "description": "shapely.geometry",
+        "isExtraImport": true,
+        "detail": "shapely.geometry",
+        "documentation": {}
+    },
+    {
+        "label": "requests",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "requests",
+        "description": "requests",
+        "detail": "requests",
+        "documentation": {}
+    },
+    {
+        "label": "rasterio",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "rasterio",
+        "description": "rasterio",
+        "detail": "rasterio",
+        "documentation": {}
+    },
+    {
+        "label": "shapes",
+        "importPath": "rasterio.features",
+        "description": "rasterio.features",
+        "isExtraImport": true,
+        "detail": "rasterio.features",
+        "documentation": {}
+    },
+    {
+        "label": "rasterize",
+        "importPath": "rasterio.features",
+        "description": "rasterio.features",
+        "isExtraImport": true,
+        "detail": "rasterio.features",
+        "documentation": {}
+    },
+    {
+        "label": "mask",
+        "importPath": "rasterio.mask",
+        "description": "rasterio.mask",
+        "isExtraImport": true,
+        "detail": "rasterio.mask",
+        "documentation": {}
+    },
+    {
+        "label": "pandas",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "pandas",
+        "description": "pandas",
+        "detail": "pandas",
+        "documentation": {}
+    },
+    {
+        "label": "aiohttp",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "aiohttp",
+        "description": "aiohttp",
+        "detail": "aiohttp",
+        "documentation": {}
+    },
+    {
+        "label": "asyncio",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "asyncio",
+        "description": "asyncio",
+        "detail": "asyncio",
+        "documentation": {}
+    },
+    {
+        "label": "HTTPException",
+        "importPath": "http.client",
+        "description": "http.client",
+        "isExtraImport": true,
+        "detail": "http.client",
+        "documentation": {}
+    },
+    {
+        "label": "RequestException",
+        "importPath": "requests.exceptions",
+        "description": "requests.exceptions",
+        "isExtraImport": true,
+        "detail": "requests.exceptions",
+        "documentation": {}
+    },
+    {
+        "label": "time",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "time",
+        "description": "time",
+        "detail": "time",
+        "documentation": {}
+    },
+    {
+        "label": "yaml",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "yaml",
+        "description": "yaml",
+        "detail": "yaml",
+        "documentation": {}
+    },
+    {
+        "label": "Photon",
+        "importPath": "geopy.geocoders",
+        "description": "geopy.geocoders",
+        "isExtraImport": true,
+        "detail": "geopy.geocoders",
+        "documentation": {}
+    },
+    {
+        "label": "Nominatim",
+        "importPath": "geopy.geocoders",
+        "description": "geopy.geocoders",
+        "isExtraImport": true,
+        "detail": "geopy.geocoders",
+        "documentation": {}
+    },
+    {
+        "label": "GeocoderTimedOut",
+        "importPath": "geopy.exc",
+        "description": "geopy.exc",
+        "isExtraImport": true,
+        "detail": "geopy.exc",
+        "documentation": {}
+    },
+    {
+        "label": "matplotlib.pyplot",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "matplotlib.pyplot",
+        "description": "matplotlib.pyplot",
+        "detail": "matplotlib.pyplot",
+        "documentation": {}
+    },
+    {
+        "label": "concurrent.futures",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "concurrent.futures",
+        "description": "concurrent.futures",
+        "detail": "concurrent.futures",
+        "documentation": {}
+    },
+    {
+        "label": "logging",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "logging",
+        "description": "logging",
+        "detail": "logging",
+        "documentation": {}
+    },
+    {
+        "label": "Image",
+        "importPath": "PIL",
+        "description": "PIL",
+        "isExtraImport": true,
+        "detail": "PIL",
+        "documentation": {}
+    },
+    {
+        "label": "Image",
+        "importPath": "PIL",
+        "description": "PIL",
+        "isExtraImport": true,
+        "detail": "PIL",
+        "documentation": {}
+    },
+    {
+        "label": "BytesIO",
+        "importPath": "io",
+        "description": "io",
+        "isExtraImport": true,
+        "detail": "io",
+        "documentation": {}
+    },
+    {
+        "label": "h5py",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "h5py",
+        "description": "h5py",
+        "detail": "h5py",
+        "documentation": {}
+    },
+    {
+        "label": "OrderedDict",
+        "importPath": "collections",
+        "description": "collections",
+        "isExtraImport": true,
+        "detail": "collections",
+        "documentation": {}
+    },
+    {
+        "label": "namedtuple",
+        "importPath": "collections",
+        "description": "collections",
+        "isExtraImport": true,
+        "detail": "collections",
+        "documentation": {}
+    },
+    {
+        "label": "namedtuple",
+        "importPath": "collections",
+        "description": "collections",
+        "isExtraImport": true,
+        "detail": "collections",
+        "documentation": {}
+    },
+    {
+        "label": "config",
+        "importPath": "scripts.osm.get_locations",
+        "description": "scripts.osm.get_locations",
+        "isExtraImport": true,
+        "detail": "scripts.osm.get_locations",
+        "documentation": {}
+    },
+    {
+        "label": "torch",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "torch",
+        "description": "torch",
+        "detail": "torch",
+        "documentation": {}
+    },
+    {
+        "label": "nn",
+        "importPath": "torch",
+        "description": "torch",
+        "isExtraImport": true,
+        "detail": "torch",
+        "documentation": {}
+    },
+    {
+        "label": "einsum",
+        "importPath": "torch",
+        "description": "torch",
+        "isExtraImport": true,
+        "detail": "torch",
+        "documentation": {}
+    },
+    {
+        "label": "nn",
+        "importPath": "torch",
+        "description": "torch",
+        "isExtraImport": true,
+        "detail": "torch",
+        "documentation": {}
+    },
+    {
+        "label": "nn",
+        "importPath": "torch",
+        "description": "torch",
+        "isExtraImport": true,
+        "detail": "torch",
+        "documentation": {}
+    },
+    {
+        "label": "einsum",
+        "importPath": "torch",
+        "description": "torch",
+        "isExtraImport": true,
+        "detail": "torch",
+        "documentation": {}
+    },
+    {
+        "label": "Dataset",
+        "importPath": "torch.utils.data",
+        "description": "torch.utils.data",
+        "isExtraImport": true,
+        "detail": "torch.utils.data",
+        "documentation": {}
+    },
+    {
+        "label": "DataLoader",
+        "importPath": "torch.utils.data",
+        "description": "torch.utils.data",
+        "isExtraImport": true,
+        "detail": "torch.utils.data",
+        "documentation": {}
+    },
+    {
+        "label": "Dataset",
+        "importPath": "torch.utils.data",
+        "description": "torch.utils.data",
+        "isExtraImport": true,
+        "detail": "torch.utils.data",
+        "documentation": {}
+    },
+    {
+        "label": "DataLoader",
+        "importPath": "torch.utils.data",
+        "description": "torch.utils.data",
+        "isExtraImport": true,
+        "detail": "torch.utils.data",
+        "documentation": {}
+    },
+    {
+        "label": "DataLoader",
+        "importPath": "torch.utils.data",
+        "description": "torch.utils.data",
+        "isExtraImport": true,
+        "detail": "torch.utils.data",
+        "documentation": {}
+    },
+    {
+        "label": "transforms",
+        "importPath": "torchvision",
+        "description": "torchvision",
+        "isExtraImport": true,
+        "detail": "torchvision",
+        "documentation": {}
+    },
+    {
+        "label": "transforms",
+        "importPath": "torchvision",
+        "description": "torchvision",
+        "isExtraImport": true,
+        "detail": "torchvision",
+        "documentation": {}
+    },
+    {
+        "label": "utils",
+        "importPath": "torchvision",
+        "description": "torchvision",
+        "isExtraImport": true,
+        "detail": "torchvision",
+        "documentation": {}
+    },
+    {
+        "label": "transforms",
+        "importPath": "torchvision",
+        "description": "torchvision",
+        "isExtraImport": true,
+        "detail": "torchvision",
+        "documentation": {}
+    },
+    {
+        "label": "math",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "math",
+        "description": "math",
+        "detail": "math",
+        "documentation": {}
+    },
+    {
+        "label": "copy",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "copy",
+        "description": "copy",
+        "detail": "copy",
+        "documentation": {}
+    },
+    {
+        "label": "Path",
+        "importPath": "pathlib",
+        "description": "pathlib",
+        "isExtraImport": true,
+        "detail": "pathlib",
+        "documentation": {}
+    },
+    {
+        "label": "random",
+        "importPath": "random",
+        "description": "random",
+        "isExtraImport": true,
+        "detail": "random",
+        "documentation": {}
+    },
+    {
+        "label": "partial",
+        "importPath": "functools",
+        "description": "functools",
+        "isExtraImport": true,
+        "detail": "functools",
+        "documentation": {}
+    },
+    {
+        "label": "partial",
+        "importPath": "functools",
+        "description": "functools",
+        "isExtraImport": true,
+        "detail": "functools",
+        "documentation": {}
+    },
+    {
+        "label": "wraps",
+        "importPath": "functools",
+        "description": "functools",
+        "isExtraImport": true,
+        "detail": "functools",
+        "documentation": {}
+    },
+    {
+        "label": "cpu_count",
+        "importPath": "multiprocessing",
+        "description": "multiprocessing",
+        "isExtraImport": true,
+        "detail": "multiprocessing",
+        "documentation": {}
+    },
+    {
+        "label": "autocast",
+        "importPath": "torch.cuda.amp",
+        "description": "torch.cuda.amp",
+        "isExtraImport": true,
+        "detail": "torch.cuda.amp",
+        "documentation": {}
+    },
+    {
+        "label": "torch.nn.functional",
+        "kind": 6,
+        "isExtraImport": true,
+        "importPath": "torch.nn.functional",
+        "description": "torch.nn.functional",
+        "detail": "torch.nn.functional",
+        "documentation": {}
+    },
+    {
+        "label": "adaptive_avg_pool2d",
+        "importPath": "torch.nn.functional",
+        "description": "torch.nn.functional",
+        "isExtraImport": true,
+        "detail": "torch.nn.functional",
+        "documentation": {}
+    },
+    {
+        "label": "Adam",
+        "importPath": "torch.optim",
+        "description": "torch.optim",
+        "isExtraImport": true,
+        "detail": "torch.optim",
+        "documentation": {}
+    },
+    {
+        "label": "rearrange",
+        "importPath": "einops",
+        "description": "einops",
+        "isExtraImport": true,
+        "detail": "einops",
+        "documentation": {}
+    },
+    {
+        "label": "reduce",
+        "importPath": "einops",
+        "description": "einops",
+        "isExtraImport": true,
+        "detail": "einops",
+        "documentation": {}
+    },
+    {
+        "label": "repeat",
+        "importPath": "einops",
+        "description": "einops",
+        "isExtraImport": true,
+        "detail": "einops",
+        "documentation": {}
+    },
+    {
+        "label": "rearrange",
+        "importPath": "einops",
+        "description": "einops",
+        "isExtraImport": true,
+        "detail": "einops",
+        "documentation": {}
+    },
+    {
+        "label": "reduce",
+        "importPath": "einops",
+        "description": "einops",
+        "isExtraImport": true,
+        "detail": "einops",
+        "documentation": {}
+    },
+    {
+        "label": "repeat",
+        "importPath": "einops",
+        "description": "einops",
+        "isExtraImport": true,
+        "detail": "einops",
+        "documentation": {}
+    },
+    {
+        "label": "rearrange",
+        "importPath": "einops",
+        "description": "einops",
+        "isExtraImport": true,
+        "detail": "einops",
+        "documentation": {}
+    },
+    {
+        "label": "rearrange",
+        "importPath": "einops",
+        "description": "einops",
+        "isExtraImport": true,
+        "detail": "einops",
+        "documentation": {}
+    },
+    {
+        "label": "repeat",
+        "importPath": "einops",
+        "description": "einops",
+        "isExtraImport": true,
+        "detail": "einops",
+        "documentation": {}
+    },
+    {
+        "label": "Rearrange",
+        "importPath": "einops.layers.torch",
+        "description": "einops.layers.torch",
+        "isExtraImport": true,
+        "detail": "einops.layers.torch",
+        "documentation": {}
+    },
+    {
+        "label": "Rearrange",
+        "importPath": "einops.layers.torch",
+        "description": "einops.layers.torch",
+        "isExtraImport": true,
+        "detail": "einops.layers.torch",
+        "documentation": {}
+    },
+    {
+        "label": "tqdm",
+        "importPath": "tqdm.auto",
+        "description": "tqdm.auto",
+        "isExtraImport": true,
+        "detail": "tqdm.auto",
+        "documentation": {}
+    },
+    {
+        "label": "tqdm",
+        "importPath": "tqdm.auto",
+        "description": "tqdm.auto",
+        "isExtraImport": true,
+        "detail": "tqdm.auto",
+        "documentation": {}
+    },
+    {
+        "label": "EMA",
+        "importPath": "ema_pytorch",
+        "description": "ema_pytorch",
+        "isExtraImport": true,
+        "detail": "ema_pytorch",
+        "documentation": {}
+    },
+    {
+        "label": "Accelerator",
+        "importPath": "accelerate",
+        "description": "accelerate",
+        "isExtraImport": true,
+        "detail": "accelerate",
+        "documentation": {}
+    },
+    {
+        "label": "Accelerator",
+        "importPath": "accelerate",
+        "description": "accelerate",
+        "isExtraImport": true,
+        "detail": "accelerate",
+        "documentation": {}
+    },
+    {
+        "label": "FIDEvaluation",
+        "importPath": "utils.fid_evaluation",
+        "description": "utils.fid_evaluation",
+        "isExtraImport": true,
+        "detail": "utils.fid_evaluation",
+        "documentation": {}
+    },
+    {
+        "label": "__version__",
+        "importPath": "version",
+        "description": "version",
+        "isExtraImport": true,
+        "detail": "version",
+        "documentation": {}
+    },
+    {
+        "label": "__version__",
+        "importPath": "version",
+        "description": "version",
+        "isExtraImport": true,
+        "detail": "version",
+        "documentation": {}
+    },
+    {
+        "label": "Attend",
+        "importPath": "attend",
+        "description": "attend",
+        "isExtraImport": true,
+        "detail": "attend",
+        "documentation": {}
+    },
+    {
+        "label": "version",
+        "importPath": "packaging",
+        "description": "packaging",
+        "isExtraImport": true,
+        "detail": "packaging",
+        "documentation": {}
+    },
+    {
+        "label": "calculate_frechet_distance",
+        "importPath": "pytorch_fid.fid_score",
+        "description": "pytorch_fid.fid_score",
+        "isExtraImport": true,
+        "detail": "pytorch_fid.fid_score",
+        "documentation": {}
+    },
+    {
+        "label": "InceptionV3",
+        "importPath": "pytorch_fid.inception",
+        "description": "pytorch_fid.inception",
+        "isExtraImport": true,
+        "detail": "pytorch_fid.inception",
+        "documentation": {}
+    },
+    {
+        "label": "OSMDataset",
+        "importPath": "data.osm_loader",
+        "description": "data.osm_loader",
+        "isExtraImport": true,
+        "detail": "data.osm_loader",
+        "documentation": {}
+    },
+    {
+        "label": "cycle",
+        "importPath": "utils.utils",
+        "description": "utils.utils",
+        "isExtraImport": true,
+        "detail": "utils.utils",
+        "documentation": {}
+    },
+    {
+        "label": "GaussianDiffusion",
+        "importPath": "model.DDPM",
+        "description": "model.DDPM",
+        "isExtraImport": true,
+        "detail": "model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "Unet",
+        "importPath": "model.Unet",
+        "description": "model.Unet",
+        "isExtraImport": true,
+        "detail": "model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "load_config",
+        "kind": 2,
+        "importPath": "scripts.osm.get_city_osm",
+        "description": "scripts.osm.get_city_osm",
+        "peekOfCode": "def load_config(config_path):\n    with open(config_path, 'r') as file:\n        config = yaml.safe_load(file)\n    return config\ndef create_area_polygon(lat, lon, radius):\n    center = Point(lon, lat)\n    area_polygon = box(center.x - radius, center.y - radius, center.x + radius, center.y + radius)\n    return area_polygon\ndef get_dem(lat, lon, radius, output_path):\n    bounds = (lon-radius, lat-radius, lon+radius, lat+radius)",
+        "detail": "scripts.osm.get_city_osm",
+        "documentation": {}
+    },
+    {
+        "label": "create_area_polygon",
+        "kind": 2,
+        "importPath": "scripts.osm.get_city_osm",
+        "description": "scripts.osm.get_city_osm",
+        "peekOfCode": "def create_area_polygon(lat, lon, radius):\n    center = Point(lon, lat)\n    area_polygon = box(center.x - radius, center.y - radius, center.x + radius, center.y + radius)\n    return area_polygon\ndef get_dem(lat, lon, radius, output_path):\n    bounds = (lon-radius, lat-radius, lon+radius, lat+radius)\n    elevation.clip(bounds=bounds, output=output_path)\ndef clip_gdf_to_area(gdf, area_polygon):\n    clipped_gdf = gdf.copy()\n    clipped_gdf['geometry'] = gdf['geometry'].intersection(area_polygon)",
+        "detail": "scripts.osm.get_city_osm",
+        "documentation": {}
+    },
+    {
+        "label": "get_dem",
+        "kind": 2,
+        "importPath": "scripts.osm.get_city_osm",
+        "description": "scripts.osm.get_city_osm",
+        "peekOfCode": "def get_dem(lat, lon, radius, output_path):\n    bounds = (lon-radius, lat-radius, lon+radius, lat+radius)\n    elevation.clip(bounds=bounds, output=output_path)\ndef clip_gdf_to_area(gdf, area_polygon):\n    clipped_gdf = gdf.copy()\n    clipped_gdf['geometry'] = gdf['geometry'].intersection(area_polygon)\n    return clipped_gdf\ndef get_dem_data(city, south, north, west, east, output_path, API_Key = None, dem_type = 'SRTMGL1'):\n    base_url = \"https://portal.opentopography.org/API/globaldem\"\n    if API_Key is None:",
+        "detail": "scripts.osm.get_city_osm",
+        "documentation": {}
+    },
+    {
+        "label": "clip_gdf_to_area",
+        "kind": 2,
+        "importPath": "scripts.osm.get_city_osm",
+        "description": "scripts.osm.get_city_osm",
+        "peekOfCode": "def clip_gdf_to_area(gdf, area_polygon):\n    clipped_gdf = gdf.copy()\n    clipped_gdf['geometry'] = gdf['geometry'].intersection(area_polygon)\n    return clipped_gdf\ndef get_dem_data(city, south, north, west, east, output_path, API_Key = None, dem_type = 'SRTMGL1'):\n    base_url = \"https://portal.opentopography.org/API/globaldem\"\n    if API_Key is None:\n        raise Exception(\"API key is required to download data from OpenTopography.\")\n    params = {\n        \"demtype\": dem_type,  ",
+        "detail": "scripts.osm.get_city_osm",
+        "documentation": {}
+    },
+    {
+        "label": "get_dem_data",
+        "kind": 2,
+        "importPath": "scripts.osm.get_city_osm",
+        "description": "scripts.osm.get_city_osm",
+        "peekOfCode": "def get_dem_data(city, south, north, west, east, output_path, API_Key = None, dem_type = 'SRTMGL1'):\n    base_url = \"https://portal.opentopography.org/API/globaldem\"\n    if API_Key is None:\n        raise Exception(\"API key is required to download data from OpenTopography.\")\n    params = {\n        \"demtype\": dem_type,  \n        \"south\": south,       \n        \"north\": north,       \n        \"west\": west,      \n        \"east\": east,      ",
+        "detail": "scripts.osm.get_city_osm",
+        "documentation": {}
+    },
+    {
+        "label": "clip_pop_file",
+        "kind": 2,
+        "importPath": "scripts.osm.get_city_osm",
+        "description": "scripts.osm.get_city_osm",
+        "peekOfCode": "def clip_pop_file(filename, south, north, west, east, output_path):\n    geom = box(south, north, west, east)\n    geo_df = gpd.GeoDataFrame({'geometry': geom}, index=[0], crs='EPSG:4326')\n    # 打开 GeoTIFF 文件\n    with rasterio.open(filename) as src:\n        # 将 GeoDataFrame 的坐标系转换为与 TIFF 相同的坐标系\n        geo_df = geo_df.to_crs(crs=src.crs.data)\n        # 使用 Rasterio 的 mask 方法裁剪 TIFF 文件\n        out_image, out_transform = mask(src, shapes=geo_df.geometry, crop=True)\n        out_meta = src.meta.copy()",
+        "detail": "scripts.osm.get_city_osm",
+        "documentation": {}
+    },
+    {
+        "label": "convert_to_polygon",
+        "kind": 2,
+        "importPath": "scripts.osm.get_city_osm",
+        "description": "scripts.osm.get_city_osm",
+        "peekOfCode": "def convert_to_polygon(geom):\n    if geom.geom_type == 'Point':\n        return geom.buffer(0.0001) \n    elif geom.geom_type == 'LineString':\n        return geom.buffer(0.0001)\n    return geom\nif __name__ == '__main__':\n    parser = argparse.ArgumentParser()\n    parser.add_argument('--config', type=str, required=False, default='../../config/data/osm_landmarks.yaml', help='config file path')\n    yaml_config = load_config(parser.parse_args().config)",
+        "detail": "scripts.osm.get_city_osm",
+        "documentation": {}
+    },
+    {
+        "label": "get_city_coordinates",
+        "kind": 2,
+        "importPath": "scripts.osm.get_locations",
+        "description": "scripts.osm.get_locations",
+        "peekOfCode": "def get_city_coordinates(city_name):\n    geolocator = Photon(user_agent=\"measurements\")\n    location = geolocator.geocode(city_name)\n    if location:\n        return (location.latitude, location.longitude)\n    else:\n        return (None, None)\ndef get_city_coordinates_withproxy(city_name):\n    geolocator = Nominatim(user_agent=\"city_locator\")\n    try:",
+        "detail": "scripts.osm.get_locations",
+        "documentation": {}
+    },
+    {
+        "label": "get_city_coordinates_withproxy",
+        "kind": 2,
+        "importPath": "scripts.osm.get_locations",
+        "description": "scripts.osm.get_locations",
+        "peekOfCode": "def get_city_coordinates_withproxy(city_name):\n    geolocator = Nominatim(user_agent=\"city_locator\")\n    try:\n        location = geolocator.geocode(city_name)\n        if location:\n            return (location.latitude, location.longitude)\n        else:\n            return (None, None)\n    except GeocoderTimedOut:\n        return (None, None)",
+        "detail": "scripts.osm.get_locations",
+        "documentation": {}
+    },
+    {
+        "label": "load_config",
+        "kind": 2,
+        "importPath": "scripts.osm.get_locations",
+        "description": "scripts.osm.get_locations",
+        "peekOfCode": "def load_config(config_path):\n    with open(config_path, 'r') as file:\n        config = yaml.safe_load(file)\n    return config\nconfig = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/city_landmark.yaml')\ncities = config['name']['cities']\nlandmarks = config['name']['landmarks']\ncities = list(set(cities))\nlandmarks = list(set(landmarks))\nradius = 1000;",
+        "detail": "scripts.osm.get_locations",
+        "documentation": {}
+    },
+    {
+        "label": "config",
+        "kind": 5,
+        "importPath": "scripts.osm.get_locations",
+        "description": "scripts.osm.get_locations",
+        "peekOfCode": "config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/city_landmark.yaml')\ncities = config['name']['cities']\nlandmarks = config['name']['landmarks']\ncities = list(set(cities))\nlandmarks = list(set(landmarks))\nradius = 1000;\ngeo_redius = (radius/1000) / 111.319444\ndx = [0,0,-1,-1,1,1,-1,1]\ndy = [-1,1,-1,1,-1,1,0,0]\nwith open(\"city_coordinates.txt\", \"w\") as file:",
+        "detail": "scripts.osm.get_locations",
+        "documentation": {}
+    },
+    {
+        "label": "cities",
+        "kind": 5,
+        "importPath": "scripts.osm.get_locations",
+        "description": "scripts.osm.get_locations",
+        "peekOfCode": "cities = config['name']['cities']\nlandmarks = config['name']['landmarks']\ncities = list(set(cities))\nlandmarks = list(set(landmarks))\nradius = 1000;\ngeo_redius = (radius/1000) / 111.319444\ndx = [0,0,-1,-1,1,1,-1,1]\ndy = [-1,1,-1,1,-1,1,0,0]\nwith open(\"city_coordinates.txt\", \"w\") as file:\n    for city in tqdm.tqdm(cities, desc='Processing cities'):",
+        "detail": "scripts.osm.get_locations",
+        "documentation": {}
+    },
+    {
+        "label": "landmarks",
+        "kind": 5,
+        "importPath": "scripts.osm.get_locations",
+        "description": "scripts.osm.get_locations",
+        "peekOfCode": "landmarks = config['name']['landmarks']\ncities = list(set(cities))\nlandmarks = list(set(landmarks))\nradius = 1000;\ngeo_redius = (radius/1000) / 111.319444\ndx = [0,0,-1,-1,1,1,-1,1]\ndy = [-1,1,-1,1,-1,1,0,0]\nwith open(\"city_coordinates.txt\", \"w\") as file:\n    for city in tqdm.tqdm(cities, desc='Processing cities'):\n        retries = 10    ",
+        "detail": "scripts.osm.get_locations",
+        "documentation": {}
+    },
+    {
+        "label": "cities",
+        "kind": 5,
+        "importPath": "scripts.osm.get_locations",
+        "description": "scripts.osm.get_locations",
+        "peekOfCode": "cities = list(set(cities))\nlandmarks = list(set(landmarks))\nradius = 1000;\ngeo_redius = (radius/1000) / 111.319444\ndx = [0,0,-1,-1,1,1,-1,1]\ndy = [-1,1,-1,1,-1,1,0,0]\nwith open(\"city_coordinates.txt\", \"w\") as file:\n    for city in tqdm.tqdm(cities, desc='Processing cities'):\n        retries = 10    \n        while True:",
+        "detail": "scripts.osm.get_locations",
+        "documentation": {}
+    },
+    {
+        "label": "landmarks",
+        "kind": 5,
+        "importPath": "scripts.osm.get_locations",
+        "description": "scripts.osm.get_locations",
+        "peekOfCode": "landmarks = list(set(landmarks))\nradius = 1000;\ngeo_redius = (radius/1000) / 111.319444\ndx = [0,0,-1,-1,1,1,-1,1]\ndy = [-1,1,-1,1,-1,1,0,0]\nwith open(\"city_coordinates.txt\", \"w\") as file:\n    for city in tqdm.tqdm(cities, desc='Processing cities'):\n        retries = 10    \n        while True:\n            try:",
+        "detail": "scripts.osm.get_locations",
+        "documentation": {}
+    },
+    {
+        "label": "radius",
+        "kind": 5,
+        "importPath": "scripts.osm.get_locations",
+        "description": "scripts.osm.get_locations",
+        "peekOfCode": "radius = 1000;\ngeo_redius = (radius/1000) / 111.319444\ndx = [0,0,-1,-1,1,1,-1,1]\ndy = [-1,1,-1,1,-1,1,0,0]\nwith open(\"city_coordinates.txt\", \"w\") as file:\n    for city in tqdm.tqdm(cities, desc='Processing cities'):\n        retries = 10    \n        while True:\n            try:\n                lat, lon = get_city_coordinates_withproxy(city)",
+        "detail": "scripts.osm.get_locations",
+        "documentation": {}
+    },
+    {
+        "label": "geo_redius",
+        "kind": 5,
+        "importPath": "scripts.osm.get_locations",
+        "description": "scripts.osm.get_locations",
+        "peekOfCode": "geo_redius = (radius/1000) / 111.319444\ndx = [0,0,-1,-1,1,1,-1,1]\ndy = [-1,1,-1,1,-1,1,0,0]\nwith open(\"city_coordinates.txt\", \"w\") as file:\n    for city in tqdm.tqdm(cities, desc='Processing cities'):\n        retries = 10    \n        while True:\n            try:\n                lat, lon = get_city_coordinates_withproxy(city)\n                if lat and lon:",
+        "detail": "scripts.osm.get_locations",
+        "documentation": {}
+    },
+    {
+        "label": "dx",
+        "kind": 5,
+        "importPath": "scripts.osm.get_locations",
+        "description": "scripts.osm.get_locations",
+        "peekOfCode": "dx = [0,0,-1,-1,1,1,-1,1]\ndy = [-1,1,-1,1,-1,1,0,0]\nwith open(\"city_coordinates.txt\", \"w\") as file:\n    for city in tqdm.tqdm(cities, desc='Processing cities'):\n        retries = 10    \n        while True:\n            try:\n                lat, lon = get_city_coordinates_withproxy(city)\n                if lat and lon:\n                    file.write(f'{city.replace(\" \", \"\")} {lat} {lon}\\n')",
+        "detail": "scripts.osm.get_locations",
+        "documentation": {}
+    },
+    {
+        "label": "dy",
+        "kind": 5,
+        "importPath": "scripts.osm.get_locations",
+        "description": "scripts.osm.get_locations",
+        "peekOfCode": "dy = [-1,1,-1,1,-1,1,0,0]\nwith open(\"city_coordinates.txt\", \"w\") as file:\n    for city in tqdm.tqdm(cities, desc='Processing cities'):\n        retries = 10    \n        while True:\n            try:\n                lat, lon = get_city_coordinates_withproxy(city)\n                if lat and lon:\n                    file.write(f'{city.replace(\" \", \"\")} {lat} {lon}\\n')\n                    for i in range(8):",
+        "detail": "scripts.osm.get_locations",
+        "documentation": {}
+    },
+    {
+        "label": "geo_data_validation",
+        "kind": 2,
+        "importPath": "scripts.osm.preprocess",
+        "description": "scripts.osm.preprocess",
+        "peekOfCode": "def geo_data_validation(path, init=False):\n    if os.path.exists(os.path.join(path, \"getdata_error.txt\")):\n        logging.error(f\"Error occurred in {path}.\")\n        os.system(f\"rm -rf {path}\")\n    if os.path.exists(os.path.join(path, \"plotting_img_finish.txt\")):\n        os.system(f\"rm  {os.path.join(path, 'plotting_img_finish.txt')}\")\n    if os.path.exists(os.path.join(path, \"plotting_img_error.txt\")):\n        os.system(f\"rm  {os.path.join(path, 'plotting_img_error.txt')}\")\n    # delete file which is not geojson\n    if init:",
+        "detail": "scripts.osm.preprocess",
+        "documentation": {}
+    },
+    {
+        "label": "image_data_validation",
+        "kind": 2,
+        "importPath": "scripts.osm.preprocess",
+        "description": "scripts.osm.preprocess",
+        "peekOfCode": "def image_data_validation(path):\n    if not os.path.exists(os.path.join(path, \"plotting_img_finish.txt\")):\n        logging.error(f\"Error occurred in {path}.\")\n        # remove data directory\n        os.system(f\"rm -rf {path}\")\ndef plot_dem(dem_file, output_filename, fig_size=(10, 10), xlim=None, ylim=None):\n    with rasterio.open(dem_file) as src:\n        # 读取第一个波段的数据\n        dem = src.read(1)\n    # 使用 Matplotlib 生成图片",
+        "detail": "scripts.osm.preprocess",
+        "documentation": {}
+    },
+    {
+        "label": "plot_dem",
+        "kind": 2,
+        "importPath": "scripts.osm.preprocess",
+        "description": "scripts.osm.preprocess",
+        "peekOfCode": "def plot_dem(dem_file, output_filename, fig_size=(10, 10), xlim=None, ylim=None):\n    with rasterio.open(dem_file) as src:\n        # 读取第一个波段的数据\n        dem = src.read(1)\n    # 使用 Matplotlib 生成图片\n    # print(dem)\n    # fig, ax = plt.subplots(figsize=fig_size)\n    # if xlim and ylim:\n    #     ax.set_xlim(xlim)\n    #     ax.set_ylim(ylim)",
+        "detail": "scripts.osm.preprocess",
+        "documentation": {}
+    },
+    {
+        "label": "plot_combined_map",
+        "kind": 2,
+        "importPath": "scripts.osm.preprocess",
+        "description": "scripts.osm.preprocess",
+        "peekOfCode": "def plot_combined_map(\n    roads_gdf,\n    landuse_gdf,\n    buildings_gdf,\n    nature_gdf,\n    output_filename,\n    config,\n    fig_size=(10, 10),\n):\n    fig, ax = plt.subplots(figsize=config[\"plt_config\"][\"default\"][\"figsize\"])",
+        "detail": "scripts.osm.preprocess",
+        "documentation": {}
+    },
+    {
+        "label": "plot_pop",
+        "kind": 2,
+        "importPath": "scripts.osm.preprocess",
+        "description": "scripts.osm.preprocess",
+        "peekOfCode": "def plot_pop(pop_file, output_filename, fig_size=(10, 10), xlim=None, ylim=None):\n    with rasterio.open(pop_file) as src:\n        pop = src.read(1)\n    plt.figure(figsize=fig_size)\n    # if xlim and ylim:\n    #     plt.xlim(xlim)\n    #     plt.ylim(ylim)\n    plt.imshow(pop, cmap=\"terrain\")\n    plt.axis(\"off\")\n    plt.savefig(output_filename)",
+        "detail": "scripts.osm.preprocess",
+        "documentation": {}
+    },
+    {
+        "label": "process_city",
+        "kind": 2,
+        "importPath": "scripts.osm.preprocess",
+        "description": "scripts.osm.preprocess",
+        "peekOfCode": "def process_city(city, input_root, output_root, config):\n    try:\n        # print(f\"Processing {city}...\")\n        save_path = os.path.join(input_root, city)\n        output_path = os.path.join(output_root, city)\n        if not os.path.exists(output_path):\n            os.makedirs(output_path, exist_ok=True)\n        # if(os.path.exists(os.path.join(save_path, 'plotting_img_finish.txt'))):\n        #     print(f\"Already processed {city}.\")\n        #     return",
+        "detail": "scripts.osm.preprocess",
+        "documentation": {}
+    },
+    {
+        "label": "hex_to_rgb",
+        "kind": 2,
+        "importPath": "scripts.osm.preprocess",
+        "description": "scripts.osm.preprocess",
+        "peekOfCode": "def hex_to_rgb(hex_color):\n    hex_color = hex_color.lstrip(\"#\")\n    lv = len(hex_color)\n    return tuple(int(hex_color[i : i + lv // 3], 16) for i in range(0, lv, lv // 3))\ndef dump_h5py(path, output_path):\n    with h5py.File(output_path, \"w\") as f:\n        for file in os.listdir(path):\n            if file.endswith(\".npy\"):\n                data = np.load(os.path.join(path, file))\n                f.create_dataset(file[:-4], data=data)",
+        "detail": "scripts.osm.preprocess",
+        "documentation": {}
+    },
+    {
+        "label": "dump_h5py",
+        "kind": 2,
+        "importPath": "scripts.osm.preprocess",
+        "description": "scripts.osm.preprocess",
+        "peekOfCode": "def dump_h5py(path, output_path):\n    with h5py.File(output_path, \"w\") as f:\n        for file in os.listdir(path):\n            if file.endswith(\".npy\"):\n                data = np.load(os.path.join(path, file))\n                f.create_dataset(file[:-4], data=data)\nif __name__ == \"__main__\":\n    parser = argparse.ArgumentParser()\n    parser.add_argument(\n        \"--config\",",
+        "detail": "scripts.osm.preprocess",
+        "documentation": {}
+    },
+    {
+        "label": "load_config",
+        "kind": 2,
+        "importPath": "scripts.utils",
+        "description": "scripts.utils",
+        "peekOfCode": "def load_config(config_path):\n    with open(config_path, 'r') as file:\n        config = yaml.safe_load(file)\n    return config",
+        "detail": "scripts.utils",
+        "documentation": {}
+    },
+    {
+        "label": "OSMDataset",
+        "kind": 6,
+        "importPath": "src.data.osm_loader",
+        "description": "src.data.osm_loader",
+        "peekOfCode": "class OSMDataset(Dataset):\n    def __init__(self,\n                  data_dir, \n                  mode,\n                  transform=None,\n                  key_list=None\n                 ):\n        self.mode = mode\n        self.data_dir = data_dir\n        self.data_list = os.listdir(data_dir)",
+        "detail": "src.data.osm_loader",
+        "documentation": {}
+    },
+    {
+        "label": "GaussianDiffusion",
+        "kind": 6,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "class GaussianDiffusion(nn.Module):\n    def __init__(\n        self,\n        model,\n        *,\n        image_size,\n        timesteps = 1000,\n        sampling_timesteps = None,\n        objective = 'pred_v',\n        beta_schedule = 'sigmoid',",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "Dataset",
+        "kind": 6,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "class Dataset(Dataset):\n    def __init__(\n        self,\n        folder,\n        image_size,\n        exts = ['jpg', 'jpeg', 'png', 'tiff'],\n        augment_horizontal_flip = False,\n        convert_image_to = None\n    ):\n        super().__init__()",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "Trainer",
+        "kind": 6,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "class Trainer(object):\n    def __init__(\n        self,\n        diffusion_model,\n        folder,\n        *,\n        train_batch_size = 16,\n        gradient_accumulate_every = 1,\n        augment_horizontal_flip = True,\n        train_lr = 1e-4,",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "exists",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def exists(x):\n    return x is not None\ndef default(val, d):\n    if exists(val):\n        return val\n    return d() if callable(d) else d\ndef cast_tuple(t, length = 1):\n    if isinstance(t, tuple):\n        return t\n    return ((t,) * length)",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "default",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def default(val, d):\n    if exists(val):\n        return val\n    return d() if callable(d) else d\ndef cast_tuple(t, length = 1):\n    if isinstance(t, tuple):\n        return t\n    return ((t,) * length)\ndef divisible_by(numer, denom):\n    return (numer % denom) == 0",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "cast_tuple",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def cast_tuple(t, length = 1):\n    if isinstance(t, tuple):\n        return t\n    return ((t,) * length)\ndef divisible_by(numer, denom):\n    return (numer % denom) == 0\ndef identity(t, *args, **kwargs):\n    return t\ndef cycle(dl):\n    while True:",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "divisible_by",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def divisible_by(numer, denom):\n    return (numer % denom) == 0\ndef identity(t, *args, **kwargs):\n    return t\ndef cycle(dl):\n    while True:\n        for data in dl:\n            yield data\ndef has_int_squareroot(num):\n    return (math.sqrt(num) ** 2) == num",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "identity",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def identity(t, *args, **kwargs):\n    return t\ndef cycle(dl):\n    while True:\n        for data in dl:\n            yield data\ndef has_int_squareroot(num):\n    return (math.sqrt(num) ** 2) == num\ndef num_to_groups(num, divisor):\n    groups = num // divisor",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "cycle",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def cycle(dl):\n    while True:\n        for data in dl:\n            yield data\ndef has_int_squareroot(num):\n    return (math.sqrt(num) ** 2) == num\ndef num_to_groups(num, divisor):\n    groups = num // divisor\n    remainder = num % divisor\n    arr = [divisor] * groups",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "has_int_squareroot",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def has_int_squareroot(num):\n    return (math.sqrt(num) ** 2) == num\ndef num_to_groups(num, divisor):\n    groups = num // divisor\n    remainder = num % divisor\n    arr = [divisor] * groups\n    if remainder > 0:\n        arr.append(remainder)\n    return arr\ndef convert_image_to_fn(img_type, image):",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "num_to_groups",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def num_to_groups(num, divisor):\n    groups = num // divisor\n    remainder = num % divisor\n    arr = [divisor] * groups\n    if remainder > 0:\n        arr.append(remainder)\n    return arr\ndef convert_image_to_fn(img_type, image):\n    if image.mode != img_type:\n        return image.convert(img_type)",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "convert_image_to_fn",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def convert_image_to_fn(img_type, image):\n    if image.mode != img_type:\n        return image.convert(img_type)\n    return image\n# normalization functions\ndef normalize_to_neg_one_to_one(img):\n    return img * 2 - 1\ndef unnormalize_to_zero_to_one(t):\n    return (t + 1) * 0.5\n# small helper modules",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "normalize_to_neg_one_to_one",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def normalize_to_neg_one_to_one(img):\n    return img * 2 - 1\ndef unnormalize_to_zero_to_one(t):\n    return (t + 1) * 0.5\n# small helper modules\n# gaussian diffusion trainer class\ndef extract(a, t, x_shape):\n    b, *_ = t.shape\n    out = a.gather(-1, t)\n    return out.reshape(b, *((1,) * (len(x_shape) - 1)))",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "unnormalize_to_zero_to_one",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def unnormalize_to_zero_to_one(t):\n    return (t + 1) * 0.5\n# small helper modules\n# gaussian diffusion trainer class\ndef extract(a, t, x_shape):\n    b, *_ = t.shape\n    out = a.gather(-1, t)\n    return out.reshape(b, *((1,) * (len(x_shape) - 1)))\ndef linear_beta_schedule(timesteps):\n    \"\"\"",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "extract",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def extract(a, t, x_shape):\n    b, *_ = t.shape\n    out = a.gather(-1, t)\n    return out.reshape(b, *((1,) * (len(x_shape) - 1)))\ndef linear_beta_schedule(timesteps):\n    \"\"\"\n    linear schedule, proposed in original ddpm paper\n    \"\"\"\n    scale = 1000 / timesteps\n    beta_start = scale * 0.0001",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "linear_beta_schedule",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def linear_beta_schedule(timesteps):\n    \"\"\"\n    linear schedule, proposed in original ddpm paper\n    \"\"\"\n    scale = 1000 / timesteps\n    beta_start = scale * 0.0001\n    beta_end = scale * 0.02\n    return torch.linspace(beta_start, beta_end, timesteps, dtype = torch.float64)\ndef cosine_beta_schedule(timesteps, s = 0.008):\n    \"\"\"",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "cosine_beta_schedule",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def cosine_beta_schedule(timesteps, s = 0.008):\n    \"\"\"\n    cosine schedule\n    as proposed in https://openreview.net/forum?id=-NEXDKk8gZ\n    \"\"\"\n    steps = timesteps + 1\n    t = torch.linspace(0, timesteps, steps, dtype = torch.float64) / timesteps\n    alphas_cumprod = torch.cos((t + s) / (1 + s) * math.pi * 0.5) ** 2\n    alphas_cumprod = alphas_cumprod / alphas_cumprod[0]\n    betas = 1 - (alphas_cumprod[1:] / alphas_cumprod[:-1])",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "sigmoid_beta_schedule",
+        "kind": 2,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "def sigmoid_beta_schedule(timesteps, start = -3, end = 3, tau = 1, clamp_min = 1e-5):\n    \"\"\"\n    sigmoid schedule\n    proposed in https://arxiv.org/abs/2212.11972 - Figure 8\n    better for images > 64x64, when used during training\n    \"\"\"\n    steps = timesteps + 1\n    t = torch.linspace(0, timesteps, steps, dtype = torch.float64) / timesteps\n    v_start = torch.tensor(start / tau).sigmoid()\n    v_end = torch.tensor(end / tau).sigmoid()",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "ModelPrediction",
+        "kind": 5,
+        "importPath": "src.model.DDPM",
+        "description": "src.model.DDPM",
+        "peekOfCode": "ModelPrediction =  namedtuple('ModelPrediction', ['pred_noise', 'pred_x_start'])\n# helpers functions\ndef exists(x):\n    return x is not None\ndef default(val, d):\n    if exists(val):\n        return val\n    return d() if callable(d) else d\ndef cast_tuple(t, length = 1):\n    if isinstance(t, tuple):",
+        "detail": "src.model.DDPM",
+        "documentation": {}
+    },
+    {
+        "label": "RMSNorm",
+        "kind": 6,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "class RMSNorm(nn.Module):\n    def __init__(self, dim):\n        super().__init__()\n        self.g = nn.Parameter(torch.ones(1, dim, 1, 1))\n    def forward(self, x):\n        return F.normalize(x, dim = 1) * self.g * (x.shape[1] ** 0.5)\n# sinusoidal positional embeds\nclass SinusoidalPosEmb(nn.Module):\n    def __init__(self, dim, theta = 10000):\n        super().__init__()",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "SinusoidalPosEmb",
+        "kind": 6,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "class SinusoidalPosEmb(nn.Module):\n    def __init__(self, dim, theta = 10000):\n        super().__init__()\n        self.dim = dim\n        self.theta = theta\n    def forward(self, x):\n        device = x.device\n        half_dim = self.dim // 2\n        emb = math.log(self.theta) / (half_dim - 1)\n        emb = torch.exp(torch.arange(half_dim, device=device) * -emb)",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "RandomOrLearnedSinusoidalPosEmb",
+        "kind": 6,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "class RandomOrLearnedSinusoidalPosEmb(nn.Module):\n    \"\"\" following @crowsonkb 's lead with random (learned optional) sinusoidal pos emb \"\"\"\n    \"\"\" https://github.com/crowsonkb/v-diffusion-jax/blob/master/diffusion/models/danbooru_128.py#L8 \"\"\"\n    def __init__(self, dim, is_random = False):\n        super().__init__()\n        assert divisible_by(dim, 2)\n        half_dim = dim // 2\n        self.weights = nn.Parameter(torch.randn(half_dim), requires_grad = not is_random)\n    def forward(self, x):\n        x = rearrange(x, 'b -> b 1')",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "Block",
+        "kind": 6,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "class Block(nn.Module):\n    def __init__(self, dim, dim_out, groups = 8):\n        super().__init__()\n        self.proj = nn.Conv2d(dim, dim_out, 3, padding = 1)\n        self.norm = nn.GroupNorm(groups, dim_out)\n        self.act = nn.SiLU()\n    def forward(self, x, scale_shift = None):\n        x = self.proj(x)\n        x = self.norm(x)\n        if exists(scale_shift):",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "ResnetBlock",
+        "kind": 6,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "class ResnetBlock(nn.Module):\n    def __init__(self, dim, dim_out, *, time_emb_dim = None, groups = 8):\n        super().__init__()\n        self.mlp = nn.Sequential(\n            nn.SiLU(),\n            nn.Linear(time_emb_dim, dim_out * 2)\n        ) if exists(time_emb_dim) else None\n        self.block1 = Block(dim, dim_out, groups = groups)\n        self.block2 = Block(dim_out, dim_out, groups = groups)\n        self.res_conv = nn.Conv2d(dim, dim_out, 1) if dim != dim_out else nn.Identity()",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "LinearAttention",
+        "kind": 6,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "class LinearAttention(nn.Module):\n    def __init__(\n        self,\n        dim,\n        heads = 4,\n        dim_head = 32,\n        num_mem_kv = 4\n    ):\n        super().__init__()\n        self.scale = dim_head ** -0.5",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "Attention",
+        "kind": 6,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "class Attention(nn.Module):\n    def __init__(\n        self,\n        dim,\n        heads = 4,\n        dim_head = 32,\n        num_mem_kv = 4,\n        flash = False\n    ):\n        super().__init__()",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "Unet",
+        "kind": 6,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "class Unet(nn.Module):\n    def __init__(\n        self,\n        dim,\n        init_dim = None,\n        out_dim = None,\n        dim_mults = (1, 2, 4, 8),\n        channels = 3,\n        self_condition = False,\n        resnet_block_groups = 8,",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "cast_tuple",
+        "kind": 2,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "def cast_tuple(t, length = 1):\n    if isinstance(t, tuple):\n        return t\n    return ((t,) * length)\ndef divisible_by(numer, denom):\n    return (numer % denom) == 0\ndef identity(t, *args, **kwargs):\n    return t\ndef exists(x):\n    return x is not None",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "divisible_by",
+        "kind": 2,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "def divisible_by(numer, denom):\n    return (numer % denom) == 0\ndef identity(t, *args, **kwargs):\n    return t\ndef exists(x):\n    return x is not None\ndef default(val, d):\n    if exists(val):\n        return val\n    return d() if callable(d) else d",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "identity",
+        "kind": 2,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "def identity(t, *args, **kwargs):\n    return t\ndef exists(x):\n    return x is not None\ndef default(val, d):\n    if exists(val):\n        return val\n    return d() if callable(d) else d\ndef Upsample(dim, dim_out = None):\n    return nn.Sequential(",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "exists",
+        "kind": 2,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "def exists(x):\n    return x is not None\ndef default(val, d):\n    if exists(val):\n        return val\n    return d() if callable(d) else d\ndef Upsample(dim, dim_out = None):\n    return nn.Sequential(\n        nn.Upsample(scale_factor = 2, mode = 'nearest'),\n        nn.Conv2d(dim, default(dim_out, dim), 3, padding = 1)",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "default",
+        "kind": 2,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "def default(val, d):\n    if exists(val):\n        return val\n    return d() if callable(d) else d\ndef Upsample(dim, dim_out = None):\n    return nn.Sequential(\n        nn.Upsample(scale_factor = 2, mode = 'nearest'),\n        nn.Conv2d(dim, default(dim_out, dim), 3, padding = 1)\n    )\ndef Downsample(dim, dim_out = None):",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "Upsample",
+        "kind": 2,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "def Upsample(dim, dim_out = None):\n    return nn.Sequential(\n        nn.Upsample(scale_factor = 2, mode = 'nearest'),\n        nn.Conv2d(dim, default(dim_out, dim), 3, padding = 1)\n    )\ndef Downsample(dim, dim_out = None):\n    return nn.Sequential(\n        Rearrange('b c (h p1) (w p2) -> b (c p1 p2) h w', p1 = 2, p2 = 2),\n        nn.Conv2d(dim * 4, default(dim_out, dim), 1)\n    )",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "Downsample",
+        "kind": 2,
+        "importPath": "src.model.Unet",
+        "description": "src.model.Unet",
+        "peekOfCode": "def Downsample(dim, dim_out = None):\n    return nn.Sequential(\n        Rearrange('b c (h p1) (w p2) -> b (c p1 p2) h w', p1 = 2, p2 = 2),\n        nn.Conv2d(dim * 4, default(dim_out, dim), 1)\n    )\nclass RMSNorm(nn.Module):\n    def __init__(self, dim):\n        super().__init__()\n        self.g = nn.Parameter(torch.ones(1, dim, 1, 1))\n    def forward(self, x):",
+        "detail": "src.model.Unet",
+        "documentation": {}
+    },
+    {
+        "label": "Attend",
+        "kind": 6,
+        "importPath": "src.model.attend",
+        "description": "src.model.attend",
+        "peekOfCode": "class Attend(nn.Module):\n    def __init__(\n        self,\n        dropout = 0.,\n        flash = False\n    ):\n        super().__init__()\n        self.dropout = dropout\n        self.attn_dropout = nn.Dropout(dropout)\n        self.flash = flash",
+        "detail": "src.model.attend",
+        "documentation": {}
+    },
+    {
+        "label": "exists",
+        "kind": 2,
+        "importPath": "src.model.attend",
+        "description": "src.model.attend",
+        "peekOfCode": "def exists(val):\n    return val is not None\ndef once(fn):\n    called = False\n    @wraps(fn)\n    def inner(x):\n        nonlocal called\n        if called:\n            return\n        called = True",
+        "detail": "src.model.attend",
+        "documentation": {}
+    },
+    {
+        "label": "once",
+        "kind": 2,
+        "importPath": "src.model.attend",
+        "description": "src.model.attend",
+        "peekOfCode": "def once(fn):\n    called = False\n    @wraps(fn)\n    def inner(x):\n        nonlocal called\n        if called:\n            return\n        called = True\n        return fn(x)\n    return inner",
+        "detail": "src.model.attend",
+        "documentation": {}
+    },
+    {
+        "label": "AttentionConfig",
+        "kind": 5,
+        "importPath": "src.model.attend",
+        "description": "src.model.attend",
+        "peekOfCode": "AttentionConfig = namedtuple('AttentionConfig', ['enable_flash', 'enable_math', 'enable_mem_efficient'])\n# helpers\ndef exists(val):\n    return val is not None\ndef once(fn):\n    called = False\n    @wraps(fn)\n    def inner(x):\n        nonlocal called\n        if called:",
+        "detail": "src.model.attend",
+        "documentation": {}
+    },
+    {
+        "label": "print_once",
+        "kind": 5,
+        "importPath": "src.model.attend",
+        "description": "src.model.attend",
+        "peekOfCode": "print_once = once(print)\n# main class\nclass Attend(nn.Module):\n    def __init__(\n        self,\n        dropout = 0.,\n        flash = False\n    ):\n        super().__init__()\n        self.dropout = dropout",
+        "detail": "src.model.attend",
+        "documentation": {}
+    },
+    {
+        "label": "__version__",
+        "kind": 5,
+        "importPath": "src.model.version",
+        "description": "src.model.version",
+        "peekOfCode": "__version__ = '1.9.4'",
+        "detail": "src.model.version",
+        "documentation": {}
+    },
+    {
+        "label": "FIDEvaluation",
+        "kind": 6,
+        "importPath": "src.utils.fid_evaluation",
+        "description": "src.utils.fid_evaluation",
+        "peekOfCode": "class FIDEvaluation:\n    def __init__(\n        self,\n        batch_size,\n        dl,\n        sampler,\n        channels=3,\n        accelerator=None,\n        stats_dir=\"./results\",\n        device=\"cuda\",",
+        "detail": "src.utils.fid_evaluation",
+        "documentation": {}
+    },
+    {
+        "label": "num_to_groups",
+        "kind": 2,
+        "importPath": "src.utils.fid_evaluation",
+        "description": "src.utils.fid_evaluation",
+        "peekOfCode": "def num_to_groups(num, divisor):\n    groups = num // divisor\n    remainder = num % divisor\n    arr = [divisor] * groups\n    if remainder > 0:\n        arr.append(remainder)\n    return arr\nclass FIDEvaluation:\n    def __init__(\n        self,",
+        "detail": "src.utils.fid_evaluation",
+        "documentation": {}
+    },
+    {
+        "label": "cycle",
+        "kind": 2,
+        "importPath": "src.utils.utils",
+        "description": "src.utils.utils",
+        "peekOfCode": "def cycle(dl):\n    while True:\n        for data in dl:\n            yield data\ndef load_config(config_path):\n    with open(config_path, 'r') as file:\n        config = yaml.safe_load(file)\n    return config",
+        "detail": "src.utils.utils",
+        "documentation": {}
+    },
+    {
+        "label": "load_config",
+        "kind": 2,
+        "importPath": "src.utils.utils",
+        "description": "src.utils.utils",
+        "peekOfCode": "def load_config(config_path):\n    with open(config_path, 'r') as file:\n        config = yaml.safe_load(file)\n    return config",
+        "detail": "src.utils.utils",
+        "documentation": {}
+    },
+    {
+        "label": "model",
+        "kind": 5,
+        "importPath": "src.train",
+        "description": "src.train",
+        "peekOfCode": "model = Unet(\n    dim = 64,\n    dim_mults = (1, 2, 4, 8),\n    flash_attn = True\n)\ndiffusion = GaussianDiffusion(\n    model,\n    image_size = 128,\n    timesteps = 1000    # number of steps\n)",
+        "detail": "src.train",
+        "documentation": {}
+    },
+    {
+        "label": "diffusion",
+        "kind": 5,
+        "importPath": "src.train",
+        "description": "src.train",
+        "peekOfCode": "diffusion = GaussianDiffusion(\n    model,\n    image_size = 128,\n    timesteps = 1000    # number of steps\n)\ntraining_images = torch.rand(8, 3, 128, 128) # images are normalized from 0 to 1\nloss = diffusion(training_images)\nloss.backward()\n# after a lot of training\nsampled_images = diffusion.sample(batch_size = 4)",
+        "detail": "src.train",
+        "documentation": {}
+    },
+    {
+        "label": "training_images",
+        "kind": 5,
+        "importPath": "src.train",
+        "description": "src.train",
+        "peekOfCode": "training_images = torch.rand(8, 3, 128, 128) # images are normalized from 0 to 1\nloss = diffusion(training_images)\nloss.backward()\n# after a lot of training\nsampled_images = diffusion.sample(batch_size = 4)\nsampled_images.shape # (4, 3, 128, 128)",
+        "detail": "src.train",
+        "documentation": {}
+    },
+    {
+        "label": "loss",
+        "kind": 5,
+        "importPath": "src.train",
+        "description": "src.train",
+        "peekOfCode": "loss = diffusion(training_images)\nloss.backward()\n# after a lot of training\nsampled_images = diffusion.sample(batch_size = 4)\nsampled_images.shape # (4, 3, 128, 128)",
+        "detail": "src.train",
+        "documentation": {}
+    },
+    {
+        "label": "sampled_images",
+        "kind": 5,
+        "importPath": "src.train",
+        "description": "src.train",
+        "peekOfCode": "sampled_images = diffusion.sample(batch_size = 4)\nsampled_images.shape # (4, 3, 128, 128)",
+        "detail": "src.train",
+        "documentation": {}
+    }
+]

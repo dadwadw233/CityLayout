@@ -37,10 +37,11 @@ if __name__ == '__main__':
         data = next(dl)
         print(data.keys())
         print(data['building'].shape)
-
-        plt.imshow(data['building'][0][0].cpu().numpy())
+        plt.axis('off')
+    
+        plt.imshow(data['building'][0][0].cpu().numpy(), cmap='gray')
         plt.show()
-        plt.savefig('test.png')
+        plt.savefig('test.png', bbox_inches='tight', pad_inches=0)
         exit(0)
         print('-------------------')
 
