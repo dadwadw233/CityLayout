@@ -16,42 +16,49 @@ from http.client import HTTPException
 from requests.exceptions import RequestException
 import time
 import yaml
+
+
 def load_config(config_path):
-    with open(config_path, 'r') as file:
+    with open(config_path, "r") as file:
         config = yaml.safe_load(file)
     return config
 
+
 def create_area_polygon(lat, lon, radius):
-    
     center = Point(lon, lat)
-    
-    area_polygon = box(center.x - radius, center.y - radius, center.x + radius, center.y + radius)
-    
+
+    area_polygon = box(
+        center.x - radius, center.y - radius, center.x + radius, center.y + radius
+    )
+
     return area_polygon
 
+
 def get_dem(lat, lon, radius, output_path):
-    
-    bounds = (lon-radius, lat-radius, lon+radius, lat+radius)
+    bounds = (lon - radius, lat - radius, lon + radius, lat + radius)
     elevation.clip(bounds=bounds, output=output_path)
 
+
 def clip_gdf_to_area(gdf, area_polygon):
-    
     clipped_gdf = gdf.copy()
-    clipped_gdf['geometry'] = gdf['geometry'].intersection(area_polygon)
+    clipped_gdf["geometry"] = gdf["geometry"].intersection(area_polygon)
     return clipped_gdf
 
-def get_dem_data(city, south, north, west, east, output_path, API_Key = None, dem_type = 'SRTMGL1'):
+
+def get_dem_data(
+    city, south, north, west, east, output_path, API_Key=None, dem_type="SRTMGL1"
+):
     base_url = "https://portal.opentopography.org/API/globaldem"
     if API_Key is None:
         raise Exception("API key is required to download data from OpenTopography.")
     params = {
-        "demtype": dem_type,  
-        "south": south,       
-        "north": north,       
-        "west": west,      
-        "east": east,      
-        "outputFormat": "GTiff", 
-        "API_Key": API_Key
+        "demtype": dem_type,
+        "south": south,
+        "north": north,
+        "west": west,
+        "east": east,
+        "outputFormat": "GTiff",
+        "API_Key": API_Key,
     }
     response = requests.get(base_url, params=params)
 
@@ -61,14 +68,13 @@ def get_dem_data(city, south, north, west, east, output_path, API_Key = None, de
         # print("DEM data downloaded successfully.")
     elif response.status_code == 400 or response.status_code == 500:
         raise TimeoutError("Timeout error")
-    else :
+    else:
         raise Exception(f"Failed to retrieve data. Status code: {response.status_code}")
-    
+
 
 def clip_pop_file(filename, south, north, west, east, output_path):
     geom = box(south, north, west, east)
-    geo_df = gpd.GeoDataFrame({'geometry': geom}, index=[0], crs='EPSG:4326')
-
+    geo_df = gpd.GeoDataFrame({"geometry": geom}, index=[0], crs="EPSG:4326")
 
     # 打开 GeoTIFF 文件
     with rasterio.open(filename) as src:
@@ -79,57 +85,65 @@ def clip_pop_file(filename, south, north, west, east, output_path):
         out_image, out_transform = mask(src, shapes=geo_df.geometry, crop=True)
         out_meta = src.meta.copy()
 
-    out_meta.update({"driver": "GTiff",
-                    "height": out_image.shape[1],
-                    "width": out_image.shape[2],
-                    "transform": out_transform})
+    out_meta.update(
+        {
+            "driver": "GTiff",
+            "height": out_image.shape[1],
+            "width": out_image.shape[2],
+            "transform": out_transform,
+        }
+    )
 
-    output_tif = os.path.join(output_path, 'pop_data.tif')
+    output_tif = os.path.join(output_path, "pop_data.tif")
     with rasterio.open(output_tif, "w", **out_meta) as dest:
         dest.write(out_image)
 
+
 def convert_to_polygon(geom):
-    if geom.geom_type == 'Point':
-        return geom.buffer(0.0001) 
-    elif geom.geom_type == 'LineString':
+    if geom.geom_type == "Point":
+        return geom.buffer(0.0001)
+    elif geom.geom_type == "LineString":
         return geom.buffer(0.0001)
     return geom
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config', type=str, required=False, default='../../config/data/osm_landmarks.yaml', help='config file path')
+    parser.add_argument(
+        "--config",
+        type=str,
+        required=False,
+        default="../../config/data/osm_landmarks.yaml",
+        help="config file path",
+    )
 
     yaml_config = load_config(parser.parse_args().config)
 
-    input_file = yaml_config['path']['input']
-    output_dir = yaml_config['path']['output']
-    pop_file_path = yaml_config['path']['pop_file_path']
+    input_file = yaml_config["path"]["input"]
+    output_dir = yaml_config["path"]["output"]
+    pop_file_path = yaml_config["path"]["pop_file_path"]
 
-    radius = yaml_config['data']['radius']
-
-    
-    
+    radius = yaml_config["data"]["radius"]
 
     # Load city locations
     citys = dict()
-    ox.settings.all_oneway=True
+    ox.settings.all_oneway = True
 
     if not os.path.exists(input_file):
         raise Exception(f"Input file {input_file} does not exist.")
-    
-    with open(input_file, 'r') as f:
+
+    with open(input_file, "r") as f:
         for line in f:
             line = line.strip()
             if not line:
                 continue
-            city, lat, lon = line.split(' ')
+            city, lat, lon = line.split(" ")
             citys[city] = (float(lat), float(lon))
 
     print(f"{len(citys)} citie's locations loaded.")
-    
 
-    for city in tqdm.tqdm(citys.keys(), desc='Processing cities'):
-        retries = yaml_config['network']['retries']
+    for city in tqdm.tqdm(citys.keys(), desc="Processing cities"):
+        retries = yaml_config["network"]["retries"]
         while retries > 0:
             try:
                 if not os.path.exists(os.path.join(output_dir, city)):
@@ -139,85 +153,142 @@ if __name__ == '__main__':
                     break
                 city_out_path = os.path.join(output_dir, city)
                 lat, lon = citys[city]
-                geo_redius = (radius/1000) / 111.319444
+                geo_redius = (radius / 1000) / 111.319444
                 area_polygon = create_area_polygon(lat, lon, geo_redius)
 
-                
                 # road_graph = ox.features_from_polygon(area_polygon, tags={'highway': True})
-                road_types = yaml_config['data']['road_types']
-                road_query = {'highway': road_types}
-                road_graph = ox.features_from_bbox(north=area_polygon.bounds[3], south=area_polygon.bounds[1], east=area_polygon.bounds[2], west=area_polygon.bounds[0], tags=road_query)
+                road_types = yaml_config["data"]["road_types"]
+                road_query = {"highway": road_types}
+                road_graph = ox.features_from_bbox(
+                    north=area_polygon.bounds[3],
+                    south=area_polygon.bounds[1],
+                    east=area_polygon.bounds[2],
+                    west=area_polygon.bounds[0],
+                    tags=road_query,
+                )
                 # road_graph = ox.features_from_point((lat, lon), dist=args.radius, tags=road_query)
                 # road_graph = road_graph[(road_graph['highway'] == 'primary') | (road_graph['highway'] == 'secondary') | (road_graph['highway'] == 'tertiary') | (road_graph['highway'] == 'residential') | (road_graph['highway'] == 'service') ]  # | (road_graph['highway'] == 'motorway') | (road_graph['highway'] == 'trunk')
                 road_graph = clip_gdf_to_area(road_graph, area_polygon)
 
                 # print('road done')
 
-                landuse_types = yaml_config['data']['landuse_types']
-                landuse_query = {'landuse': landuse_types}
-                landuse_data = ox.features_from_bbox(north=area_polygon.bounds[3], south=area_polygon.bounds[1], east=area_polygon.bounds[2], west=area_polygon.bounds[0], tags=landuse_query)
+                landuse_types = yaml_config["data"]["landuse_types"]
+                landuse_query = {"landuse": landuse_types}
+                landuse_data = ox.features_from_bbox(
+                    north=area_polygon.bounds[3],
+                    south=area_polygon.bounds[1],
+                    east=area_polygon.bounds[2],
+                    west=area_polygon.bounds[0],
+                    tags=landuse_query,
+                )
                 # landuse_data = ox.features_from_point((lat, lon), dist=args.radius, tags=landuse_query)
                 # landuse_data = ox.features_from_polygon(area_polygon, tags=landuse_query)
                 landuse_data = clip_gdf_to_area(landuse_data, area_polygon)
-                landuse_data['geometry'] = landuse_data['geometry'].apply(convert_to_polygon)
+                landuse_data["geometry"] = landuse_data["geometry"].apply(
+                    convert_to_polygon
+                )
 
-                default_gdf = gpd.GeoDataFrame({'geometry': [area_polygon], 'landuse': ['default']}, crs='EPSG:4326')
+                default_gdf = gpd.GeoDataFrame(
+                    {"geometry": [area_polygon], "landuse": ["default"]},
+                    crs="EPSG:4326",
+                )
                 default_gdf = default_gdf.to_crs(landuse_data.crs)
-                filled_gdf  = gpd.overlay(default_gdf, landuse_data, how='difference', keep_geom_type=False)
+                filled_gdf = gpd.overlay(
+                    default_gdf, landuse_data, how="difference", keep_geom_type=False
+                )
                 # print(landuse_data.geometry.type.unique())
                 # print(default_gdf.geometry.type.unique())
-                landuse_data = gpd.GeoDataFrame(pd.concat([landuse_data, filled_gdf], ignore_index=True))
+                landuse_data = gpd.GeoDataFrame(
+                    pd.concat([landuse_data, filled_gdf], ignore_index=True)
+                )
 
                 # print('landuse done')
 
-
-                nature_types = yaml_config['data']['nature_types']
-                nature_query = {'natural': nature_types}
-                nature_data = ox.features_from_bbox(north=area_polygon.bounds[3], south=area_polygon.bounds[1], east=area_polygon.bounds[2], west=area_polygon.bounds[0], tags=nature_query)
+                nature_types = yaml_config["data"]["nature_types"]
+                nature_query = {"natural": nature_types}
+                nature_data = ox.features_from_bbox(
+                    north=area_polygon.bounds[3],
+                    south=area_polygon.bounds[1],
+                    east=area_polygon.bounds[2],
+                    west=area_polygon.bounds[0],
+                    tags=nature_query,
+                )
                 # nature_data = ox.features_from_point((lat, lon), dist=args.radius, tags=nature_query)
                 nature_data = clip_gdf_to_area(nature_data, area_polygon)
-                nature_data['geometry'] = nature_data['geometry'].apply(convert_to_polygon)
+                nature_data["geometry"] = nature_data["geometry"].apply(
+                    convert_to_polygon
+                )
 
-                default_gdf = gpd.GeoDataFrame({'geometry': [area_polygon], 'natural': ['default']}, crs='EPSG:4326')
+                default_gdf = gpd.GeoDataFrame(
+                    {"geometry": [area_polygon], "natural": ["default"]},
+                    crs="EPSG:4326",
+                )
                 default_gdf = default_gdf.to_crs(nature_data.crs)
-                filled_gdf  = gpd.overlay(default_gdf, nature_data, how='difference', keep_geom_type=False)
-                
-                nature_data = gpd.GeoDataFrame(pd.concat([nature_data, filled_gdf], ignore_index=True))
-                
+                filled_gdf = gpd.overlay(
+                    default_gdf, nature_data, how="difference", keep_geom_type=False
+                )
+
+                nature_data = gpd.GeoDataFrame(
+                    pd.concat([nature_data, filled_gdf], ignore_index=True)
+                )
+
                 # print('nature done')
 
-
-                buildings_query = {'building': True}
+                buildings_query = {"building": True}
                 # buildings_data = ox.features_from_point((lat, lon), dist=args.radius, tags=buildings_query)
                 # buildings_data = ox.features_from_polygon(area_polygon, tags=buildings_query)
-                buildings_data = ox.features_from_bbox(north=area_polygon.bounds[3], south=area_polygon.bounds[1], east=area_polygon.bounds[2], west=area_polygon.bounds[0], tags=buildings_query)
+                buildings_data = ox.features_from_bbox(
+                    north=area_polygon.bounds[3],
+                    south=area_polygon.bounds[1],
+                    east=area_polygon.bounds[2],
+                    west=area_polygon.bounds[0],
+                    tags=buildings_query,
+                )
                 buildings_data = clip_gdf_to_area(buildings_data, area_polygon)
 
                 # print('buildings done')
 
-
-
-                problematic_cols = [col for col in road_graph.columns if any(isinstance(item, list) for item in road_graph[col])]
+                problematic_cols = [
+                    col
+                    for col in road_graph.columns
+                    if any(isinstance(item, list) for item in road_graph[col])
+                ]
                 road_graph = road_graph.drop(columns=problematic_cols)
-                road_graph.to_file(os.path.join(city_out_path, "road_data.geojson"), driver='GeoJSON')
-                
+                road_graph.to_file(
+                    os.path.join(city_out_path, "road_data.geojson"), driver="GeoJSON"
+                )
 
-
-                problematic_cols = [col for col in landuse_data.columns if any(isinstance(item, list) for item in landuse_data[col])]
+                problematic_cols = [
+                    col
+                    for col in landuse_data.columns
+                    if any(isinstance(item, list) for item in landuse_data[col])
+                ]
                 landuse_data = landuse_data.drop(columns=problematic_cols)
-                landuse_data.to_file(os.path.join(city_out_path, "landuse_data.geojson"), driver='GeoJSON')
+                landuse_data.to_file(
+                    os.path.join(city_out_path, "landuse_data.geojson"),
+                    driver="GeoJSON",
+                )
 
-
-                problematic_cols = [col for col in buildings_data.columns if any(isinstance(item, list) for item in buildings_data[col])]
+                problematic_cols = [
+                    col
+                    for col in buildings_data.columns
+                    if any(isinstance(item, list) for item in buildings_data[col])
+                ]
                 buildings_data = buildings_data.drop(columns=problematic_cols)
-                buildings_data.to_file(os.path.join(city_out_path, "buildings_data.geojson"), driver='GeoJSON')
+                buildings_data.to_file(
+                    os.path.join(city_out_path, "buildings_data.geojson"),
+                    driver="GeoJSON",
+                )
 
-
-                problematic_cols = [col for col in nature_data.columns if any(isinstance(item, list) for item in nature_data[col])]
+                problematic_cols = [
+                    col
+                    for col in nature_data.columns
+                    if any(isinstance(item, list) for item in nature_data[col])
+                ]
                 nature_data = nature_data.drop(columns=problematic_cols)
-                nature_data.to_file(os.path.join(city_out_path, "nature_data.geojson"), driver='GeoJSON')
-
-
+                nature_data.to_file(
+                    os.path.join(city_out_path, "nature_data.geojson"), driver="GeoJSON"
+                )
 
                 # print(f"OSM data for {city} saved.")
                 break
@@ -225,7 +296,9 @@ if __name__ == '__main__':
                 if retries == 0:
                     print(f"Timeout error occured when processing {city}: {e}")
                 else:
-                    print(f"Timeout error occured when processing {city}: {e}, retrying...")
+                    print(
+                        f"Timeout error occured when processing {city}: {e}, retrying..."
+                    )
                     retries -= 1
                     time.sleep(10)
                     continue
@@ -233,7 +306,9 @@ if __name__ == '__main__':
                 if retries == 0:
                     print(f"HTTPException error occured when processing {city}: {e}")
                 else:
-                    print(f"HTTPException error occured when processing {city}: {e}, retrying...")
+                    print(
+                        f"HTTPException error occured when processing {city}: {e}, retrying..."
+                    )
                     retries -= 1
                     time.sleep(10)
                     continue
@@ -241,18 +316,18 @@ if __name__ == '__main__':
                 if retries == 0:
                     print(f"RequestException error occured when processing {city}: {e}")
                 else:
-                    print(f"RequestException error occured when processing {city}: {e}, retrying...")
+                    print(
+                        f"RequestException error occured when processing {city}: {e}, retrying..."
+                    )
                     retries -= 1
                     time.sleep(10)
                     continue
             except Exception as e:
                 print(f"Error occured when processing {city}: {e}")
-                with open(os.path.join(city_out_path, 'getdata_error.txt'), 'w') as file:
+                with open(
+                    os.path.join(city_out_path, "getdata_error.txt"), "w"
+                ) as file:
                     file.write(str(e))
                 break
 
-    
-
-    
-    print('Done.')
-        
+    print("Done.")

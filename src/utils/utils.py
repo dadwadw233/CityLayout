@@ -1,4 +1,6 @@
 import yaml
+
+
 def cycle(dl):
     while True:
         for data in dl:
@@ -6,6 +8,6 @@ def cycle(dl):
 
 
 def load_config(config_path):
-    with open(config_path, 'r') as file:
+    with open(config_path, "r") as file:
         config = yaml.safe_load(file)
     return config

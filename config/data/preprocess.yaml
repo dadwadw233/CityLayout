@@ -4,7 +4,6 @@ path:
   input: "data/raw/osm/cities"
   output: "data/raw/osm/cities"
 
-# init_osm: which wi
 params:
   init_osm: True
   osm_validation: True
