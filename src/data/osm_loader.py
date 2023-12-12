@@ -33,7 +33,7 @@ class OSMDataset(Dataset):
         data = h5py.File(data_path, 'r')
     
         data_dict = {}
-        if self.data_list is None:
+        if self.key_list is None:
             data_dict = {
                             'building': torch.from_numpy(np.array(data['building'])).float().squeeze(2).permute(2, 0, 1),
                             'landuse': torch.from_numpy(np.array(data['landuse'])).float().squeeze(2).permute(2, 0, 1),
