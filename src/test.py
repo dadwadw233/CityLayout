@@ -21,7 +21,7 @@ from utils.utils import cycle
 if __name__ == '__main__':
     accelerator = Accelerator()
 
-    ds = OSMDataset(data_dir='/home/admin/workspace/yuyuanhong/code/CityLayout/data/train', mode='train', key_list=['building'])
+    ds = OSMDataset(data_dir='/home/admin/workspace/yuyuanhong/code/CityLayout/data/train', mode='train', key_list=['nature'])
 
     dl = DataLoader(ds, batch_size=2, shuffle=True, num_workers=0)
 
@@ -36,10 +36,10 @@ if __name__ == '__main__':
 
         data = next(dl)
         print(data.keys())
-        print(data['building'].shape)
+        print(data['nature'].shape)
         plt.axis('off')
     
-        plt.imshow(data['building'][0][0].cpu().numpy(), cmap='gray')
+        plt.imshow(data['nature'][0][0].cpu().numpy(), cmap='gray')
         plt.show()
         plt.savefig('test.png', bbox_inches='tight', pad_inches=0)
         exit(0)

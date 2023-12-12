@@ -16,13 +16,12 @@ from io import BytesIO
 import h5py
 from collections import OrderedDict
 import sys
+
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 from src.utils.utils import load_config
 
 
 def geo_data_validation(path, init=False):
-
-
     if os.path.exists(os.path.join(path, "getdata_error.txt")):
         logging.error(f"Error occurred in {path}.")
         os.system(f"rm -rf {path}")
@@ -545,7 +544,9 @@ if __name__ == "__main__":
 
     # exit(0)
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=yaml_config["params"]["max_processes"]) as executor:
+    with concurrent.futures.ProcessPoolExecutor(
+        max_workers=yaml_config["params"]["max_processes"]
+    ) as executor:
         futures = [
             executor.submit(process_city, city, root_path, output, yaml_config)
             for city in cities
