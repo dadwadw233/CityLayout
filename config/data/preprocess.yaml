@@ -1,0 +1,150 @@
+# script's root path has been changed to the root of the repository
+# so there is no need to use relative paths anymore
+path:
+  input: "data/raw/osm/cities"
+  output: "data/raw/osm/cities"
+
+# init_osm: which wi
+params:
+  init_osm: True
+  osm_validation: True
+  image_validation: True
+  dump_h5: True
+  max_processes: 64
+
+geo:
+  crs: 3857
+
+plt_config:
+  default:
+    figsize: [10, 10]
+
+  landuse:
+    alpha: 0.5
+    bbox_inches: "tight"
+    format: "jpg"
+    pad_inches: 0
+
+  nature:
+    alpha: 0.5
+    bbox_inches: "tight"
+    format: "jpg"
+    pad_inches: 0
+
+  road:
+    alpha: 0.5
+    bbox_inches: "tight"
+    format: "jpg"
+    pad_inches: 0
+
+  building:
+    color: "grey"
+    alpha: 0.7
+    bbox_inches: "tight"
+    format: "jpg"
+    pad_inches: 0
+    cmap: "gray"
+    edgecolor: "black"
+
+  combained:
+    bbox_inches: "tight"
+    format: "jpg"
+    pad_inches: 0
+
+data_config:
+  landuse:
+    color_dict:
+      {
+        "commercial": "#EFCAC0",
+        "retail": "#EFCAC0",
+        "education": "#EF826B",
+        "industrial": "#D6CCED",
+        "depot": "#D6CCED",
+        "port": "#D6CCED",
+        "residual": "#E5EBE8",
+        "farmland": "#DFF58D",
+        "meadow": "#DFF58D",
+        "orchard": "#DFF58D",
+        "vineyard": "#DFF58D",
+        "plant_nursery": "#DFF58D",
+        "forest": "#16F53E",
+        "farmyard": "#F0CB60",
+        "grass": "#B4F59D",
+        "greenfield": "#B4F59D",
+        "military": "#EF4631",
+        "railway": "#B884F0",
+        "recreation_ground": "#F07D00",
+        "fairground": "#F07D00",
+        "default": "#8F8F8F",
+      }
+    feature_list:
+      [
+        "commercial",
+        "retail",
+        "education",
+        "industrial",
+        "residual",
+        "forest",
+        "grass",
+        "greenfield",
+        "railway",
+        "recreation_ground",
+        "default",
+      ]
+
+  nature:
+    color_dict:
+      {
+        "grassland": "#A8EB83",
+        "tree": "#1CEF26",
+        "tree_row": "#1CEF26",
+        "wood": "#1CEF26",
+        "beach": "#D5E4ED",
+        "water": "#418DF0",
+        "wetland": "#51D5EB",
+        "bare_rock": "#E5F2D3",
+        "hill": "#CAF582",
+        "sand": "#EDE6B0",
+        "valley": "#F0BA60",
+        "default": "#BFBFBF",
+      }
+    feature_list:
+      [
+        "water",
+        "wetland",
+        "riverbank",
+        "glacier",
+        "sand",
+        "beach",
+        "bare_rock",
+        "scree",
+        "shingle",
+        "scrub",
+        "heath",
+        "orchard",
+        "vineyard",
+        "plant_nursery",
+        "forest",
+        "farmyard",
+        "grass",
+        "greenfield",
+        "military",
+        "railway",
+        "recreation_ground",
+        "default",
+      ]
+  road:
+    color_dict:
+      {
+        "motorway": "red",
+        "trunk": "orange",
+        "primary": "yellow",
+        "secondary": "green",
+        "tertiary": "pink",
+        "residential": "blue",
+        "service": "grey",
+      }
+    feature_list:
+      ["motorway", "trunk", "primary", "secondary", "residential", "service"]
+
+  building:
