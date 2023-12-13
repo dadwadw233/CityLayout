@@ -12,6 +12,7 @@ data:
   normalizer: "clamp"
   std: [0.0, 0.0, 0.0]
   mean: [1.0, 1.0, 1.0]
+  resize: [256, 256]
 
   # define the layout type and granularity
   # if custom is True, the layout type and granularity will be defined by 'custom_dict'

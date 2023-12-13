@@ -30,8 +30,8 @@ class OSMDataset(Dataset):
         self.data_list = os.listdir(self.data_dir)
         self.transform = transform
         self.key_list = key_list
-        self.default_transform = transforms.Compose([
-            transforms.Resize((512, 512)),
+        self.resize = transforms.Compose([
+            transforms.Resize((config['data']['resize'])),
         ])
         self.normalize_method = config['data']['normalizer']
         if self.normalize_method == 'minmax':
@@ -121,7 +121,7 @@ class OSMDataset(Dataset):
             data_dict = self.transform(data_dict)
         else:
             for key in data_dict.keys():
-                data_dict[key] = self.normalize(self.default_transform(data_dict[key]))
+                data_dict[key] = self.normalize(self.resize(data_dict[key]))
 
         data_dict['name'] = data_name
         data_dict['layout'] = torch.cat([data_dict[key] for key in data_dict.keys() if key != 'name'], dim=0)
