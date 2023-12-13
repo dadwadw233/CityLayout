@@ -15,35 +15,39 @@ import argparse
 from accelerate import Accelerator
 
 import matplotlib.pyplot as plt
-from utils.utils import cycle
+from utils.utils import cycle, load_config, OSMVisulizer
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     accelerator = Accelerator()
 
-    ds = OSMDataset(data_dir='/home/admin/workspace/yuyuanhong/code/CityLayout/data/train', mode='train', key_list=['nature'])
+    ds_config = load_config(
+        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml"
+    )
 
-    dl = DataLoader(ds, batch_size=2, shuffle=True, num_workers=0)
+    ds = OSMDataset(config=ds_config)
+
+    dl = DataLoader(ds, batch_size=4, shuffle=True, num_workers=16)
 
     dl = accelerator.prepare(dl)
 
     dl = cycle(dl)
 
-    print('device:', accelerator.device)
-    
-    print('data len:', len(ds))
-    for i in range(10):
+    print("device:", accelerator.device)
 
+    print("data len:", len(ds))
+
+    vis = OSMVisulizer()
+    for i in range(10):
         data = next(dl)
         print(data.keys())
-        print(data['nature'].shape)
-        plt.axis('off')
-    
-        plt.imshow(data['nature'][0][0].cpu().numpy(), cmap='gray')
-        plt.show()
-        plt.savefig('test.png', bbox_inches='tight', pad_inches=0)
+        print(data["building"].shape)
+        print(data["name"])
+        vis.visulize_onehot_layout(data, "/home/admin/workspace/yuyuanhong/code/CityLayout/test-{}.png".format(i))
+
+        print(data["nature"].shape)
+        print(data["road"].shape)
         exit(0)
-        print('-------------------')
+        print("-------------------")
 
-    print('done')
-
+    print("done")

@@ -124,6 +124,7 @@ class OSMDataset(Dataset):
                 data_dict[key] = self.normalize(self.default_transform(data_dict[key]))
 
         data_dict['name'] = data_name
+        data_dict['layout'] = torch.cat([data_dict[key] for key in data_dict.keys() if key != 'name'], dim=0)
 
         h5py.File.close(data)
 
