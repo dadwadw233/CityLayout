@@ -1,0 +1,59 @@
+path:
+  data_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train
+  
+
+params:
+  mode: "train"
+  custom: True
+
+data:
+  normalizer: "minmax"
+  custom_dict: {
+    "building": [["building"]],
+    "landuse": [],
+    "nature": [["grassland", "tree", "tree_row"], ["water", "wetland"],["hill", "valley"]],
+    "road": [["motorway", "trunk", "primary", "secondary", "residential", "service"]]
+  }
+
+  key_map: 
+    building: {
+      "building": 0
+    }
+    landuse: {
+      "commercial": 0,
+      "retail": 1,
+      "education": 2,
+      "industrial": 3,
+      "residual": 4,
+      "forest": 5,
+      "grass": 6,
+      "greenfield": 7,
+      "railway": 8,
+      "recreation_ground": 9,
+      "default": 10
+    }
+    nature: {
+      "grassland": 0,
+      "tree": 1,
+      "tree_row": 2,
+      "wood": 3,
+      "beach": 4,
+      "water": 5,
+      "wetland": 6,
+      "bare_rock": 7,
+      "hill": 8,
+      "sand": 9,
+      "valley": 10,
+      "default": 11
+    }
+    road: {
+      "motorway": 0,
+      "trunk": 1,
+      "primary": 2,
+      "secondary": 3,
+      "residential": 4,
+      "service": 5
+    }
+
+
+
