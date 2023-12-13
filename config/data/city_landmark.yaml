@@ -1,3 +1,7 @@
+# Description: City and Landmark name for get the coordinates
+# city_name: The name of the city
+# cities: The list of cities
+# maybe some duplicate cities and landmarks in the list
 name:
   cities:
     [

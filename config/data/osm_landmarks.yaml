@@ -1,10 +1,14 @@
+# Description: Configuration file for the OSM data download
+# input: The path to the file containing the landmark coordinates
+# output: The path to the directory to save the OSM data
+# pop_file_path: The path to the population density file
 path:
   input: "./landmark_coordinates.txt"
   output: "../../data/raw/osm/landmarks"
   pop_file_path: "../../data/raw/pop/GHS_POP_E2030_GLOBE_R2023A_54009_100_V1_0.tif"
 
 data:
-  # The radius in **meters** to search for landmarks
+  # The radius in **meters** to download the OSM data
   radius: 1000
   road_types:
     [
@@ -52,7 +56,10 @@ data:
       "sand",
       "valley",
     ]
+  # dem data source
   dem_type: "SRTMGL1"
+
+  # The coordinate reference system to use for the data
   crs: "EPSG:4326"
 
 network:

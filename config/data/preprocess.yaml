@@ -4,6 +4,12 @@ path:
   input: "data/raw/osm/cities"
   output: "data/raw/osm/cities"
 
+# some parameters for preprocessing
+# init_osm: whether to delete the existing image/h5/npy files in the target directory (geojson files will not be deleted)
+# osm_validation: whether to validate the osm file is fully and successfully downloaded
+# image_validation: whether to validate the image file is fully and successfully generated
+# dump_h5: whether to dump the h5 file
+# max_processes: the maximum number of processes to use for preprocessing the geojson files
 params:
   init_osm: True
   osm_validation: True
@@ -11,9 +17,11 @@ params:
   dump_h5: True
   max_processes: 64
 
+# define the geo coordinate system
 geo:
   crs: 3857
 
+# some parameters for generating the image by matplotlib
 plt_config:
   default:
     figsize: [10, 10]
@@ -51,6 +59,10 @@ plt_config:
     format: "jpg"
     pad_inches: 0
 
+# important parameters for preprocessing geojson files
+# color_dict: the color mapping relationship between the label and the color
+# feature_list: the features in the feature_list will be dumped into the npy file and then be used to generate the h5 file
+#               the order of the features in the feature_list will be the same as the order of the feature channels in the h5 file
 data_config:
   landuse:
     color_dict:
