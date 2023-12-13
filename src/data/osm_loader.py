@@ -33,17 +33,47 @@ class OSMDataset(Dataset):
         self.default_transform = transforms.Compose([
             transforms.Resize((512, 512)),
         ])
+        self.normalize_method = config['data']['normalizer']
+        if self.normalize_method == 'minmax':
+            self.normalize = self.minmax
+        elif self.normalize_method == 'zscore':
+            self.normalize = transforms.Compose([
+                transforms.Normalize((0.0, ), (1.0, ))
+            ])
+        elif self.normalize_method == 'clamp':
+            self.normalize = transforms.Compose([
+                self.clamp,
+                transforms.Normalize((0.0, ), (1.0, ))
+            ])
+        else :
+            if config['data']['std'] == None or config['data']['mean'] == None:
+                raise ValueError('std or mean is None')
+            else:
+                self.normalize = transforms.Compose([
+                    transforms.Normalize(config['data']['mean'], config['data']['std'])
+                ])
+
+    def minmax(self, data):
+        data = data - data.min()
+        data = data / data.max()
+        return data
+    
+    def clamp(self, data):
+        data = data.clamp(0, 1)
+        return data
 
     def custmize_layout(self, custom_list, key_map, data):
-        assert data.shape[-1]==len(key_map)
-        assert type(data)==torch.Tensor
+        assert data.shape[-1] == len(key_map)
+        assert isinstance(data, torch.Tensor)
 
         layout_list = []
-        for item in custom_list:
-            inner_layout = torch.zeros(data.shape[0], data.shape[1], 1)
-            for label in item:
-                inner_layout += data[:, :, key_map[label]:key_map[label]+1]
-            layout_list.append(inner_layout)
+        for i, item in enumerate(custom_list):
+
+            indices = [key_map[label] for label in item]
+            
+            layer = data[:, :, indices].sum(dim=-1, keepdim=True)
+            layout_list.append(layer)
+
 
         return torch.cat(layout_list, dim=-1).permute(2, 0, 1).float()
 
@@ -91,8 +121,10 @@ class OSMDataset(Dataset):
             data_dict = self.transform(data_dict)
         else:
             for key in data_dict.keys():
-                data_dict[key] = self.default_transform(data_dict[key])
+                data_dict[key] = self.normalize(self.default_transform(data_dict[key]))
 
         data_dict['name'] = data_name
+
+        h5py.File.close(data)
 
         return data_dict
