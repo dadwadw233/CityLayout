@@ -17,6 +17,7 @@ geo:
 plt_config:
   default:
     figsize: [10, 10]
+    radius: 1000
 
   landuse:
     alpha: 0.5
