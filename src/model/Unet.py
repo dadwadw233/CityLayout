@@ -11,10 +11,10 @@ import torch.nn.functional as F
 from einops import rearrange, reduce, repeat
 from einops.layers.torch import Rearrange
 
-from attend import Attend
+from .attend import Attend
 
 
-from version import __version__
+from .version import __version__
 def cast_tuple(t, length = 1):
     if isinstance(t, tuple):
         return t

@@ -23,9 +23,9 @@ data:
       "landuse": [],
       "nature":
         [
-          ["grassland", "tree", "tree_row", "wood"],
+          # ["grassland", "tree", "tree_row", "wood"],
           ["water", "wetland", "beach", "sand"],
-          ["hill", "valley", "bare_rock"],
+          # ["hill", "valley", "bare_rock"],
         ],
       "road":
         [

@@ -1,0 +1,73 @@
+model:
+  arch: 'Unet'
+  dim: 64
+  init_dim: None
+  out_dim: None
+  dim_mults: [1, 2, 4, 8]
+  channels: 3
+  self_condition: False
+  resnet_block_groups: 8
+  learned_variance: False
+  learned_sinusoidal_cond: False
+  random_fourier_features: False
+  learned_sinusoidal_dim: 16
+  sinusoidal_pos_emb_theta: 10000
+  attn_dim_head: 32
+  attn_heads: 4
+  full_attn: None
+  flash_attn: False
+
+data: 
+  train:
+    config_path: 'config/data/osm_loader.yaml'
+
+diffusion:
+  timesteps: 4000
+  ddim_timestep: 10
+  image_size: 256
+  name: DDPM
+  objective: 'pred_x0'
+  beta_schedule: 'sigmoid'
+  ddim_sampling_eta: 0.0
+  auto_normalize: True
+  offset_noise_strength: 0.0 
+  min_snr_gamma: 5
+  min_snr_loss_weight: False
+
+trainer:
+  batch_size: 8
+  device: cuda
+  lr: 1e-4
+  max_epochs: 100
+  num_workers: 4
+  shuffle: True
+  pin_memory: True
+
+  amp: True
+  
+  ema_decay: 0.995
+  ema_update_every: 10
+  adam_betas : [0.9, 0.999]
+  sample_frequency: 10
+  grad_accumulate: 4
+  save_best_and_latest_only: False
+  max_grad_norm: 1.
+
+  split_batches: True
+  mixed_precision_type: 'fp16'
+  
+
+  num_samples: 4
+
+  results_dir: 'results'
+  
+  lr_decay: 
+    type: 'step'
+    step_size: 100
+    gamma: 0.5
+  
+  calculate_fid: True
+  num_fid_samples: 50
+  inception_block_idx: 2048
+
+
