@@ -86,8 +86,14 @@ def plot_combined_map(
         ),
         crs=roads_gdf.crs,
     )
-    xlim = (combined_gdf.total_bounds[0], combined_gdf.total_bounds[2])  # Minx, Maxx
-    ylim = (combined_gdf.total_bounds[1], combined_gdf.total_bounds[3])  # Miny, Maxy
+    xlim = (
+        combined_gdf.total_bounds[0],
+        combined_gdf.total_bounds[0] + (config["plt_config"]["default"]["radius"] * 2),
+    )  # Minx, Maxx
+    ylim = (
+        combined_gdf.total_bounds[1],
+        combined_gdf.total_bounds[1] + (config["plt_config"]["default"]["radius"] * 2),
+    )  # Miny, Maxy
 
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)

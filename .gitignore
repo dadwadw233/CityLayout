@@ -2,6 +2,10 @@
 __pycache__/
 *.py[cod]
 *$py.class
+
+/runs
+/tensorboard
+/results
 /data
 /cache
 **/cache

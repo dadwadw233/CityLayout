@@ -1,3 +1,7 @@
+# Description: Configuration file for the OSM cities data pipeline
+# input: The path to the file containing the city coordinates
+# output: The path to the directory to save the OSM data
+# pop_file_path: The path to the population density file
 path:
   input: "./city_coordinates.txt"
   output: "../../data/raw/osm/cities"
@@ -52,7 +56,10 @@ data:
       "sand",
       "valley",
     ]
+  # dem data source
   dem_type: "SRTMGL1"
+
+  # The coordinate reference system to use
   crs: "EPSG:4326"
 
 network:
