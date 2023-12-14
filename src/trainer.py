@@ -47,7 +47,7 @@ class Trainer(object):
     ):
         super().__init__()
         assert trainer_config is not None, "trainer_config must be provided"
-        self.vis = OSMVisulizer()
+        self.vis = OSMVisulizer(mapping=trainer_config['vis']['channel_to_rgb'])
         # accelerator
 
         self.accelerator = Accelerator(
@@ -96,7 +96,7 @@ class Trainer(object):
 
         self.max_epochs = trainer_config['trainer']['max_epochs']
         self.max_step = self.max_epochs * len(self.ds)//(self.batch_size*self.gradient_accumulate_every)
-        self.sample_step = self.save_and_sample_every*len(self.ds)//(self.batch_size*self.gradient_accumulate_every)
+        self.sample_step = self.save_and_sample_every*(len(self.ds)//(self.batch_size*self.gradient_accumulate_every))
 
         # optimizer
 
@@ -218,13 +218,15 @@ class Trainer(object):
             self.accelerator.print(f'diffusion steps: {self.config["diffusion"]["timesteps"]}')
             self.accelerator.print(f'ddim sampling steps: {self.config["diffusion"]["ddim_timestep"]}')
 
+            self.accelerator.print(f'sample per {self.sample_step} steps')
+
     def train(self):
         accelerator = self.accelerator
         device = accelerator.device
 
         self.model_summarize()
         self.trainer_config_summarize()
-        writer = SummaryWriter(log_dir='./tensorboard')
+        writer = SummaryWriter()
 
         with tqdm(initial = self.step, total = self.max_step, disable = not accelerator.is_main_process) as pbar:
 
@@ -272,9 +274,10 @@ class Trainer(object):
 
                         
                         # utils.save_image(all_images, str(self.results_folder / f'sample-{milestone}.png'), nrow = int(math.sqrt(self.num_samples)))
-                        self.vis.visulize_onehot_layout(all_images, str(self.results_folder / f'sample-{milestone}.png'))
+                        self.vis.visulize_onehot_layout(all_images, str(self.results_folder / f'sample-{milestone}-onehot.png'))
+                        self.vis.visualize_rgb_layout(all_images, str(self.results_folder / f'sample-{milestone}-rgb.png'))
                         # whether to calculate fid
-
+                        
                         if self.calculate_fid:
                             try:
                                 fid_score = self.fid_scorer.fid_score()
@@ -293,3 +296,4 @@ class Trainer(object):
                 pbar.update(1)
 
         accelerator.print('training complete')
+        writer.close()

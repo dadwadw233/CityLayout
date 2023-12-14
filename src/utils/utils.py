@@ -4,6 +4,7 @@ import numpy as np
 import os
 import math
 import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
 
 
 def cycle(dl):
@@ -17,32 +18,40 @@ def load_config(config_path):
         config = yaml.safe_load(file)
     return config
 
+
 def exists(x):
     return x is not None
+
 
 def default(val, d):
     if exists(val):
         return val
     return d() if callable(d) else d
 
-def cast_tuple(t, length = 1):
+
+def cast_tuple(t, length=1):
     if isinstance(t, tuple):
         return t
-    return ((t,) * length)
+    return (t,) * length
+
 
 def divisible_by(numer, denom):
     return (numer % denom) == 0
 
+
 def identity(t, *args, **kwargs):
     return t
+
 
 def cycle(dl):
     while True:
         for data in dl:
             yield data
 
+
 def has_int_squareroot(num):
     return (math.sqrt(num) ** 2) == num
+
 
 def num_to_groups(num, divisor):
     groups = num // divisor
@@ -52,38 +61,85 @@ def num_to_groups(num, divisor):
         arr.append(remainder)
     return arr
 
+
 def convert_image_to_fn(img_type, image):
     if image.mode != img_type:
         return image.convert(img_type)
     return image
 
+
 # normalization functions
+
 
 def normalize_to_neg_one_to_one(img):
     return img * 2 - 1
 
+
 def unnormalize_to_zero_to_one(t):
     return (t + 1) * 0.5
+
 
 # small helper modules
 # visulization class
 class OSMVisulizer:
-    
-    def __init__(self):
+    def __init__(self, mapping):
         self.name = "OSMVisulizer"
-    def visulize_onehot_layout(self, data, path):
-        b, c , h, w = data.shape
+        self.channel_to_rgb = mapping
+
+    def visulize_onehot_layout(self, data, path) -> None:
+        b, c, h, w = data.shape
         print(path)
-        
+
         fig, axes = plt.subplots(b, c, figsize=(20, 20))
-        
+
         for i in range(b):
             for j in range(c):
-                axes[i, j].imshow(data[i, j, :, :].cpu().numpy(), cmap='gray')
-                axes[i, j].axis('off')
+                axes[i, j].imshow(data[i, j, :, :].cpu().numpy(), cmap="gray")
+                axes[i, j].axis("off")
         plt.savefig(path)
         plt.close()
-        
 
-        
+    def hex_or_name_to_rgb(self, color):
+        """
+        将16进制或颜色名称转换为RGB格式。
+        :param color: 16进制字符串或颜色名称。
+        :return: RGB颜色的元组。
+        """
+        # 使用matplotlib的颜色转换功能
+        return mcolors.to_rgb(color)
+
+    # need test
+    def visualize_rgb_layout(self, data, path) -> np.ndarray:
+        B, C, H, W = data.shape
+        assert (
+            self.channel_to_rgb.__len__() == C
+        ), f"channel to rgb mapping length {self.channel_to_rgb.__len__()} does not match channel number {c}"
+        data = data.cpu().numpy()
+
+        fig, axs = plt.subplots(B, 1, figsize=(20, 20*B))  # 根据批次数量创建子图
+
+        for b in range(B):
+            combined_image = np.zeros((H, W, 3), dtype=np.float32)
+            for c in range(C):
+                color = np.array(self.hex_or_name_to_rgb(self.channel_to_rgb[c]))
+                mask = data[b, c] > 0
+                combined_image[mask, :] += color
+            
+            combined_image = np.clip(combined_image, 0, 1)  # 确保颜色值在0-1范围内
+            axs[b].imshow(combined_image)
+            axs[b].axis('off')  # 关闭坐标轴
+
+
+        # 绘制图像
+        plt.axis('off')
+        plt.imshow(combined_image)
+        plt.show()
+        plt.savefig(path)
+        plt.close()
+
+        # return shape : (b, h, w, c)
+        return  None
+                
+
+                
         
