@@ -150,6 +150,7 @@ class Trainer(object):
             self.best_fid = 1e10 # infinite
 
         self.config = trainer_config
+        self.data_type = dataset_config['data']['type']
 
         
 
@@ -274,8 +275,12 @@ class Trainer(object):
 
                         
                         # utils.save_image(all_images, str(self.results_folder / f'sample-{milestone}.png'), nrow = int(math.sqrt(self.num_samples)))
-                        self.vis.visulize_onehot_layout(all_images, str(self.results_folder / f'sample-{milestone}-onehot.png'))
-                        self.vis.visualize_rgb_layout(all_images, str(self.results_folder / f'sample-{milestone}-rgb.png'))
+                        if self.data_type == 'rgb':
+                            utils.save_image(all_images, str(self.results_folder / f'sample-{milestone}-rgb.png'), nrow = int(math.sqrt(self.num_samples)))
+                            self.vis.visualize_rgb_layout(all_images, str(self.results_folder / f'sample-{milestone}-c-rgb.png'))
+                        else:
+                            self.vis.visulize_onehot_layout(all_images, str(self.results_folder / f'sample-{milestone}-onehot.png'))
+                            self.vis.visualize_rgb_layout(all_images, str(self.results_folder / f'sample-{milestone}-rgb.png'))
                         # whether to calculate fid
                         
                         if self.calculate_fid:

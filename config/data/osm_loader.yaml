@@ -13,6 +13,7 @@ data:
   std: [0.0, 0.0, 0.0]
   mean: [1.0, 1.0, 1.0]
   resize: [256, 256]
+  type: "rgb"  # or one-hot
 
   # define the layout type and granularity
   # if custom is True, the layout type and granularity will be defined by 'custom_dict'
@@ -39,6 +40,13 @@ data:
           ],
         ],
     }
+
+  
+  channel_to_rgb: {
+    0: '#8F8F8F',
+    1: '#418DF0',
+    2: 'blue',
+  }
 
   # predefined mapping layout types <----> one hot feature channels
   # mapping's number of each super class ('building', 'landuse', etc) should be the same as the number of feature channels
