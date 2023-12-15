@@ -16,6 +16,7 @@ model:
   attn_heads: 4
   full_attn: None
   flash_attn: False
+  resnet_block_num: 2
 
 vis:
   channel_to_rgb: { 0: "#8F8F8F", 1: "#418DF0", 2: "blue" }

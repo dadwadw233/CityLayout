@@ -232,7 +232,8 @@ class Unet(nn.Module):
         attn_dim_head = 32,
         attn_heads = 4,
         full_attn = None,    # defaults to full attention only for inner most layer
-        flash_attn = False
+        flash_attn = False,
+        resnet_block_num = 2, # number of resnet block in each layer
     ):
         super().__init__()
 
@@ -296,8 +297,7 @@ class Unet(nn.Module):
             attn_klass = FullAttention if layer_full_attn else LinearAttention
 
             self.downs.append(nn.ModuleList([
-                block_klass(dim_in, dim_in, time_emb_dim = time_dim),
-                block_klass(dim_in, dim_in, time_emb_dim = time_dim),
+                (block_klass(dim_in, dim_in, time_emb_dim = time_dim) for _ in range(resnet_block_num)),
                 attn_klass(dim_in, dim_head = layer_attn_dim_head, heads = layer_attn_heads),
                 Downsample(dim_in, dim_out) if not is_last else nn.Conv2d(dim_in, dim_out, 3, padding = 1)
             ]))
@@ -313,8 +313,7 @@ class Unet(nn.Module):
             attn_klass = FullAttention if layer_full_attn else LinearAttention
 
             self.ups.append(nn.ModuleList([
-                block_klass(dim_out + dim_in, dim_out, time_emb_dim = time_dim),
-                block_klass(dim_out + dim_in, dim_out, time_emb_dim = time_dim),
+                (block_klass(dim_in, dim_in, time_emb_dim = time_dim) for _ in range(resnet_block_num)),
                 attn_klass(dim_out, dim_head = layer_attn_dim_head, heads = layer_attn_heads),
                 Upsample(dim_out, dim_in) if not is_last else  nn.Conv2d(dim_out, dim_in, 3, padding = 1)
             ]))
