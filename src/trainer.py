@@ -302,3 +302,26 @@ class Trainer(object):
 
         accelerator.print('training complete')
         writer.close()
+
+
+    def sample(self, num_samples=16, batch_size=16, milestone=None):
+
+        self.load(milestone)
+        self.model.eval()
+
+        assert num_samples % batch_size == 0, f"num_samples ({num_samples}) must be divisible by batch_size ({batch_size})"
+
+
+        batches = num_to_groups(num_samples, batch_size)
+        all_images_list = list(map(lambda n: self.ema.ema_model.sample(batch_size=n), batches))
+
+        all_images = torch.cat(all_images_list, dim = 0)
+
+        if self.calculate_fid and self.accelerator.is_main_process:
+            try:
+                fid_score = self.fid_scorer.fid_score()
+                self.accelerator.print(f'fid_score: {fid_score}')
+            except:
+                self.accelerator.print('fid computation failed')
+
+        return all_images
