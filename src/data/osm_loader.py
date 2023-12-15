@@ -103,7 +103,7 @@ class OSMDataset(Dataset):
 
         # return shape : (, h, w, c)
         
-        return  rgb_image.permute(2, 0, 1)
+        return  self.minmax(rgb_image.permute(2, 0, 1))
 
     def __len__(self):
         return len(self.data_list)
