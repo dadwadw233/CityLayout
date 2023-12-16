@@ -46,4 +46,9 @@ trainer = Trainer(
     trainer_config=trainer_config,
 )
 
-trainer.train()
+if trainer_config['trainer']['mode'] == 'eval':
+    ret = trainer.sample(trainer_config['trainer']['num_samples'], trainer_config['trainer']['batch_size'], trainer_config['trainer']['milestone'])
+    print(ret.shape)
+
+else :
+    trainer.train()

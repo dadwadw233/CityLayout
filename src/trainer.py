@@ -125,6 +125,8 @@ class Trainer(object):
 
         self.calculate_fid = trainer_config['trainer']['calculate_fid'] and self.accelerator.is_main_process
         
+        self.config = trainer_config
+        self.data_type = dataset_config['data']['type']
 
         if self.calculate_fid:
             if not is_ddim_sampling:
@@ -136,12 +138,14 @@ class Trainer(object):
                 batch_size=self.batch_size,
                 dl=self.dl,
                 sampler=self.ema.ema_model,
-                channels=self.channels,
+                channels=3,
                 accelerator=self.accelerator,
                 stats_dir=self.results_folder,
                 device=self.device,
                 num_fid_samples=trainer_config['trainer']['num_fid_samples'],
                 inception_block_idx=trainer_config['trainer']['inception_block_idx'],
+                data_type=self.data_type,
+                mapping=trainer_config['vis']['channel_to_rgb'],
             )
         self.save_best_and_latest_only = trainer_config['trainer']['save_best_and_latest_only']
 
@@ -149,8 +153,7 @@ class Trainer(object):
             assert self.calculate_fid, "`calculate_fid` must be True to provide a means for model evaluation for `save_best_and_latest_only`."
             self.best_fid = 1e10 # infinite
 
-        self.config = trainer_config
-        self.data_type = dataset_config['data']['type']
+        
 
         
 
@@ -318,10 +321,10 @@ class Trainer(object):
         all_images = torch.cat(all_images_list, dim = 0)
 
         if self.calculate_fid and self.accelerator.is_main_process:
-            try:
+            
                 fid_score = self.fid_scorer.fid_score()
                 self.accelerator.print(f'fid_score: {fid_score}')
-            except:
-                self.accelerator.print('fid computation failed')
+            # except:
+            #     self.accelerator.print('fid computation failed')
 
         return all_images
