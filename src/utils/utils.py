@@ -5,7 +5,7 @@ import os
 import math
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
-
+from torchvision import transforms
 
 def cycle(dl):
     while True:
@@ -86,6 +86,11 @@ class OSMVisulizer:
         self.name = "OSMVisulizer"
         self.channel_to_rgb = mapping
 
+    def minmax(self, data):
+        data = data - data.min()
+        data = data / data.max()
+        return data
+    
     def visulize_onehot_layout(self, data, path) -> None:
         b, c, h, w = data.shape
         print(path)
@@ -100,11 +105,7 @@ class OSMVisulizer:
         plt.close()
 
     def hex_or_name_to_rgb(self, color):
-        """
-        将16进制或颜色名称转换为RGB格式。
-        :param color: 16进制字符串或颜色名称。
-        :return: RGB颜色的元组。
-        """
+
         # 使用matplotlib的颜色转换功能
         return mcolors.to_rgb(color)
 
@@ -139,6 +140,28 @@ class OSMVisulizer:
 
         # return shape : (b, h, w, c)
         return  None
+    
+    def onehot_to_rgb(self, data):
+        B, C, H, W = data.shape
+        assert (
+            self.channel_to_rgb.__len__() == C
+        ), f"channel to rgb mapping length {self.channel_to_rgb.__len__()} does not match channel number {c}"
+
+
+        combined_image = torch.zeros((B, H, W, 3), dtype=torch.float32, device=data.device)
+
+        for b in range(B):
+            for c in range(C):
+                color = torch.tensor(self.hex_or_name_to_rgb(self.channel_to_rgb[c]), device=data.device)
+                mask = data[b, c] > 0
+                combined_image[b, mask, :] += color
+        
+        combined_image = self.minmax(combined_image.permute(0, 3, 1, 2))
+
+        if torch.isnan(combined_image).any():
+            combined_image[torch.isnan(combined_image)] = 0
+
+        return combined_image
                 
 
                 
