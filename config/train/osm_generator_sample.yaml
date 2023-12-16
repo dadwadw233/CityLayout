@@ -69,5 +69,5 @@ trainer:
   calculate_fid: True
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
-  num_fid_samples: 2048
+  num_fid_samples: 30000
   inception_block_idx: 2048

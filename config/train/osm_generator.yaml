@@ -49,7 +49,7 @@ trainer:
   shuffle: True
   pin_memory: True
 
-  amp: True
+  amp: False
 
   ema_decay: 0.995
   ema_update_every: 20
@@ -64,7 +64,7 @@ trainer:
 
   num_samples: 4
 
-  results_dir: "results/rgb/predv_10000"
+  results_dir: "results/one-hot/predv_10000"
 
   calculate_fid: False
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur

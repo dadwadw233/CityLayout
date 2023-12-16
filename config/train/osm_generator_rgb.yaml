@@ -41,7 +41,7 @@ diffusion:
 trainer:
   mode: "train"
   milestone: 6
-  batch_size: 4
+  batch_size: 8
   device: cuda
   lr: 5e-4
   max_epochs: 1000
@@ -64,7 +64,7 @@ trainer:
 
   num_samples: 4
 
-  results_dir: "results/rgb/predv_10000"
+  results_dir: "results/rgb/predv_10000_new"
 
   calculate_fid: False
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
