@@ -40,6 +40,8 @@ diffusion:
 
 trainer:
   batch_size: 8
+  mode: "train"
+  milestone: 6
   device: cuda
   lr: 3e-4
   max_epochs: 400

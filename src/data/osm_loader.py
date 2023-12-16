@@ -144,11 +144,11 @@ class OSMDataset(Dataset):
 
 
 
-        # if self.transform:
-        #     data_dict = self.transform(data_dict)
-        # else:
-        #     for key in data_dict.keys():
-        #         data_dict[key] = self.normalize(self.resize(data_dict[key]))
+        if self.transform:
+            data_dict = self.transform(data_dict)
+        else:
+            for key in data_dict.keys():
+                data_dict[key] = self.resize(data_dict[key])
 
         data_dict['name'] = data_name
         if self.type == 'rgb':
