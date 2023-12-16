@@ -2,9 +2,24 @@ from model.DDPM import GaussianDiffusion
 from model.Unet import Unet
 from trainer import Trainer
 from utils.utils import load_config
+import argparse
 
-data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml')
-trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml')
+argparser = argparse.ArgumentParser()
+argparser.add_argument('--train_type', type=str, default='one-hot')
+argparser.add_argument('--eval', type=str, default='False')
+
+
+train_type = argparser.parse_args().train_type
+if train_type == 'one-hot':
+    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml')
+    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml')
+elif train_type == 'rgb':
+    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader_rgb.yaml')
+    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_rgb.yaml')
+
+if argparser.parse_args().eval == 'True':
+    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_sample.yaml')
+
 
 model = Unet(
     dim = trainer_config['model']['dim'],
