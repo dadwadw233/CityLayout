@@ -79,7 +79,7 @@ class OSMDataset(Dataset):
             layout_list.append(layer)
 
 
-        return transforms.Normalize((0.0), (1.0))(torch.cat(layout_list, dim=-1).permute(2, 0, 1).float())
+        return self.clamp(torch.cat(layout_list, dim=-1).permute(2, 0, 1).float())
 
     def hex_or_name_to_rgb(self, color):
 
@@ -144,11 +144,11 @@ class OSMDataset(Dataset):
 
 
 
-        if self.transform:
-            data_dict = self.transform(data_dict)
-        else:
-            for key in data_dict.keys():
-                data_dict[key] = self.normalize(self.resize(data_dict[key]))
+        # if self.transform:
+        #     data_dict = self.transform(data_dict)
+        # else:
+        #     for key in data_dict.keys():
+        #         data_dict[key] = self.normalize(self.resize(data_dict[key]))
 
         data_dict['name'] = data_name
         if self.type == 'rgb':
@@ -158,6 +158,10 @@ class OSMDataset(Dataset):
         else:
             raise ValueError('type must be rgb or one-hot')
 
+        
+        data_dict['layout'][torch.isnan(data_dict['layout'])] = 0
+        data_dict['layout'][torch.isinf(data_dict['layout'])] = 0
+        
         h5py.File.close(data)
 
         return data_dict
