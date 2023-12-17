@@ -43,9 +43,9 @@ data:
 
   
   channel_to_rgb: {
-    0: '#8F8F8F',
-    1: '#418DF0',
-    2: 'blue',
+    0: 'white',
+    1: 'blue',
+    2: 'red',
   }
 
   # predefined mapping layout types <----> one hot feature channels

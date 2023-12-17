@@ -78,8 +78,9 @@ class OSMDataset(Dataset):
             layer = data[:, :, indices].sum(dim=-1, keepdim=True)
             layout_list.append(layer)
 
+        ret = self.clamp(torch.cat(layout_list, dim=-1).permute(2, 0, 1).float())
 
-        return self.clamp(torch.cat(layout_list, dim=-1).permute(2, 0, 1).float())
+        return ret
 
     def hex_or_name_to_rgb(self, color):
 
@@ -98,12 +99,9 @@ class OSMDataset(Dataset):
             mask = data[c] > 0
             rgb_image[mask, :] += color
             
-        # combined_image = torch.clip(combined_image, 0, 1)  # 确保颜色值在0-1范围内
-        
-
         # return shape : (, h, w, c)
-        
-        return  self.minmax(rgb_image.permute(2, 0, 1))
+
+        return  self.clamp(rgb_image.permute(2, 0, 1))
 
     def __len__(self):
         return len(self.data_list)
@@ -163,5 +161,11 @@ class OSMDataset(Dataset):
         data_dict['layout'][torch.isinf(data_dict['layout'])] = 0
         
         h5py.File.close(data)
+
+        print(data_dict['layout'].max(), data_dict['layout'].min())
+
+        if (data_dict['layout'].max() == 0) and (data_dict['layout'].min() == 0.0):
+            print('data error')
+            return self.__getitem__(np.random.randint(0, len(self.data_list)))
 
         return data_dict
