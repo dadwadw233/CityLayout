@@ -26,7 +26,7 @@ data:
     config_path: "config/data/osm_loader.yaml"
 
 diffusion:
-  timesteps: 4000
+  timesteps: 10000
   ddim_timestep: 10
   image_size: 256
   name: DDPM
@@ -40,7 +40,7 @@ diffusion:
 
 trainer:
   mode: "eval"
-  milestone: 6
+  milestone: 40
   batch_size: 4
   device: cuda
   lr: 3e-4
@@ -64,10 +64,10 @@ trainer:
 
   num_samples: 4
 
-  results_dir: "results/one-hot/bwr"
+  results_dir: "results/one-hot/predv_10000"
 
   calculate_fid: True
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
-  num_fid_samples: 30000
-  inception_block_idx: 2048
+  num_fid_samples: 768
+  inception_block_idx: 768
