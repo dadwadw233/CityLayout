@@ -8,6 +8,7 @@ argparser = argparse.ArgumentParser()
 argparser.add_argument('--train_type', type=str, default='one-hot')
 argparser.add_argument('--eval', type=str, default='False')
 
+print('training data type: ',argparser.parse_args().train_type)
 
 train_type = argparser.parse_args().train_type
 if train_type == 'one-hot':

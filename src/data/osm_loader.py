@@ -84,7 +84,6 @@ class OSMDataset(Dataset):
 
     def hex_or_name_to_rgb(self, color):
 
-        # 使用matplotlib的颜色转换功能
         return mcolors.to_rgb(color)
     
     def generate_rgb_layout(self, data) -> torch.Tensor:
@@ -162,7 +161,7 @@ class OSMDataset(Dataset):
         
         h5py.File.close(data)
 
-        print(data_dict['layout'].max(), data_dict['layout'].min())
+        
 
         if (data_dict['layout'].max() == 0) and (data_dict['layout'].min() == 0.0):
             print('data error')

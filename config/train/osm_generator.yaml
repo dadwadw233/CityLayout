@@ -43,7 +43,7 @@ trainer:
   mode: "train"
   milestone: 6
   device: cuda
-  lr: 3e-4
+  lr: 1e-5
   max_epochs: 400
   num_workers: 16
   shuffle: True
@@ -64,7 +64,7 @@ trainer:
 
   num_samples: 4
 
-  results_dir: "results/one-hot/predv_10000"
+  results_dir: "results/one-hot/predv_10000_low_lr"
 
   calculate_fid: False
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
