@@ -22,7 +22,7 @@ data:
     {
       "building": [["building"]],
       "landuse": [],
-      "nature":
+      "natural":
         [
           # ["grassland", "tree", "tree_row", "wood"],
           ["water", "wetland", "beach", "sand"],
@@ -67,7 +67,7 @@ data:
         "recreation_ground": 9,
         "default": 10,
       }
-    nature:
+    natural:
       {
         "grassland": 0,
         "tree": 1,
