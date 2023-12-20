@@ -5,7 +5,7 @@
 path:
   input: "./city_coordinates.txt"
   output: "../../data/raw/osm/cities"
-  pop_file_path: "../../data/raw/pop/GHS_POP_E2030_GLOBE_R2023A_54009_100_V1_0.tif"
+  pop_file_path: "../../data/raw/pop/kontur/kontur_population_20231101.gpkg"
 
 data:
   # The radius in **meters** to search for landmarks
