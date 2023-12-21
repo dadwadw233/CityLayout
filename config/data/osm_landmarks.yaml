@@ -9,53 +9,10 @@ path:
 
 data:
   # The radius in **meters** to download the OSM data
-  radius: 1000
-  road_types:
-    [
-      "motorway",
-      "trunk",
-      "primary",
-      "secondary",
-      "tertiary",
-      "residential",
-      "service",
-    ]
-  landuse_types:
-    [
-      "commercial",
-      "retail",
-      "industrial",
-      "depot",
-      "port",
-      "residual",
-      "farmland",
-      "meadow",
-      "orchard",
-      "vineyard",
-      "plant_nursery",
-      "forest",
-      "farmyard",
-      "grass",
-      "greenfield",
-      "military",
-      "railway",
-      "recreation_ground",
-      "fairground",
-    ]
-  nature_types:
-    [
-      "tree",
-      "tree_row",
-      "wood",
-      "grassland",
-      "beach",
-      "water",
-      "wetland",
-      "bare_rock",
-      "hill",
-      "sand",
-      "valley",
-    ]
+  radius: 128
+  road_types: "all"
+  landuse_types: "all"
+  nature_types: "all"
   # dem data source
   dem_type: "SRTMGL1"
 
