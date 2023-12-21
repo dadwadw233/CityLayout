@@ -5,7 +5,7 @@ import os
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
-
+import matplotlib.colors as mcolors
 class OSMDataset(Dataset):
     def __init__(self,
                   data_dir=None, 
@@ -34,6 +34,10 @@ class OSMDataset(Dataset):
             transforms.Resize((config['data']['resize'])),
         ])
         self.normalize_method = config['data']['normalizer']
+
+        self.type = config['data']['type']
+        self.channel_to_rgb = config['data']['channel_to_rgb']
+
         if self.normalize_method == 'minmax':
             self.normalize = self.minmax
         elif self.normalize_method == 'zscore':
@@ -74,9 +78,29 @@ class OSMDataset(Dataset):
             layer = data[:, :, indices].sum(dim=-1, keepdim=True)
             layout_list.append(layer)
 
+        ret = self.clamp(torch.cat(layout_list, dim=-1).permute(2, 0, 1).float())
 
-        return torch.cat(layout_list, dim=-1).permute(2, 0, 1).float()
+        return ret
 
+    def hex_or_name_to_rgb(self, color):
+
+        return mcolors.to_rgb(color)
+    
+    def generate_rgb_layout(self, data) -> torch.Tensor:
+        C, H, W = data.shape
+        assert (
+            self.channel_to_rgb.__len__() == C
+        ), f"channel to rgb mapping length {self.channel_to_rgb.__len__()} does not match channel number {c}"
+
+        rgb_image = torch.zeros((H, W, 3), dtype=torch.float32,device=data.device)
+        for c in range(C):
+            color = torch.tensor(self.hex_or_name_to_rgb(self.channel_to_rgb[c]))
+            mask = data[c] > 0
+            rgb_image[mask, :] += color
+            
+        # return shape : (, h, w, c)
+
+        return  self.clamp(rgb_image.permute(2, 0, 1))
 
     def __len__(self):
         return len(self.data_list)
@@ -121,11 +145,26 @@ class OSMDataset(Dataset):
             data_dict = self.transform(data_dict)
         else:
             for key in data_dict.keys():
-                data_dict[key] = self.normalize(self.resize(data_dict[key]))
+                data_dict[key] = self.resize(data_dict[key])
 
         data_dict['name'] = data_name
-        data_dict['layout'] = torch.cat([data_dict[key] for key in data_dict.keys() if key != 'name'], dim=0)
+        if self.type == 'rgb':
+            data_dict['layout'] = self.generate_rgb_layout(torch.cat([data_dict[key] for key in data_dict.keys() if key != 'name'], dim=0))
+        elif self.type == 'one-hot':
+            data_dict['layout'] = torch.cat([data_dict[key] for key in data_dict.keys() if key != 'name'], dim=0)
+        else:
+            raise ValueError('type must be rgb or one-hot')
 
+        
+        data_dict['layout'][torch.isnan(data_dict['layout'])] = 0
+        data_dict['layout'][torch.isinf(data_dict['layout'])] = 0
+        
         h5py.File.close(data)
+
+        
+
+        if (data_dict['layout'].max() == 0) and (data_dict['layout'].min() == 0.0):
+            print('data error')
+            return self.__getitem__(np.random.randint(0, len(self.data_list)))
 
         return data_dict

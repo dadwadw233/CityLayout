@@ -68,6 +68,106 @@ def plot_dem(dem_file, output_filename, fig_size=(10, 10), xlim=None, ylim=None)
     plt.savefig(output_filename)
     plt.close()
 
+def data_handle(gdf, data_type, config, out_path, conbained_ax, xlim, ylim):
+    feature_img_dict = {}
+    if data_type=='landuse':
+        gdf["area"] = gdf.geometry.area
+        gdf = gdf.sort_values(by="area", ascending=True)
+    if data_type=='natural':
+        nature_cols = ["natural"]
+        for col in nature_cols:
+            if col in gdf.columns:
+                gdf[col] = gdf[col].fillna("")
+            else:
+                gdf[col] = ""
+
+    color_dict = config["data_config"][data_type]["color_dict"]
+
+    feature_list = config["data_config"][data_type]["feature_list"]
+
+    fig_, ax_ = plt.subplots(figsize=config["plt_config"]["default"]["figsize"])
+    ax_.set_xlim(xlim)
+    ax_.set_ylim(ylim)
+    ax_.axis("off")
+    image_array = None
+
+    if data_type == 'road' or data_type == 'node':
+        gdf_key = 'highway'
+    else:
+        gdf_key = data_type
+    for _type in gdf[gdf_key].unique():
+
+        gdf_type = gdf[gdf[gdf_key] == _type]
+
+        if _type in color_dict.keys():
+            gdf_type.plot(
+                ax=ax_,
+                color=color_dict.get(_type, "#FFFFFF"),
+                alpha=config["plt_config"][data_type]["alpha"],
+            )
+            gdf_type.plot(
+                ax=conbained_ax,
+                color=color_dict.get(_type, "#FFFFFF"),
+                alpha=config["plt_config"][data_type]["alpha"],
+            )
+
+        if _type in feature_list:
+
+            one_hot_fig, one_hot_ax = plt.subplots(figsize=config["plt_config"]["default"]["figsize"])
+            one_hot_ax.set_xlim(xlim)
+            one_hot_ax.set_ylim(ylim)
+            one_hot_ax.axis("off")
+            gdf_type.plot(ax=one_hot_ax, cmap="gray")
+            # save image to buffer
+            buf = BytesIO()
+            plt.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
+            buf.seek(0)
+
+            image = Image.open(buf)
+            image_array = np.array(image)
+            data = ~image_array[:, :, 0:1]
+            data[data != 0] = 1
+            feature_img_dict[_type] = data
+
+            plt.close(one_hot_fig)
+            buf.close()
+    
+    for feature in feature_list:
+        if feature not in feature_img_dict.keys():
+            feature_img_dict[feature] = np.zeros(
+                (image_array.shape[0], image_array.shape[1], 1)
+            )
+        
+    plt.savefig(
+        os.path.join(out_path, f'{data_type}.jpg'),
+        pad_inches=config["plt_config"][data_type]["pad_inches"],
+        bbox_inches=config["plt_config"][data_type]["bbox_inches"],
+        format=config["plt_config"][data_type]["format"],
+    )
+    plt.close(fig_)
+
+
+    # fig, axs = plt.subplots(1, len(feature_img_dict), figsize=(20, 8))
+    # for index,label in enumerate(feature_list):
+
+    #     ax_inner = axs[index]
+    #     ax_inner.axis('off')
+    #     ax_inner.imshow(feature_img_dict[label], cmap='gray')
+    #     ax_inner.set_title(f'Label {label}')
+
+    # plt.savefig(os.path.join(os.path.dirname(output_filename), 'nature_multi_channel.jpg'))
+    # plt.close(fig)
+
+    feature_img_dict = {k: feature_img_dict[k] for k in feature_list}
+    data_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
+    np.save(
+        os.path.join(out_path, f'{data_type}.npy'),
+        data_matrix,
+    )
+
+    return True
+
+
 
 def plot_combined_map(
     roads_gdf,
@@ -101,247 +201,20 @@ def plot_combined_map(
     plt.axis("off")
 
     if not landuse_gdf.empty:
-        feature_img_dict = {}
-        landuse_gdf["area"] = landuse_gdf.geometry.area
-
-        landuse_gdf = landuse_gdf.sort_values(by="area", ascending=True)
-
-        # 绘制单独的landuse层
-        color_dict = config["data_config"]["landuse"]["color_dict"]
-
-        feature_list = config["data_config"]["landuse"]["feature_list"]
-
-        fig_, ax_ = plt.subplots(figsize=config["plt_config"]["default"]["figsize"])
-        ax_.set_xlim(xlim)
-        ax_.set_ylim(ylim)
-
-        ax_.axis("off")
-
-        for landuse_type in landuse_gdf["landuse"].unique():
-            # 只选取当前 landuse 类型的数据
-            gdf_type = landuse_gdf[landuse_gdf["landuse"] == landuse_type]
-
-            if landuse_type in color_dict.keys():
-                gdf_type.plot(
-                    ax=ax_,
-                    color=color_dict.get(landuse_type, "#FFFFFF"),
-                    alpha=config["plt_config"]["landuse"]["alpha"],
-                )
-                gdf_type.plot(
-                    ax=ax,
-                    color=color_dict.get(landuse_type, "#FFFFFF"),
-                    alpha=config["plt_config"]["landuse"]["alpha"],
-                )
-
-            if landuse_type in feature_list:
-                gdf_type.plot(cmap="gray")
-
-                plt.axis("off")
-                # set xlim and ylim
-                plt.xlim(xlim)
-                plt.ylim(ylim)
-                plt.tight_layout()
-                # save image to buffer
-                buf = BytesIO()
-                plt.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
-                buf.seek(0)
-
-                image = Image.open(buf)
-                image_array = np.array(image)
-                data = ~image_array[:, :, 0:1]
-                data[data != 0] = 1
-                feature_img_dict[landuse_type] = data
-
-                plt.close()
-                buf.close()
-
-        for feature in feature_list:
-            if feature not in feature_img_dict.keys():
-                feature_img_dict[feature] = np.zeros(
-                    (image_array.shape[0], image_array.shape[1], 1)
-                )
-
-        plt.savefig(
-            os.path.join(os.path.dirname(output_filename), "landuse.jpg"),
-            pad_inches=config["plt_config"]["landuse"]["pad_inches"],
-            bbox_inches=config["plt_config"]["landuse"]["bbox_inches"],
-            format=config["plt_config"]["landuse"]["format"],
-        )
-        plt.close(fig_)
-
-        # fig, axs = plt.subplots(1, len(feature_img_dict), figsize=(20, 8))
-        # for index,label in enumerate(feature_list):
-
-        #     ax_inner = axs[index]
-        #     ax_inner.axis('off')
-        #     ax_inner.imshow(feature_img_dict[label], cmap='gray')
-        #     ax_inner.set_title(f'Label {label}')
-
-        # plt.savefig(os.path.join(os.path.dirname(output_filename), 'landuse_multi_channel.jpg'))
-        # plt.close(fig)
-
-        feature_img_dict = {k: feature_img_dict[k] for k in feature_list}
-        landuse_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
-        np.save(
-            os.path.join(os.path.dirname(output_filename), "landuse.npy"),
-            landuse_matrix,
-        )
+        data_handle(landuse_gdf, 'landuse', config, os.path.dirname(output_filename), ax, xlim, ylim)
 
     if not nature_gdf.empty:
-        feature_img_dict = {}
-        nature_cols = ["natural"]
-        for col in nature_cols:
-            if col in nature_gdf.columns:
-                nature_gdf[col] = nature_gdf[col].fillna("")
-            else:
-                nature_gdf[col] = ""
+        data_handle(nature_gdf, 'natural', config, os.path.dirname(output_filename), ax, xlim, ylim)
 
-        color_dict = config["data_config"]["nature"]["color_dict"]
-
-        feature_list = config["data_config"]["nature"]["feature_list"]
-        fig_, ax_ = plt.subplots(figsize=config["plt_config"]["default"]["figsize"])
-        ax_.set_xlim(xlim)
-        ax_.set_ylim(ylim)
-        ax_.axis("off")
-
-        for nature_type in nature_gdf["natural"].unique():
-            gdf_type = nature_gdf[nature_gdf["natural"] == nature_type]
-
-            if nature_type in color_dict.keys():
-                gdf_type.plot(ax=ax_, color=color_dict[nature_type], edgecolor="black")
-                gdf_type.plot(
-                    ax=ax,
-                    color=color_dict[nature_type],
-                    edgecolor="black",
-                    alpha=config["plt_config"]["nature"]["alpha"],
-                )
-
-            if nature_type in feature_list:
-                gdf_type.plot(cmap="gray")
-
-                plt.axis("off")
-                # set xlim and ylim
-                plt.xlim(xlim)
-                plt.ylim(ylim)
-                plt.tight_layout()
-                # save image to buffer
-                buf = BytesIO()
-                plt.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
-                buf.seek(0)
-
-                image = Image.open(buf)
-                image_array = np.array(image)
-                data = ~image_array[:, :, 0:1]
-                data[data != 0] = 1
-                feature_img_dict[nature_type] = data
-
-                plt.close()
-                buf.close()
-
-        for feature in feature_list:
-            if feature not in feature_img_dict.keys():
-                feature_img_dict[feature] = np.zeros(
-                    (image_array.shape[0], image_array.shape[1], 1)
-                )
-
-        plt.savefig(
-            os.path.join(os.path.dirname(output_filename), "nature.jpg"),
-            bbox_inches=config["plt_config"]["nature"]["bbox_inches"],
-            format=config["plt_config"]["nature"]["format"],
-            pad_inches=config["plt_config"]["nature"]["pad_inches"],
-        )
-
-        plt.close(fig_)
-
-        # fig, axs = plt.subplots(1, len(feature_img_dict), figsize=(20, 8))
-        # for index,label in enumerate(feature_list):
-
-        #     ax_inner = axs[index]
-        #     ax_inner.axis('off')
-        #     ax_inner.imshow(feature_img_dict[label], cmap='gray')
-        #     ax_inner.set_title(f'Label {label}')
-
-        # plt.savefig(os.path.join(os.path.dirname(output_filename), 'nature_multi_channel.jpg'))
-        # plt.close(fig)
-        feature_img_dict = {k: feature_img_dict[k] for k in feature_list}
-        nature_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
-        np.save(
-            os.path.join(os.path.dirname(output_filename), "nature.npy"), nature_matrix
-        )
 
     if not roads_gdf.empty:
-        feature_img_dict = {}
+        data_handle(roads_gdf, 'road', config, os.path.dirname(output_filename), ax, xlim, ylim)    
 
-        color_dict = config["data_config"]["road"]["color_dict"]
 
-        feature_list = config["data_config"]["road"]["feature_list"]
+        point_gdf = create_point_gdf_from_linestrings(roads_gdf)
 
-        fig_, ax_ = plt.subplots(figsize=config["plt_config"]["default"]["figsize"])
-        ax_.set_xlim(xlim)
-        ax_.set_ylim(ylim)
-        ax_.axis("off")
+        data_handle(point_gdf, 'node', config, os.path.dirname(output_filename), ax, xlim, ylim)
 
-        for road_type in roads_gdf["highway"].unique():
-            gdf_type = roads_gdf[roads_gdf["highway"] == road_type]
-
-            if road_type in color_dict.keys():
-                gdf_type.plot(ax=ax_, color=color_dict[road_type])
-                gdf_type.plot(
-                    ax=ax,
-                    color=color_dict[road_type],
-                    alpha=config["plt_config"]["road"]["alpha"],
-                )
-
-            if road_type in feature_list:
-                gdf_type.plot(cmap="gray")
-                # set axis off
-                plt.axis("off")
-                # set xlim and ylim
-                plt.xlim(xlim)
-                plt.ylim(ylim)
-                plt.tight_layout()
-                # save image to buffer
-                buf = BytesIO()
-                plt.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
-                buf.seek(0)
-
-                image = Image.open(buf)
-                image_array = np.array(image)
-                data = ~image_array[:, :, 0:1]
-                data[data != 0] = 1
-                feature_img_dict[road_type] = data
-
-                plt.close()
-                buf.close()
-
-        for feature in feature_list:
-            if feature not in feature_img_dict.keys():
-                feature_img_dict[feature] = np.zeros(
-                    (image_array.shape[0], image_array.shape[1], 1)
-                )
-
-        plt.savefig(
-            os.path.join(os.path.dirname(output_filename), "road.jpg"),
-            bbox_inches=config["plt_config"]["road"]["bbox_inches"],
-            format=config["plt_config"]["road"]["format"],
-            pad_inches=config["plt_config"]["road"]["pad_inches"],
-        )
-        plt.close(fig_)
-
-        # fig, axs = plt.subplots(1, len(feature_img_dict), figsize=(20, 8))
-        # for index,label in enumerate(feature_list):
-
-        #     ax_inner = axs[index]
-        #     ax_inner.axis('off')
-        #     ax_inner.imshow(feature_img_dict[label], cmap='gray')
-        #     ax_inner.set_title(f'Label {label}')
-
-        # plt.savefig(os.path.join(os.path.dirname(output_filename), 'road_multi_channel.jpg'))
-        # plt.close(fig)
-
-        feature_img_dict = {k: feature_img_dict[k] for k in feature_list}
-        road_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
-        np.save(os.path.join(os.path.dirname(output_filename), "road.npy"), road_matrix)
 
     if not buildings_gdf.empty:
         feature_img_dict = {}
@@ -406,7 +279,7 @@ def plot_combined_map(
         image_array = np.array(image)
         data = ~image_array[:, :, 0:1]
         data[data != 0] = 1
-        feature_img_dict[road_type] = data
+        feature_img_dict['building'] = data
 
         plt.close()
         buf.close()
@@ -434,8 +307,42 @@ def plot_combined_map(
     )
     plt.close()
 
+
     return xlim, ylim
 
+def create_point_gdf_from_linestrings(line_gdf):
+
+    points = []
+    highway_values = []
+
+    for _, row in line_gdf.iterrows():
+        highway_type = row['highway']  
+        line = row.geometry
+        if line.geom_type == 'LineString':
+            for xy in line.coords:
+                points.append(Point(xy))
+                highway_values.append(highway_type)
+        elif line.geom_type == 'MultiLineString':
+            for linestring in line.geoms:
+                for xy in linestring.coords:
+                    points.append(Point(xy))
+                    highway_values.append(highway_type)
+
+
+    point_gdf = gpd.GeoDataFrame({'highway': highway_values, 'geometry': points})
+
+
+    return get_repeated_points(point_gdf)
+
+def get_repeated_points(point_gdf):
+    point_gdf['coords'] = point_gdf['geometry'].apply(lambda geom: str(geom.coords[:]))
+
+    duplicated = point_gdf.duplicated(subset='coords', keep=False)
+    repeated_points_gdf = point_gdf[duplicated]
+
+    repeated_points_gdf = repeated_points_gdf.drop(columns=['coords'])
+
+    return repeated_points_gdf
 
 def plot_pop(pop_file, output_filename, fig_size=(10, 10), xlim=None, ylim=None):
     with rasterio.open(pop_file) as src:
@@ -544,11 +451,11 @@ if __name__ == "__main__":
         len(os.listdir(root_path)),
     )
 
-    # city_test_name = 'Zurich-7'
+    city_test_name = 'Zurich-7'
 
-    # process_city(city_test_name, root_path, output, yaml_config)
+    process_city(city_test_name, root_path, output, yaml_config)
 
-    # exit(0)
+    exit(0)
 
     with concurrent.futures.ProcessPoolExecutor(
         max_workers=yaml_config["params"]["max_processes"]

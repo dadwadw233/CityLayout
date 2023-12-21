@@ -232,7 +232,8 @@ class Unet(nn.Module):
         attn_dim_head = 32,
         attn_heads = 4,
         full_attn = None,    # defaults to full attention only for inner most layer
-        flash_attn = False
+        flash_attn = False,
+        resnet_block_num = 2, # number of resnet block in each layer
     ):
         super().__init__()
 

@@ -2,9 +2,25 @@ from model.DDPM import GaussianDiffusion
 from model.Unet import Unet
 from trainer import Trainer
 from utils.utils import load_config
+import argparse
 
-data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml')
-trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml')
+argparser = argparse.ArgumentParser()
+argparser.add_argument('--train_type', type=str, default='one-hot')
+argparser.add_argument('--eval', type=str, default='False')
+
+print('training data type: ',argparser.parse_args().train_type)
+
+train_type = argparser.parse_args().train_type
+if train_type == 'one-hot':
+    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml')
+    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml')
+elif train_type == 'rgb':
+    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader_rgb.yaml')
+    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_rgb.yaml')
+
+if argparser.parse_args().eval == 'True':
+    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_sample.yaml')
+
 
 model = Unet(
     dim = trainer_config['model']['dim'],
@@ -23,6 +39,7 @@ model = Unet(
     attn_heads = trainer_config['model']['attn_heads'],
     full_attn = None if trainer_config['model']['full_attn'] == 'None' else trainer_config['model']['full_attn'],   
     flash_attn = trainer_config['model']['flash_attn'],
+    resnet_block_num = trainer_config['model']['resnet_block_num'], 
 )
 
 diffusion = GaussianDiffusion(
@@ -45,4 +62,9 @@ trainer = Trainer(
     trainer_config=trainer_config,
 )
 
-trainer.train()
+if trainer_config['trainer']['mode'] == 'eval':
+    ret = trainer.sample(trainer_config['trainer']['num_samples'], trainer_config['trainer']['batch_size'], trainer_config['trainer']['milestone'])
+    print(ret.shape)
+
+else :
+    trainer.train()

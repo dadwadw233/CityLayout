@@ -8,6 +8,7 @@ from pytorch_fid.fid_score import calculate_frechet_distance
 from pytorch_fid.inception import InceptionV3
 from torch.nn.functional import adaptive_avg_pool2d
 from tqdm.auto import tqdm
+from .utils import OSMVisulizer
 
 
 def num_to_groups(num, divisor):
@@ -31,6 +32,8 @@ class FIDEvaluation:
         device="cuda",
         num_fid_samples=50000,
         inception_block_idx=2048,
+        data_type="rgb",
+        mapping=None,
     ):
         self.batch_size = batch_size
         self.n_samples = num_fid_samples
@@ -44,6 +47,8 @@ class FIDEvaluation:
         block_idx = InceptionV3.BLOCK_INDEX_BY_DIM[inception_block_idx]
         self.inception_v3 = InceptionV3([block_idx]).to(device)
         self.dataset_stats_loaded = False
+        self.vis = OSMVisulizer(mapping)
+        self.data_type = data_type
 
     def calculate_inception_features(self, samples):
         if self.channels == 1:
@@ -76,6 +81,8 @@ class FIDEvaluation:
                 except StopIteration:
                     break
                 real_samples = real_samples.to(self.device)
+                if self.data_type == "one-hot":
+                    real_samples = self.vis.onehot_to_rgb(real_samples)
                 real_features = self.calculate_inception_features(real_samples)
                 stacked_real_features.append(real_features)
             stacked_real_features = (
@@ -100,6 +107,8 @@ class FIDEvaluation:
         )
         for batch in tqdm(batches):
             fake_samples = self.sampler.sample(batch_size=batch)
+            if self.data_type == "one-hot":
+                fake_samples = self.vis.onehot_to_rgb(fake_samples)
             fake_features = self.calculate_inception_features(fake_samples)
             stacked_fake_features.append(fake_features)
         stacked_fake_features = torch.cat(stacked_fake_features, dim=0).cpu().numpy()

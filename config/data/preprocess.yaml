@@ -11,7 +11,7 @@ path:
 # dump_h5: whether to dump the h5 file
 # max_processes: the maximum number of processes to use for preprocessing the geojson files
 params:
-  init_osm: True
+  init_osm: False
   osm_validation: True
   image_validation: True
   dump_h5: True
@@ -33,13 +33,19 @@ plt_config:
     format: "jpg"
     pad_inches: 0
 
-  nature:
+  natural:
     alpha: 0.5
     bbox_inches: "tight"
     format: "jpg"
     pad_inches: 0
 
   road:
+    alpha: 0.5
+    bbox_inches: "tight"
+    format: "jpg"
+    pad_inches: 0
+
+  node:
     alpha: 0.5
     bbox_inches: "tight"
     format: "jpg"
@@ -104,7 +110,7 @@ data_config:
         "default",
       ]
 
-  nature:
+  natural:
     color_dict:
       {
         "grassland": "#A8EB83",
@@ -136,6 +142,20 @@ data_config:
         "default",
       ]
   road:
+    color_dict:
+      {
+        "motorway": "red",
+        "trunk": "orange",
+        "primary": "yellow",
+        "secondary": "green",
+        "tertiary": "pink",
+        "residential": "blue",
+        "service": "grey",
+      }
+    feature_list:
+      ["motorway", "trunk", "primary", "secondary", "residential", "service"]
+
+  node:
     color_dict:
       {
         "motorway": "red",

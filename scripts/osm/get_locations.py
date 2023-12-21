@@ -44,10 +44,10 @@ cities = list(set(cities))
 
 landmarks = list(set(landmarks))
 
-radius = 1000
+radius = 128
 geo_redius = (radius / 1000) / 111.319444
-dx = [0, 0, -1, -1, 1, 1, -1, 1]
-dy = [-1, 1, -1, 1, -1, 1, 0, 0]
+padding = 4
+
 
 with open("city_coordinates.txt", "w") as file:
     for city in tqdm.tqdm(cities, desc="Processing cities"):
@@ -56,11 +56,14 @@ with open("city_coordinates.txt", "w") as file:
             try:
                 lat, lon = get_city_coordinates_withproxy(city)
                 if lat and lon:
-                    file.write(f'{city.replace(" ", "")} {lat} {lon}\n')
-                    for i in range(8):
-                        lat2 = lat + geo_redius * dx[i]
-                        lon2 = lon + geo_redius * dy[i]
-                        file.write(f'{city.replace(" ", "")}-{i} {lat2} {lon2}\n')
+                    # file.write(f'{city.replace(" ", "")} {lat} {lon}\n')
+                    min_lat = lat - geo_redius * padding * 2
+                    min_lon = lon - geo_redius * padding * 2
+                    for i in range(padding * 2 + 1):
+                        for j in range(padding * 2 + 1):
+                            lat2 = min_lat + geo_redius * i * 2
+                            lon2 = min_lon + geo_redius * j * 2
+                            file.write(f'{city.replace(" ", "")}-{i}-{j} {lat2} {lon2}\n')
                 else:
                     print(f"{city} not found")
                 # time.sleep(0.5)
@@ -82,15 +85,14 @@ with open("landmark_coordinates.txt", "w") as file:
             try:
                 lat, lon = get_city_coordinates_withproxy(landmark)
                 if lat and lon:
-                    file.write(
-                        f'{landmark.replace(" ", "-").replace(",", "")} {lat} {lon}\n'
-                    )
-                    for i in range(8):
-                        lat2 = lat + geo_redius * dx[i]
-                        lon2 = lon + geo_redius * dy[i]
-                        file.write(
-                            f'{landmark.replace(" ", "-").replace(",", "")}-{i} {lat2} {lon2}\n'
-                        )
+                    # file.write(f'{landmark.replace(" ", "")} {lat} {lon}\n')
+                    min_lat = lat - geo_redius * padding * 2
+                    min_lon = lon - geo_redius * padding * 2
+                    for i in range(padding * 2 + 1):
+                        for j in range(padding * 2 + 1):
+                            lat2 = min_lat + geo_redius * i * 2
+                            lon2 = min_lon + geo_redius * j * 2
+                            file.write(f'{landmark.replace(" ", "")}-{i}-{j} {lat2} {lon2}\n')
                 else:
                     print(f"{landmark} not found")
                 # time.sleep(0.5)

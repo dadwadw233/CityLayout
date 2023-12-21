@@ -107,13 +107,42 @@ def convert_to_polygon(geom):
     return geom
 
 
+def get_geo_data(region, geo_type, query_key, config, add_default=False):
+    target_types = config["data"][geo_type]
+    target_query = {query_key: target_types}
+    if target_types == "all":
+        target_query = {query_key: True}
+    data = ox.features_from_bbox(
+        north=region.bounds[3],
+        south=region.bounds[1],
+        east=region.bounds[2],
+        west=region.bounds[0],
+        tags=target_query,
+    )
+
+    data = clip_gdf_to_area(data, region)
+
+    if add_default:
+        data["geometry"] = data["geometry"].apply(convert_to_polygon)
+        default_gdf = gpd.GeoDataFrame(
+            {"geometry": [region], query_key: ["default"]}, crs="EPSG:4326"
+        )
+        default_gdf = default_gdf.to_crs(data.crs)
+        filled_gdf = gpd.overlay(
+            default_gdf, data, how="difference", keep_geom_type=False
+        )
+        data = gpd.GeoDataFrame(pd.concat([data, filled_gdf], ignore_index=True))
+
+    return data
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--config",
         type=str,
         required=False,
-        default="../../config/data/osm_landmarks.yaml",
+        default="../../config/data/osm_cities.yaml",
         help="config file path",
     )
 
@@ -122,6 +151,8 @@ if __name__ == "__main__":
     input_file = yaml_config["path"]["input"]
     output_dir = yaml_config["path"]["output"]
     pop_file_path = yaml_config["path"]["pop_file_path"]
+    # pop_data = gpd.read_file(pop_file_path)
+    # print("Pop data loaded.")
 
     radius = yaml_config["data"]["radius"]
 
@@ -148,149 +179,108 @@ if __name__ == "__main__":
             try:
                 if not os.path.exists(os.path.join(output_dir, city)):
                     os.mkdir(os.path.join(output_dir, city))
-                else:
-                    print(f"OSM data for {city} already exists, skipping...")
-                    break
+                print(f"Processing {city}...")
+
                 city_out_path = os.path.join(output_dir, city)
                 lat, lon = citys[city]
                 geo_redius = (radius / 1000) / 111.319444
                 area_polygon = create_area_polygon(lat, lon, geo_redius)
 
-                # road_graph = ox.features_from_polygon(area_polygon, tags={'highway': True})
-                road_types = yaml_config["data"]["road_types"]
-                road_query = {"highway": road_types}
-                road_graph = ox.features_from_bbox(
-                    north=area_polygon.bounds[3],
-                    south=area_polygon.bounds[1],
-                    east=area_polygon.bounds[2],
-                    west=area_polygon.bounds[0],
-                    tags=road_query,
-                )
-                # road_graph = ox.features_from_point((lat, lon), dist=args.radius, tags=road_query)
-                # road_graph = road_graph[(road_graph['highway'] == 'primary') | (road_graph['highway'] == 'secondary') | (road_graph['highway'] == 'tertiary') | (road_graph['highway'] == 'residential') | (road_graph['highway'] == 'service') ]  # | (road_graph['highway'] == 'motorway') | (road_graph['highway'] == 'trunk')
-                road_graph = clip_gdf_to_area(road_graph, area_polygon)
+                if not os.path.exists(
+                    os.path.join(city_out_path, f"road_data_{radius}.geojson")
+                ):
+                    road_graph = get_geo_data(
+                        area_polygon,
+                        "road_types",
+                        "highway",
+                        yaml_config,
+                        add_default=False,
+                    )
+                    problematic_cols = [
+                        col
+                        for col in road_graph.columns
+                        if any(isinstance(item, list) for item in road_graph[col])
+                    ]
+                    road_graph = road_graph.drop(columns=problematic_cols)
+                    road_graph.to_file(
+                        os.path.join(city_out_path, f"road_data_{radius}.geojson"),
+                        driver="GeoJSON",
+                    )
 
-                # print('road done')
+                if not os.path.exists(
+                    os.path.join(city_out_path, f"landuse_data_{radius}.geojson")
+                ):
+                    landuse_data = get_geo_data(
+                        area_polygon,
+                        "landuse_types",
+                        "landuse",
+                        yaml_config,
+                        add_default=True,
+                    )
+                    problematic_cols = [
+                        col
+                        for col in landuse_data.columns
+                        if any(isinstance(item, list) for item in landuse_data[col])
+                    ]
+                    landuse_data = landuse_data.drop(columns=problematic_cols)
+                    landuse_data.to_file(
+                        os.path.join(city_out_path, f"landuse_data_{radius}.geojson"),
+                        driver="GeoJSON",
+                    )
 
-                landuse_types = yaml_config["data"]["landuse_types"]
-                landuse_query = {"landuse": landuse_types}
-                landuse_data = ox.features_from_bbox(
-                    north=area_polygon.bounds[3],
-                    south=area_polygon.bounds[1],
-                    east=area_polygon.bounds[2],
-                    west=area_polygon.bounds[0],
-                    tags=landuse_query,
-                )
-                # landuse_data = ox.features_from_point((lat, lon), dist=args.radius, tags=landuse_query)
-                # landuse_data = ox.features_from_polygon(area_polygon, tags=landuse_query)
-                landuse_data = clip_gdf_to_area(landuse_data, area_polygon)
-                landuse_data["geometry"] = landuse_data["geometry"].apply(
-                    convert_to_polygon
-                )
+                if not os.path.exists(
+                    os.path.join(city_out_path, f"nature_data_{radius}.geojson")
+                ):
+                    nature_data = get_geo_data(
+                        area_polygon,
+                        "nature_types",
+                        "natural",
+                        yaml_config,
+                        add_default=True,
+                    )
 
-                default_gdf = gpd.GeoDataFrame(
-                    {"geometry": [area_polygon], "landuse": ["default"]},
-                    crs="EPSG:4326",
-                )
-                default_gdf = default_gdf.to_crs(landuse_data.crs)
-                filled_gdf = gpd.overlay(
-                    default_gdf, landuse_data, how="difference", keep_geom_type=False
-                )
-                # print(landuse_data.geometry.type.unique())
-                # print(default_gdf.geometry.type.unique())
-                landuse_data = gpd.GeoDataFrame(
-                    pd.concat([landuse_data, filled_gdf], ignore_index=True)
-                )
+                    problematic_cols = [
+                        col
+                        for col in nature_data.columns
+                        if any(isinstance(item, list) for item in nature_data[col])
+                    ]
+                    nature_data = nature_data.drop(columns=problematic_cols)
+                    nature_data.to_file(
+                        os.path.join(city_out_path, f"nature_data_{radius}.geojson"),
+                        driver="GeoJSON",
+                    )
 
-                # print('landuse done')
+                if not os.path.exists(
+                    os.path.join(city_out_path, f"buildings_data_{radius}.geojson")
+                ):
+                    buildings_query = {"building": True}
 
-                nature_types = yaml_config["data"]["nature_types"]
-                nature_query = {"natural": nature_types}
-                nature_data = ox.features_from_bbox(
-                    north=area_polygon.bounds[3],
-                    south=area_polygon.bounds[1],
-                    east=area_polygon.bounds[2],
-                    west=area_polygon.bounds[0],
-                    tags=nature_query,
-                )
-                # nature_data = ox.features_from_point((lat, lon), dist=args.radius, tags=nature_query)
-                nature_data = clip_gdf_to_area(nature_data, area_polygon)
-                nature_data["geometry"] = nature_data["geometry"].apply(
-                    convert_to_polygon
-                )
+                    buildings_data = ox.features_from_bbox(
+                        north=area_polygon.bounds[3],
+                        south=area_polygon.bounds[1],
+                        east=area_polygon.bounds[2],
+                        west=area_polygon.bounds[0],
+                        tags=buildings_query,
+                    )
+                    buildings_data = clip_gdf_to_area(buildings_data, area_polygon)
 
-                default_gdf = gpd.GeoDataFrame(
-                    {"geometry": [area_polygon], "natural": ["default"]},
-                    crs="EPSG:4326",
-                )
-                default_gdf = default_gdf.to_crs(nature_data.crs)
-                filled_gdf = gpd.overlay(
-                    default_gdf, nature_data, how="difference", keep_geom_type=False
-                )
+                    problematic_cols = [
+                        col
+                        for col in buildings_data.columns
+                        if any(isinstance(item, list) for item in buildings_data[col])
+                    ]
+                    buildings_data = buildings_data.drop(columns=problematic_cols)
+                    buildings_data.to_file(
+                        os.path.join(city_out_path, f"buildings_data_{radius}.geojson"),
+                        driver="GeoJSON",
+                    )
 
-                nature_data = gpd.GeoDataFrame(
-                    pd.concat([nature_data, filled_gdf], ignore_index=True)
-                )
+                # Get population data
+                # pop_data = clip_gdf_to_area(pop_data, area_polygon)
+                # pop_data.to_file(
+                #     os.path.join(city_out_path, "pop_data.geojson"), driver="GeoJSON"
+                # )
 
-                # print('nature done')
-
-                buildings_query = {"building": True}
-                # buildings_data = ox.features_from_point((lat, lon), dist=args.radius, tags=buildings_query)
-                # buildings_data = ox.features_from_polygon(area_polygon, tags=buildings_query)
-                buildings_data = ox.features_from_bbox(
-                    north=area_polygon.bounds[3],
-                    south=area_polygon.bounds[1],
-                    east=area_polygon.bounds[2],
-                    west=area_polygon.bounds[0],
-                    tags=buildings_query,
-                )
-                buildings_data = clip_gdf_to_area(buildings_data, area_polygon)
-
-                # print('buildings done')
-
-                problematic_cols = [
-                    col
-                    for col in road_graph.columns
-                    if any(isinstance(item, list) for item in road_graph[col])
-                ]
-                road_graph = road_graph.drop(columns=problematic_cols)
-                road_graph.to_file(
-                    os.path.join(city_out_path, "road_data.geojson"), driver="GeoJSON"
-                )
-
-                problematic_cols = [
-                    col
-                    for col in landuse_data.columns
-                    if any(isinstance(item, list) for item in landuse_data[col])
-                ]
-                landuse_data = landuse_data.drop(columns=problematic_cols)
-                landuse_data.to_file(
-                    os.path.join(city_out_path, "landuse_data.geojson"),
-                    driver="GeoJSON",
-                )
-
-                problematic_cols = [
-                    col
-                    for col in buildings_data.columns
-                    if any(isinstance(item, list) for item in buildings_data[col])
-                ]
-                buildings_data = buildings_data.drop(columns=problematic_cols)
-                buildings_data.to_file(
-                    os.path.join(city_out_path, "buildings_data.geojson"),
-                    driver="GeoJSON",
-                )
-
-                problematic_cols = [
-                    col
-                    for col in nature_data.columns
-                    if any(isinstance(item, list) for item in nature_data[col])
-                ]
-                nature_data = nature_data.drop(columns=problematic_cols)
-                nature_data.to_file(
-                    os.path.join(city_out_path, "nature_data.geojson"), driver="GeoJSON"
-                )
-
-                # print(f"OSM data for {city} saved.")
                 break
             except TimeoutError as e:
                 if retries == 0:
