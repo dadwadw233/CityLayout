@@ -16,35 +16,78 @@ from io import BytesIO
 import h5py
 from collections import OrderedDict
 import sys
-
+import shutil
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 from src.utils.utils import load_config
+def escape_path(path):
+    # 定义需要转义的字符及其转义后的形式
+    escape_chars = {
+        " ": "\\ ",  # 空格
+        "(": "\\(",  # 左括号
+        ")": "\\)",  # 右括号
+        "&": "\\&",  # 和号
+        "'": "\\'",  # 单引号
+        '"': '\\"',  # 双引号
+        "!": "\\!",  # 感叹号
+        "@": "\\@",  # At
+        "#": "\\#",  # 井号
+        "$": "\\$",  # 美元符
+        "%": "\\%",  # 百分号
+        "^": "\\^",  # 脱字符
+        "*": "\\*",  # 星号
+        "=": "\\=",  # 等号
+        "+": "\\+",  # 加号
+        "|": "\\|",  # 竖线
+        "{": "\\{",  # 左花括号
+        "}": "\\}",  # 右花括号
+        "[": "\\[",  # 左中括号
+        "]": "\\]",  # 右中括号
+        "\\": "\\\\",  # 反斜杠
+        ":": "\\:",  # 冒号
+        ";": "\\;",  # 分号
+        "<": "\\<",  # 小于号
+        ">": "\\>",  # 大于号
+        "?": "\\?",  # 问号
+        ",": "\\,",  # 逗号
+        ".": "\\.",  # 英文句号
+        "`": "\\`",  # 重音符
+        "~": "\\~",  # 波浪号
+    }
 
+    # 对每个需要转义的字符进行替换
+    for char, escaped_char in escape_chars.items():
+        path = path.replace(char, '-')
+
+    return path
 
 def geo_data_validation(path, init=False):
-    if os.path.exists(os.path.join(path, "getdata_error.txt")):
+
+    # path = escape_path(path)
+    try: 
+        if os.path.exists(os.path.join(path, "getdata_error.txt")):
+            logging.error(f"Error occurred in {path}.")
+            # remove data directory
+            shutil.rmtree(path)
+        if init:
+            if os.path.exists(os.path.join(path)):
+                for file in os.listdir(path):
+                    if not file.endswith(".geojson"):
+                        os.remove(os.path.join(path, file))
+    except Exception as e:
         logging.error(f"Error occurred in {path}.")
-        os.system(f"rm -rf {path}")
 
-    if os.path.exists(os.path.join(path, "plotting_img_finish.txt")):
-        os.system(f"rm  {os.path.join(path, 'plotting_img_finish.txt')}")
 
-    if os.path.exists(os.path.join(path, "plotting_img_error.txt")):
-        os.system(f"rm  {os.path.join(path, 'plotting_img_error.txt')}")
-
-    # delete file which is not geojson
-    if init:
-        for file in os.listdir(path):
-            if not file.endswith(".geojson"):
-                os.system(f"rm  {os.path.join(path, file)}")
 
 
 def image_data_validation(path):
-    if not os.path.exists(os.path.join(path, "plotting_img_finish.txt")):
+    try:
+        if not os.path.exists(os.path.join(path, "plotting_img_finish.txt")):
+            logging.error(f"Error occurred in {path}.")
+            # remove data directory
+            shutil.rmtree(path)
+            # os.system(f"rm -rf {path}")
+    except Exception as e:
         logging.error(f"Error occurred in {path}.")
-
-        # remove data directory
-        # os.system(f"rm -rf {path}")
 
 
 def plot_dem(dem_file, output_filename, fig_size=(10, 10), xlim=None, ylim=None):
@@ -129,7 +172,7 @@ def data_handle(gdf, data_type, config, out_path, conbained_ax, xlim, ylim):
             data[data != 0] = 1
             feature_img_dict[_type] = data
 
-            plt.close(one_hot_fig)
+            plt.close()
             buf.close()
     
     for feature in feature_list:
@@ -164,6 +207,8 @@ def data_handle(gdf, data_type, config, out_path, conbained_ax, xlim, ylim):
         os.path.join(out_path, f'{data_type}.npy'),
         data_matrix,
     )
+
+    #plt.close()
 
     return True
 
@@ -297,15 +342,15 @@ def plot_combined_map(
         np.save(
             os.path.join(os.path.dirname(output_filename), "building.npy"),
             building_matrix,
-        )
-
+        ) 
     plt.savefig(
         output_filename,
         bbox_inches=config["plt_config"]["combained"]["bbox_inches"],
         format=config["plt_config"]["combained"]["format"],
         pad_inches=config["plt_config"]["combained"]["pad_inches"],
     )
-    plt.close()
+    
+    plt.close("all")
 
 
     return xlim, ylim
@@ -371,18 +416,20 @@ def process_city(city, input_root, output_root, config):
         #     print(f"Already processed {city}.")
         #     return
 
+        radius = config["plt_config"]["default"]["radius"]
+
         try:
             roads_gdf = gpd.read_file(
-                os.path.join(save_path, "road_data.geojson")
+                os.path.join(save_path, f"road_data_{str(radius)}.geojson")
             ).to_crs(epsg=config["geo"]["crs"])
             landuse_gdf = gpd.read_file(
-                os.path.join(save_path, "landuse_data.geojson")
+                os.path.join(save_path, f"landuse_data_{str(radius)}.geojson")
             ).to_crs(epsg=config["geo"]["crs"])
             buildings_gdf = gpd.read_file(
-                os.path.join(save_path, "buildings_data.geojson")
+                os.path.join(save_path, f"buildings_data_{str(radius)}.geojson")
             ).to_crs(epsg=config["geo"]["crs"])
             nature_gdf = gpd.read_file(
-                os.path.join(save_path, "nature_data.geojson")
+                os.path.join(save_path, f"nature_data_{str(radius)}.geojson")
             ).to_crs(epsg=config["geo"]["crs"])
 
         except Exception as e:
@@ -416,11 +463,14 @@ def hex_to_rgb(hex_color):
 
 
 def dump_h5py(path, output_path):
-    with h5py.File(output_path, "w") as f:
-        for file in os.listdir(path):
-            if file.endswith(".npy"):
-                data = np.load(os.path.join(path, file))
-                f.create_dataset(file[:-4], data=data)
+    try:
+        with h5py.File(output_path, "w") as f:
+            for file in os.listdir(path):
+                if file.endswith(".npy"):
+                    data = np.load(os.path.join(path, file))
+                    f.create_dataset(file[:-4], data=data)
+    except Exception as e:
+        print(f"Error occurred in {path}: {str(e)}")
 
 
 if __name__ == "__main__":
@@ -441,35 +491,45 @@ if __name__ == "__main__":
     cities = os.listdir(root_path)
 
     if yaml_config["params"]["osm_validation"]:
-        for city in tqdm.tqdm(cities, desc="Validating data"):
-            geo_data_validation(
-                os.path.join(root_path, city), init=yaml_config["params"]["init_osm"]
-            )
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=yaml_config["params"]["max_processes"]
+        ) as executor:
+            futures = [
+                executor.submit(geo_data_validation, os.path.join(root_path, city), yaml_config["params"]["init_osm"])
+                for city in cities
+            ]
+            for future in tqdm.tqdm(
+                concurrent.futures.as_completed(futures),
+                total=len(cities),
+                desc="Validating data",
+            ):
+                future.result()
 
     print(
         "Validation and initialize completed. Geo data total size:",
         len(os.listdir(root_path)),
     )
 
-    city_test_name = 'Zurich-7'
+    # city_test_name = 'ZaanseSchans,Netherlands-7-3'
 
-    process_city(city_test_name, root_path, output, yaml_config)
+    # process_city(city_test_name, root_path, output, yaml_config)
 
-    exit(0)
+    # exit(0)
 
-    with concurrent.futures.ProcessPoolExecutor(
-        max_workers=yaml_config["params"]["max_processes"]
-    ) as executor:
-        futures = [
-            executor.submit(process_city, city, root_path, output, yaml_config)
-            for city in cities
-        ]
-        for future in tqdm.tqdm(
-            concurrent.futures.as_completed(futures),
-            total=len(cities),
-            desc="Processing cities",
-        ):
-            future.result()
+    if not yaml_config["params"]["debug"]:
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=yaml_config["params"]["max_processes"]
+        ) as executor:
+            futures = [
+                executor.submit(process_city, city, root_path, output, yaml_config)
+                for city in cities
+            ]
+            for future in tqdm.tqdm(
+                concurrent.futures.as_completed(futures),
+                total=len(cities),
+                desc="Processing cities",
+            ):
+                future.result()
 
     print("Processing completed.")
 
@@ -480,7 +540,18 @@ if __name__ == "__main__":
     print("Validation completed. Image data total size:", len(os.listdir(output)))
 
     if yaml_config["params"]["dump_h5"]:
-        for city in tqdm.tqdm(cities, desc="Dumping h5py"):
-            dump_h5py(
-                os.path.join(output, city), os.path.join(output, city, city + ".h5")
-            )
+        
+        with concurrent.futures.ProcessPoolExecutor(
+            max_workers=yaml_config["params"]["max_processes"]
+        ) as executor:
+            futures = [
+                executor.submit(dump_h5py, os.path.join(output, city), os.path.join(output, city,  escape_path(city)+ ".h5"))
+                for city in cities
+            ]
+            for future in tqdm.tqdm(
+                concurrent.futures.as_completed(futures),
+                total=len(cities),
+                desc="Dumping h5py",
+            ):
+                future.result()
+        

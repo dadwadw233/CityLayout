@@ -1,8 +1,8 @@
 # script's root path has been changed to the root of the repository
 # so there is no need to use relative paths anymore
 path:
-  input: "data/raw/osm/cities"
-  output: "data/raw/osm/cities"
+  input: "data/raw/osm/landmarks"
+  output: "data/raw/osm/landmarks"
 
 # some parameters for preprocessing
 # init_osm: whether to delete the existing image/h5/npy files in the target directory (geojson files will not be deleted)
@@ -11,11 +11,12 @@ path:
 # dump_h5: whether to dump the h5 file
 # max_processes: the maximum number of processes to use for preprocessing the geojson files
 params:
-  init_osm: False
+  init_osm: True
   osm_validation: True
+  debug: False
   image_validation: True
   dump_h5: True
-  max_processes: 64
+  max_processes: 32
 
 # define the geo coordinate system
 geo:
@@ -25,7 +26,7 @@ geo:
 plt_config:
   default:
     figsize: [10, 10]
-    radius: 1000
+    radius: 128
 
   landuse:
     alpha: 0.5
