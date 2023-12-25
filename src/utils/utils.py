@@ -79,6 +79,27 @@ def unnormalize_to_zero_to_one(t):
     return (t + 1) * 0.5
 
 
+def cal_overlapping_rate(tensor):
+    """
+    calculate the overlapping area of a tensor
+    Args:
+        tensor: shape (b, c, h, w)
+    Returns:
+        overlapping area: shape (b, c)
+    """
+    b, c, h, w = tensor.shape
+    
+    region = torch.zeros_like((tensor[:, 0, :, :]))
+    for i in range(c):
+        region += tensor[:, i, :, :]
+
+    region = region > 1
+    
+    return (region.sum(dim=[1, 2]).float() / (h * w)).mean()
+    
+
+
+
 # small helper modules
 # visulization class
 class OSMVisulizer:
@@ -123,7 +144,7 @@ class OSMVisulizer:
             combined_image = np.zeros((H, W, 3), dtype=np.float32)
             for c in range(C):
                 color = np.array(self.hex_or_name_to_rgb(self.channel_to_rgb[c]))
-                mask = data[b, c] > 0
+                mask = data[b, c] > 0.7
                 combined_image[mask, :] += color
             
             combined_image = np.clip(combined_image, 0, 1)  # 确保颜色值在0-1范围内

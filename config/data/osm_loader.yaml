@@ -1,6 +1,6 @@
 # root path for city_name.h5
 path:
-  data_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train
+  data_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
 
 params:
   mode: "train"
@@ -13,7 +13,7 @@ data:
   std: [0.0, 0.0, 0.0]
   mean: [1.0, 1.0, 1.0]
   resize: [256, 256]
-  type: "one-hot"  # or one-hot
+  type: "one-hot"  # or rgb
 
   # define the layout type and granularity
   # if custom is True, the layout type and granularity will be defined by 'custom_dict'
@@ -47,6 +47,14 @@ data:
     1: 'blue',
     2: 'red',
   }
+
+  filter:
+    {
+      "building": 0.2,
+      "landuse": 1,
+      "natural": 0.3,
+      "road": 0.1,
+    }
 
   # predefined mapping layout types <----> one hot feature channels
   # mapping's number of each super class ('building', 'landuse', etc) should be the same as the number of feature channels
