@@ -2,7 +2,47 @@ import os
 import argparse
 import numpy as np
 import tqdm
+import shutil
+def escape_path(path):
+    # 定义需要转义的字符及其转义后的形式
+    escape_chars = {
+        " ": "\\ ",  # 空格
+        "(": "\\(",  # 左括号
+        ")": "\\)",  # 右括号
+        "&": "\\&",  # 和号
+        "'": "\\'",  # 单引号
+        '"': '\\"',  # 双引号
+        "!": "\\!",  # 感叹号
+        "@": "\\@",  # At
+        "#": "\\#",  # 井号
+        "$": "\\$",  # 美元符
+        "%": "\\%",  # 百分号
+        "^": "\\^",  # 脱字符
+        "*": "\\*",  # 星号
+        "=": "\\=",  # 等号
+        "+": "\\+",  # 加号
+        "|": "\\|",  # 竖线
+        "{": "\\{",  # 左花括号
+        "}": "\\}",  # 右花括号
+        "[": "\\[",  # 左中括号
+        "]": "\\]",  # 右中括号
+        "\\": "\\\\",  # 反斜杠
+        ":": "\\:",  # 冒号
+        ";": "\\;",  # 分号
+        "<": "\\<",  # 小于号
+        ">": "\\>",  # 大于号
+        "?": "\\?",  # 问号
+        ",": "\\,",  # 逗号
+        ".": "\\.",  # 英文句号
+        "`": "\\`",  # 重音符
+        "~": "\\~",  # 波浪号
+    }
 
+    # 对每个需要转义的字符进行替换
+    for char, escaped_char in escape_chars.items():
+        path = path.replace(char, '-')
+
+    return path
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -28,7 +68,7 @@ if __name__ == "__main__":
     if not os.path.exists(output):
         os.makedirs(output)
 
-    output_train = os.path.join(output, "train")
+    output_train = os.path.join(output, "train_128")
     output_val = os.path.join(output, "val")
     output_test = os.path.join(output, "test")
 
@@ -36,9 +76,9 @@ if __name__ == "__main__":
     print("output_val: ", output_val)
     print("output_test: ", output_test)
 
-    train_data_rate = 0.7
-    val_data_rate = 0.2
-    test_data_rate = 0.1
+    train_data_rate = 1
+    val_data_rate = 0.
+    test_data_rate = 0.
 
     print("train : val : test", train_data_rate, val_data_rate, test_data_rate)
 
@@ -83,13 +123,13 @@ if __name__ == "__main__":
         city_dir = os.path.join(raw_dir, city)
         if not os.path.isdir(city_dir):
             continue
-        data_file = os.path.join(city_dir, city + ".h5")
+        data_file = os.path.join(city_dir, escape_path(city) + ".h5")
         if not os.path.exists(data_file):
             continue
 
         if city in train_data_list:
-            os.system("mv {} {}".format(data_file, output_train))
+            shutil.move(data_file, output_train)
         elif city in val_data_list:
-            os.system("mv {} {}".format(data_file, output_val))
+            shutil.move(data_file, output_val)
         elif city in test_data_list:
-            os.system("mv {} {}".format(data_file, output_test))
+            shutil.move(data_file, output_test)

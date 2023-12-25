@@ -6,7 +6,7 @@ model:
   dim_mults: [1, 2, 4, 8, 16]
   channels: 3
   self_condition: False
-  resnet_block_groups: 8
+  resnet_block_groups: 8 # group norm
   learned_variance: False
   learned_sinusoidal_cond: False
   random_fourier_features: False

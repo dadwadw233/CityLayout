@@ -515,7 +515,7 @@ if __name__ == "__main__":
     # process_city(city_test_name, root_path, output, yaml_config)
 
     # exit(0)
-
+    cities = os.listdir(root_path)
     if not yaml_config["params"]["debug"]:
         with concurrent.futures.ProcessPoolExecutor(
             max_workers=yaml_config["params"]["max_processes"]
@@ -539,6 +539,7 @@ if __name__ == "__main__":
 
     print("Validation completed. Image data total size:", len(os.listdir(output)))
 
+    cities = os.listdir(root_path)
     if yaml_config["params"]["dump_h5"]:
         
         with concurrent.futures.ProcessPoolExecutor(
