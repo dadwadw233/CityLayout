@@ -16,7 +16,7 @@ from http.client import HTTPException
 from requests.exceptions import RequestException
 import time
 import yaml
-
+import concurrent.futures
 
 def load_config(config_path):
     with open(config_path, "r") as file:
@@ -135,6 +135,153 @@ def get_geo_data(region, geo_type, query_key, config, add_default=False):
 
     return data
 
+def data_handler(yaml_config, city, output_dir, radius, citys):
+    retries = yaml_config["network"]["retries"]
+    while retries > 0:
+        try:
+            if not os.path.exists(os.path.join(output_dir, city)):
+                os.mkdir(os.path.join(output_dir, city))
+            print(f"Processing {city}...")
+
+            city_out_path = os.path.join(output_dir, city)
+            lat, lon = citys[city]
+            geo_redius = (radius / 1000) / 111.319444
+            area_polygon = create_area_polygon(lat, lon, geo_redius)
+
+            if not os.path.exists(
+                os.path.join(city_out_path, f"road_data_{radius}.geojson")
+            ):
+                road_graph = get_geo_data(
+                    area_polygon,
+                    "road_types",
+                    "highway",
+                    yaml_config,
+                    add_default=False,
+                )
+                problematic_cols = [
+                    col
+                    for col in road_graph.columns
+                    if any(isinstance(item, list) for item in road_graph[col])
+                ]
+                road_graph = road_graph.drop(columns=problematic_cols)
+                road_graph.to_file(
+                    os.path.join(city_out_path, f"road_data_{radius}.geojson"),
+                    driver="GeoJSON",
+                )
+
+            if not os.path.exists(
+                os.path.join(city_out_path, f"landuse_data_{radius}.geojson")
+            ):
+                landuse_data = get_geo_data(
+                    area_polygon,
+                    "landuse_types",
+                    "landuse",
+                    yaml_config,
+                    add_default=True,
+                )
+                problematic_cols = [
+                    col
+                    for col in landuse_data.columns
+                    if any(isinstance(item, list) for item in landuse_data[col])
+                ]
+                landuse_data = landuse_data.drop(columns=problematic_cols)
+                landuse_data.to_file(
+                    os.path.join(city_out_path, f"landuse_data_{radius}.geojson"),
+                    driver="GeoJSON",
+                )
+
+            if not os.path.exists(
+                os.path.join(city_out_path, f"nature_data_{radius}.geojson")
+            ):
+                nature_data = get_geo_data(
+                    area_polygon,
+                    "nature_types",
+                    "natural",
+                    yaml_config,
+                    add_default=True,
+                )
+
+                problematic_cols = [
+                    col
+                    for col in nature_data.columns
+                    if any(isinstance(item, list) for item in nature_data[col])
+                ]
+                nature_data = nature_data.drop(columns=problematic_cols)
+                nature_data.to_file(
+                    os.path.join(city_out_path, f"nature_data_{radius}.geojson"),
+                    driver="GeoJSON",
+                )
+
+            if not os.path.exists(
+                os.path.join(city_out_path, f"buildings_data_{radius}.geojson")
+            ):
+                buildings_query = {"building": True}
+
+                buildings_data = ox.features_from_bbox(
+                    north=area_polygon.bounds[3],
+                    south=area_polygon.bounds[1],
+                    east=area_polygon.bounds[2],
+                    west=area_polygon.bounds[0],
+                    tags=buildings_query,
+                )
+                buildings_data = clip_gdf_to_area(buildings_data, area_polygon)
+
+                problematic_cols = [
+                    col
+                    for col in buildings_data.columns
+                    if any(isinstance(item, list) for item in buildings_data[col])
+                ]
+                buildings_data = buildings_data.drop(columns=problematic_cols)
+                buildings_data.to_file(
+                    os.path.join(city_out_path, f"buildings_data_{radius}.geojson"),
+                    driver="GeoJSON",
+                )
+
+            # Get population data
+            # pop_data = clip_gdf_to_area(pop_data, area_polygon)
+            # pop_data.to_file(
+            #     os.path.join(city_out_path, "pop_data.geojson"), driver="GeoJSON"
+            # )
+
+            break
+        except TimeoutError as e:
+            if retries == 0:
+                print(f"Timeout error occured when processing {city}: {e}")
+            else:
+                print(
+                    f"Timeout error occured when processing {city}: {e}, retrying..."
+                )
+                retries -= 1
+                time.sleep(10)
+                continue
+        except HTTPException as e:
+            if retries == 0:
+                print(f"HTTPException error occured when processing {city}: {e}")
+            else:
+                print(
+                    f"HTTPException error occured when processing {city}: {e}, retrying..."
+                )
+                retries -= 1
+                time.sleep(10)
+                continue
+        except RequestException as e:
+            if retries == 0:
+                print(f"RequestException error occured when processing {city}: {e}")
+            else:
+                print(
+                    f"RequestException error occured when processing {city}: {e}, retrying..."
+                )
+                retries -= 1
+                time.sleep(10)
+                continue
+        except Exception as e:
+            print(f"Error occured when processing {city}: {e}")
+            with open(
+                os.path.join(city_out_path, "getdata_error.txt"), "w"
+            ) as file:
+                file.write(str(e))
+            break
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -173,151 +320,23 @@ if __name__ == "__main__":
 
     print(f"{len(citys)} citie's locations loaded.")
 
-    for city in tqdm.tqdm(citys.keys(), desc="Processing cities"):
-        retries = yaml_config["network"]["retries"]
-        while retries > 0:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+        futures = []
+        for city in citys.keys():
+            futures.append(
+                executor.submit(
+                    data_handler,
+                    yaml_config,
+                    city,
+                    output_dir,
+                    radius,
+                    citys,
+                )
+            )
+        for future in concurrent.futures.as_completed(futures):
             try:
-                if not os.path.exists(os.path.join(output_dir, city)):
-                    os.mkdir(os.path.join(output_dir, city))
-                print(f"Processing {city}...")
-
-                city_out_path = os.path.join(output_dir, city)
-                lat, lon = citys[city]
-                geo_redius = (radius / 1000) / 111.319444
-                area_polygon = create_area_polygon(lat, lon, geo_redius)
-
-                if not os.path.exists(
-                    os.path.join(city_out_path, f"road_data_{radius}.geojson")
-                ):
-                    road_graph = get_geo_data(
-                        area_polygon,
-                        "road_types",
-                        "highway",
-                        yaml_config,
-                        add_default=False,
-                    )
-                    problematic_cols = [
-                        col
-                        for col in road_graph.columns
-                        if any(isinstance(item, list) for item in road_graph[col])
-                    ]
-                    road_graph = road_graph.drop(columns=problematic_cols)
-                    road_graph.to_file(
-                        os.path.join(city_out_path, f"road_data_{radius}.geojson"),
-                        driver="GeoJSON",
-                    )
-
-                if not os.path.exists(
-                    os.path.join(city_out_path, f"landuse_data_{radius}.geojson")
-                ):
-                    landuse_data = get_geo_data(
-                        area_polygon,
-                        "landuse_types",
-                        "landuse",
-                        yaml_config,
-                        add_default=True,
-                    )
-                    problematic_cols = [
-                        col
-                        for col in landuse_data.columns
-                        if any(isinstance(item, list) for item in landuse_data[col])
-                    ]
-                    landuse_data = landuse_data.drop(columns=problematic_cols)
-                    landuse_data.to_file(
-                        os.path.join(city_out_path, f"landuse_data_{radius}.geojson"),
-                        driver="GeoJSON",
-                    )
-
-                if not os.path.exists(
-                    os.path.join(city_out_path, f"nature_data_{radius}.geojson")
-                ):
-                    nature_data = get_geo_data(
-                        area_polygon,
-                        "nature_types",
-                        "natural",
-                        yaml_config,
-                        add_default=True,
-                    )
-
-                    problematic_cols = [
-                        col
-                        for col in nature_data.columns
-                        if any(isinstance(item, list) for item in nature_data[col])
-                    ]
-                    nature_data = nature_data.drop(columns=problematic_cols)
-                    nature_data.to_file(
-                        os.path.join(city_out_path, f"nature_data_{radius}.geojson"),
-                        driver="GeoJSON",
-                    )
-
-                if not os.path.exists(
-                    os.path.join(city_out_path, f"buildings_data_{radius}.geojson")
-                ):
-                    buildings_query = {"building": True}
-
-                    buildings_data = ox.features_from_bbox(
-                        north=area_polygon.bounds[3],
-                        south=area_polygon.bounds[1],
-                        east=area_polygon.bounds[2],
-                        west=area_polygon.bounds[0],
-                        tags=buildings_query,
-                    )
-                    buildings_data = clip_gdf_to_area(buildings_data, area_polygon)
-
-                    problematic_cols = [
-                        col
-                        for col in buildings_data.columns
-                        if any(isinstance(item, list) for item in buildings_data[col])
-                    ]
-                    buildings_data = buildings_data.drop(columns=problematic_cols)
-                    buildings_data.to_file(
-                        os.path.join(city_out_path, f"buildings_data_{radius}.geojson"),
-                        driver="GeoJSON",
-                    )
-
-                # Get population data
-                # pop_data = clip_gdf_to_area(pop_data, area_polygon)
-                # pop_data.to_file(
-                #     os.path.join(city_out_path, "pop_data.geojson"), driver="GeoJSON"
-                # )
-
-                break
-            except TimeoutError as e:
-                if retries == 0:
-                    print(f"Timeout error occured when processing {city}: {e}")
-                else:
-                    print(
-                        f"Timeout error occured when processing {city}: {e}, retrying..."
-                    )
-                    retries -= 1
-                    time.sleep(10)
-                    continue
-            except HTTPException as e:
-                if retries == 0:
-                    print(f"HTTPException error occured when processing {city}: {e}")
-                else:
-                    print(
-                        f"HTTPException error occured when processing {city}: {e}, retrying..."
-                    )
-                    retries -= 1
-                    time.sleep(10)
-                    continue
-            except RequestException as e:
-                if retries == 0:
-                    print(f"RequestException error occured when processing {city}: {e}")
-                else:
-                    print(
-                        f"RequestException error occured when processing {city}: {e}, retrying..."
-                    )
-                    retries -= 1
-                    time.sleep(10)
-                    continue
+                future.result()
             except Exception as e:
                 print(f"Error occured when processing {city}: {e}")
-                with open(
-                    os.path.join(city_out_path, "getdata_error.txt"), "w"
-                ) as file:
-                    file.write(str(e))
-                break
 
     print("Done.")
