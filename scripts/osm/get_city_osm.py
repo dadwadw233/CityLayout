@@ -333,10 +333,15 @@ if __name__ == "__main__":
                     citys,
                 )
             )
-        for future in concurrent.futures.as_completed(futures):
+        for future in tqdm.tqdm(
+            concurrent.futures.as_completed(futures), 
+            total=len(futures),
+            desc="Processing cities",
+        ):
             try:
                 future.result()
             except Exception as e:
                 print(f"Error occured when processing {city}: {e}")
+
 
     print("Done.")
