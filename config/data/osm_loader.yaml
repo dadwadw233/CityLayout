@@ -35,8 +35,12 @@ data:
             "trunk",
             "primary",
             "secondary",
+            "tertiary",
             "residential",
             "service",
+            "living_street",
+            "pedestrian",
+            "footway",
           ],
         ],
     }
@@ -51,9 +55,9 @@ data:
   filter:
     {
       "building": 0.2,
-      "landuse": 1,
-      "natural": 0.3,
-      "road": 0.1,
+      "landuse": 0,
+      "natural": 1,
+      "road": 1,
     }
 
   # predefined mapping layout types <----> one hot feature channels
@@ -96,6 +100,10 @@ data:
         "trunk": 1,
         "primary": 2,
         "secondary": 3,
-        "residential": 4,
-        "service": 5,
+        "tertiary": 4,
+        "residential": 5,
+        "service": 6,
+        "living_street": 7,
+        "pedestrian": 8,
+        "footway": 9,
       }

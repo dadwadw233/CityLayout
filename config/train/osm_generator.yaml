@@ -45,7 +45,7 @@ trainer:
   device: cuda
   lr: 5e-5
   max_epochs: 100
-  num_workers: 32
+  num_workers: 8
   shuffle: True
   pin_memory: True
 

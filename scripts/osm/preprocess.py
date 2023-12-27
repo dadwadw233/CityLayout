@@ -180,13 +180,13 @@ def data_handle(gdf, data_type, config, out_path, conbained_ax, xlim, ylim):
             feature_img_dict[feature] = np.zeros(
                 (image_array.shape[0], image_array.shape[1], 1)
             )
-        
-    plt.savefig(
-        os.path.join(out_path, f'{data_type}.jpg'),
-        pad_inches=config["plt_config"][data_type]["pad_inches"],
-        bbox_inches=config["plt_config"][data_type]["bbox_inches"],
-        format=config["plt_config"][data_type]["format"],
-    )
+    if config["params"]["visualize"]:
+        plt.savefig(
+            os.path.join(out_path, f'{data_type}.jpg'),
+            pad_inches=config["plt_config"][data_type]["pad_inches"],
+            bbox_inches=config["plt_config"][data_type]["bbox_inches"],
+            format=config["plt_config"][data_type]["format"],
+        )
     plt.close(fig_)
 
 
@@ -203,6 +203,8 @@ def data_handle(gdf, data_type, config, out_path, conbained_ax, xlim, ylim):
 
     feature_img_dict = {k: feature_img_dict[k] for k in feature_list}
     data_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
+    data_matrix = data_matrix.astype(bool)
+    data_matrix = np.packbits(data_matrix, axis=-1)
     np.save(
         os.path.join(out_path, f'{data_type}.npy'),
         data_matrix,
@@ -279,12 +281,13 @@ def plot_combined_map(
             color=config["plt_config"]["building"]["color"],
             edgecolor=config["plt_config"]["building"]["edgecolor"],
         )
-        plt.savefig(
-            os.path.join(os.path.dirname(output_filename), "building_location.jpg"),
-            bbox_inches=config["plt_config"]["building"]["bbox_inches"],
-            format=config["plt_config"]["building"]["format"],
-            pad_inches=config["plt_config"]["building"]["pad_inches"],
-        )
+        if config["params"]["visualize"]:
+            plt.savefig(
+                os.path.join(os.path.dirname(output_filename), "building_location.jpg"),
+                bbox_inches=config["plt_config"]["building"]["bbox_inches"],
+                format=config["plt_config"]["building"]["format"],
+                pad_inches=config["plt_config"]["building"]["pad_inches"],
+            )
 
         plt.close(fig_)
 
@@ -299,12 +302,13 @@ def plot_combined_map(
             buildings_gdf.plot(
                 ax=ax_, column="height", cmap=config["plt_config"]["building"]["cmap"]
             )
-            plt.savefig(
-                os.path.join(os.path.dirname(output_filename), "building_height.jpg"),
-                bbox_inches=config["plt_config"]["building"]["bbox_inches"],
-                format=config["plt_config"]["building"]["format"],
-                pad_inches=config["plt_config"]["building"]["pad_inches"],
-            )
+            if config["params"]["visualize"]:
+                plt.savefig(
+                    os.path.join(os.path.dirname(output_filename), "building_height.jpg"),
+                    bbox_inches=config["plt_config"]["building"]["bbox_inches"],
+                    format=config["plt_config"]["building"]["format"],
+                    pad_inches=config["plt_config"]["building"]["pad_inches"],
+                )
             plt.close(fig_)
 
         buildings_gdf.plot(cmap="gray")
@@ -317,6 +321,7 @@ def plot_combined_map(
         plt.tight_layout()
         # save image to buffer
         buf = BytesIO()
+
         plt.savefig(buf, format="png", bbox_inches="tight", pad_inches=0)
         buf.seek(0)
 
@@ -339,16 +344,20 @@ def plot_combined_map(
         # plt.close(fig)
 
         building_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
+        building_matrix = building_matrix.astype(bool)
+        building_matrix = np.packbits(building_matrix, axis=-1)
         np.save(
             os.path.join(os.path.dirname(output_filename), "building.npy"),
             building_matrix,
         ) 
-    plt.savefig(
-        output_filename,
-        bbox_inches=config["plt_config"]["combained"]["bbox_inches"],
-        format=config["plt_config"]["combained"]["format"],
-        pad_inches=config["plt_config"]["combained"]["pad_inches"],
-    )
+
+    if config["params"]["visualize"]:
+        plt.savefig(
+            output_filename,
+            bbox_inches=config["plt_config"]["combained"]["bbox_inches"],
+            format=config["plt_config"]["combained"]["format"],
+            pad_inches=config["plt_config"]["combained"]["pad_inches"],
+        )
     
     plt.close("all")
 
@@ -469,6 +478,8 @@ def dump_h5py(path, output_path):
                 if file.endswith(".npy"):
                     data = np.load(os.path.join(path, file))
                     f.create_dataset(file[:-4], data=data)
+                    # delete npy file
+                    os.remove(os.path.join(path, file))
     except Exception as e:
         print(f"Error occurred in {path}: {str(e)}")
 
@@ -509,8 +520,8 @@ if __name__ == "__main__":
         "Validation and initialize completed. Geo data total size:",
         len(os.listdir(root_path)),
     )
-
-    # city_test_name = 'ZaanseSchans,Netherlands-7-3'
+    
+    # city_test_name = 'Zürich-8-4'
 
     # process_city(city_test_name, root_path, output, yaml_config)
 
@@ -544,7 +555,7 @@ if __name__ == "__main__":
         
         with concurrent.futures.ProcessPoolExecutor(
             max_workers=yaml_config["params"]["max_processes"]
-        ) as executor:
+        ) as executor:  
             futures = [
                 executor.submit(dump_h5py, os.path.join(output, city), os.path.join(output, city,  escape_path(city)+ ".h5"))
                 for city in cities

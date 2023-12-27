@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     ds = OSMDataset(config=ds_config)
 
-    dl = DataLoader(ds, batch_size=4, shuffle=True, num_workers=16)
+    dl = DataLoader(ds, batch_size=4, shuffle=True, num_workers=1)
 
     dl = accelerator.prepare(dl)
 

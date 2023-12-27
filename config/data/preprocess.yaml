@@ -16,7 +16,8 @@ params:
   debug: False
   image_validation: True
   dump_h5: True
-  max_processes: 32
+  visualize: False
+  max_processes: 16
 
 # define the geo coordinate system
 geo:
@@ -152,9 +153,23 @@ data_config:
         "tertiary": "pink",
         "residential": "blue",
         "service": "grey",
+        "living_street": "grey",
+        "pedestrian": "grey",
+        "footway": "grey",
       }
     feature_list:
-      ["motorway", "trunk", "primary", "secondary", "residential", "service"]
+      [
+        "motorway",
+        "trunk",
+        "primary",
+        "secondary",
+        "tertiary",
+        "residential",
+        "service",
+        "living_street",
+        "pedestrian",
+        "footway", 
+      ]
 
   node:
     color_dict:
@@ -166,8 +181,22 @@ data_config:
         "tertiary": "pink",
         "residential": "blue",
         "service": "grey",
+        "living_street": "grey",
+        "pedestrian": "grey",
+        "footway": "grey", 
       }
     feature_list:
-      ["motorway", "trunk", "primary", "secondary", "residential", "service"]
+      [
+        "motorway",
+        "trunk",
+        "primary",
+        "secondary",
+        "tertiary",
+        "residential",
+        "service",
+        "living_street",
+        "pedestrian",
+        "footway", 
+      ]
 
   building:

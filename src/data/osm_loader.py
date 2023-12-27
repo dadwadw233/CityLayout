@@ -68,6 +68,10 @@ class OSMDataset(Dataset):
         return data
 
     def custmize_layout(self, custom_list, key_map, data):
+        print(data.shape)
+        print(len(key_map))
+        data = data[:, :, : len(key_map)]
+        
         assert data.shape[-1] == len(key_map)
         assert isinstance(data, torch.Tensor)
 
@@ -111,6 +115,13 @@ class OSMDataset(Dataset):
 
         data = h5py.File(data_path, "r")
 
+        # recover data from packaged bool to float
+        building = np.unpackbits(data["building"], axis=-1).astype(np.float32)
+        landuse = np.unpackbits(data["landuse"], axis=-1).astype(np.float32)
+        natural = np.unpackbits(data["natural"], axis=-1).astype(np.float32)
+        road = np.unpackbits(data["road"], axis=-1).astype(np.float32)
+        node = np.unpackbits(data["node"], axis=-1).astype(np.float32)
+        
         data_dict = {}
         if self.key_list is None:
             if self.custom:
@@ -118,7 +129,7 @@ class OSMDataset(Dataset):
                     data_dict["building"] = self.custmize_layout(
                         self.config["data"]["custom_dict"]["building"],
                         self.config["data"]["key_map"]["building"],
-                        torch.from_numpy(np.array(data["building"])).squeeze(2),
+                        torch.from_numpy(np.array(building)).squeeze(2),
                     )
                     if (
                         torch.count_nonzero(data_dict["building"])
@@ -135,7 +146,7 @@ class OSMDataset(Dataset):
                     data_dict["landuse"] = self.custmize_layout(
                         self.config["data"]["custom_dict"]["landuse"],
                         self.config["data"]["key_map"]["landuse"],
-                        torch.from_numpy(np.array(data["landuse"])).squeeze(2),
+                        torch.from_numpy(np.array(landuse)).squeeze(2),
                     )
                     if (
                         torch.count_nonzero(data_dict["landuse"])
@@ -152,7 +163,7 @@ class OSMDataset(Dataset):
                     data_dict["natural"] = self.custmize_layout(
                         self.config["data"]["custom_dict"]["natural"],
                         self.config["data"]["key_map"]["natural"],
-                        torch.from_numpy(np.array(data["natural"])).squeeze(2),
+                        torch.from_numpy(np.array(natural)).squeeze(2),
                     )
                     if (
                         torch.count_nonzero(data_dict["natural"])
@@ -169,12 +180,12 @@ class OSMDataset(Dataset):
                     data_dict["road"] = self.custmize_layout(
                         self.config["data"]["custom_dict"]["road"],
                         self.config["data"]["key_map"]["road"],
-                        torch.from_numpy(np.array(data["road"])).squeeze(2),
+                        torch.from_numpy(np.array(road)).squeeze(2),
                     )
                     data_dict["road"] = data_dict["road"] + self.custmize_layout(
                         self.config["data"]["custom_dict"]["road"],
                         self.config["data"]["key_map"]["road"],
-                        torch.from_numpy(np.array(data["node"])).squeeze(2),
+                        torch.from_numpy(np.array(node)).squeeze(2),
                     )
                     if (
                         torch.count_nonzero(data_dict["road"])
@@ -188,19 +199,19 @@ class OSMDataset(Dataset):
 
             else:
                 data_dict = {
-                    "building": torch.from_numpy(np.array(data["building"]))
+                    "building": torch.from_numpy(np.array(building))
                     .float()
                     .squeeze(2)
                     .permute(2, 0, 1),
-                    "landuse": torch.from_numpy(np.array(data["landuse"]))
+                    "landuse": torch.from_numpy(np.array(landuse))
                     .float()
                     .squeeze(2)
                     .permute(2, 0, 1),
-                    "natural": torch.from_numpy(np.array(data["natural"]))
+                    "natural": torch.from_numpy(np.array(natural))
                     .float()
                     .squeeze(2)
                     .permute(2, 0, 1),
-                    "road": torch.from_numpy(np.array(data["road"]))
+                    "road": torch.from_numpy(np.array(road))
                     .float()
                     .squeeze(2)
                     .permute(2, 0, 1),
