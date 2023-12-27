@@ -64,7 +64,7 @@ trainer:
 
   num_samples: 64
 
-  results_dir: "results/one-hot/predv_128"
+  results_dir: "results/one-hot/predv_128_new_same_filter"
 
   calculate_fid: True
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur

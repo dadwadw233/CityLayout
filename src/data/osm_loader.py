@@ -68,8 +68,8 @@ class OSMDataset(Dataset):
         return data
 
     def custmize_layout(self, custom_list, key_map, data):
-        print(data.shape)
-        print(len(key_map))
+        # print(data.shape)
+        # print(len(key_map))
         data = data[:, :, : len(key_map)]
         
         assert data.shape[-1] == len(key_map)
