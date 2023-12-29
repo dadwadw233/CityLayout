@@ -275,7 +275,7 @@ class OSMDataset(Dataset):
         h5py.File.close(data)
 
         if (data_dict["layout"].max() == 0) and (data_dict["layout"].min() == 0.0):
-            print("data error")
+            # print("data error")
             return self.__getitem__(np.random.randint(0, len(self.data_list)))
 
         return data_dict

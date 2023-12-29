@@ -80,9 +80,10 @@ class FIDEvaluation:
             for _ in tqdm(range(num_batches)):
                 cond = None
                 try:
-                    real_samples = next(self.dl)['layout']
+                    data = next(self.dl)
+                    real_samples = data['layout']
                     if self.condition:
-                        cond = next(self.dl)['condition'].to(self.device)
+                        cond = data['condition'].to(self.device)
                     else:
                         cond = None
                     

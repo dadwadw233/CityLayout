@@ -433,6 +433,7 @@ class Trainer(object):
                                 fid_score = 1e10
                                 accelerator.print("fid computation failed: \n")
                                 accelerator.print(e)
+                                
                         if self.save_best_and_latest_only:
                             if self.best_fid > fid_score:
                                 self.best_fid = fid_score
