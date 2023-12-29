@@ -234,6 +234,8 @@ class Unet(nn.Module):
         full_attn = None,    # defaults to full attention only for inner most layer
         flash_attn = False,
         resnet_block_num = 2, # number of resnet block in each layer
+        conditional = False,
+        conditional_dim = None
     ):
         super().__init__()
 
@@ -242,6 +244,9 @@ class Unet(nn.Module):
         self.channels = channels
         self.self_condition = self_condition
         input_channels = channels * (2 if self_condition else 1)
+        if conditional:
+            assert conditional_dim is not None
+            input_channels += conditional_dim
 
         init_dim = default(init_dim, dim)
         self.init_conv = nn.Conv2d(input_channels, init_dim, 7, padding = 3)

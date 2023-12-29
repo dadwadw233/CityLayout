@@ -1,12 +1,16 @@
 # root path for city_name.h5
 path:
-  data_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
+  train_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
+  test_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/test_128
 
 params:
   mode: "train"
   # define which layout type to use and modify the layout's granularity by user's choice
   custom: True
   device: "cuda"
+  condition: True
+
+
 
 data:
   normalizer: "clamp"
@@ -37,13 +41,14 @@ data:
             "secondary",
             "tertiary",
             "residential",
-            "service",
             "living_street",
-            "pedestrian",
             "footway",
           ],
         ],
     }
+  
+
+  condition_dim: [1, 2]
 
   
   channel_to_rgb: {

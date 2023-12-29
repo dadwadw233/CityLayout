@@ -116,14 +116,19 @@ class OSMVisulizer:
     
     def visulize_onehot_layout(self, data, path) -> None:
         b, c, h, w = data.shape
-        print(path)
+        # print(data.shape)
+        # exit(0)
+        # print(path)
 
         fig, axes = plt.subplots(b, c, figsize=(20, 20))
 
         for i in range(b):
             for j in range(c):
-                axes[i, j].imshow(data[i, j, :, :].cpu().numpy(), cmap="gray")
-                axes[i, j].axis("off")
+                if c == 1:
+                    axes[i].imshow(data[i, j, :, :].cpu().numpy(), cmap="gray")
+                else:
+                    axes[i, j].imshow(data[i, j, :, :].cpu().numpy(), cmap="gray")
+                    axes[i, j].axis("off")
         plt.savefig(path)
         plt.close()
 
@@ -136,7 +141,7 @@ class OSMVisulizer:
     def visualize_rgb_layout(self, data, path) -> np.ndarray:
         B, C, H, W = data.shape
         assert (
-            self.channel_to_rgb.__len__() == C
+            self.channel_to_rgb.__len__() >= C
         ), f"channel to rgb mapping length {self.channel_to_rgb.__len__()} does not match channel number {c}"
         data = data.cpu().numpy()
 
@@ -355,6 +360,7 @@ class Vectorizer:
             plt.savefig(f"./{b_id}_geojson.png")
             plt.close('all')
             self.geojson_builder.init_builder()
+            exit(0)
             
         
         # third step: vectorization

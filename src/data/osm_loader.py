@@ -12,15 +12,20 @@ class OSMDataset(Dataset):
     def __init__(
         self, data_dir=None, mode=None, transform=None, key_list=None, config=None
     ):
-        if data_dir is None:
-            self.data_dir = config["path"]["data_dir"]
-        else:
-            self.data_dir = data_dir
+        
 
         if mode is None:
             self.mode = config["params"]["mode"]
         else:
             self.mode = mode
+
+        if data_dir is None:
+            if self.mode == "train":
+                self.data_dir = config["path"]["train_dir"]
+            else:
+                self.data_dir = config["path"]["test_dir"]
+        else:
+            self.data_dir = data_dir
 
         self.config = config
         self.custom = config["params"]["custom"]
@@ -234,6 +239,7 @@ class OSMDataset(Dataset):
             for key in data_dict.keys():
                 data_dict[key] = self.resize(data_dict[key])
 
+
         data_dict["name"] = data_name
         if self.type == "rgb":
             data_dict["layout"] = self.generate_rgb_layout(
@@ -248,8 +254,23 @@ class OSMDataset(Dataset):
         else:
             raise ValueError("type must be rgb or one-hot")
 
+
+    
         data_dict["layout"][torch.isnan(data_dict["layout"])] = 0
         data_dict["layout"][torch.isinf(data_dict["layout"])] = 0
+
+        if self.config["params"]["condition"]:
+            assert np.max(self.config["data"]["condition_dim"]) <= data_dict["layout"].shape[0], "condition dim must be smaller than layout dim"
+            data_dict["condition"] = torch.concat([data_dict["layout"][i].unsqueeze(0) for i in self.config["data"]["condition_dim"]], dim=0)
+            
+        
+            # delete condition data from layout (if dimmension is 1, keep it)
+            data_dict["layout"] = torch.cat([data_dict["layout"][i].unsqueeze(0) for i in range(data_dict["layout"].shape[0]) if i not in self.config["data"]["condition_dim"]], dim=0)
+        else:
+            data_dict["condition"] = None
+            
+        # print(data_dict["layout"].max(), data_dict["layout"].min())
+        # print(data_dict["condition"].max(), data_dict["condition"].min())
 
         h5py.File.close(data)
 

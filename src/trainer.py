@@ -119,6 +119,18 @@ class Trainer(object):
         dl = self.accelerator.prepare(dl)
         self.dl = cycle(dl)
 
+        self.ds_test = OSMDataset(config=dataset_config, mode="test", transform=None)
+
+        dl_test = DataLoader(
+            self.ds_test,
+            batch_size=self.batch_size,
+            shuffle=trainer_config["trainer"]["shuffle"],
+            pin_memory=trainer_config["trainer"]["pin_memory"],
+            num_workers=trainer_config["trainer"]["num_workers"],
+        )
+        dl_test = self.accelerator.prepare(dl_test)
+        self.dl_test = cycle(dl_test)
+
         self.max_epochs = trainer_config["trainer"]["max_epochs"]
         self.max_step = (
             self.max_epochs
@@ -296,11 +308,12 @@ class Trainer(object):
 
         self.model_summarize()
         self.trainer_config_summarize()
-        experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}".format(
+        experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}_condition{}".format(
             time.strftime("%Y%m%d_%H%M%S"),
             self.config["trainer"]["lr"],
             self.config["diffusion"]["timesteps"],
             self.config["trainer"]["max_epochs"],
+            self.config["trainer"]["condition"],
         )
         writer = SummaryWriter(log_dir=f"runs/{experiment_title}")
 
@@ -313,10 +326,13 @@ class Trainer(object):
                 total_loss = 0.0
 
                 for _ in range(self.gradient_accumulate_every):
-                    data = next(self.dl)["layout"].to(device)
-
+                    # data = next(self.dl)["layout"].to(device)
+                    data = next(self.dl)
+                    layout = data["layout"].to(device)
+                    condition = data["condition"].to(device)
+                    
                     with self.accelerator.autocast():
-                        loss = self.model(data)
+                        loss = self.model(layout, condition)
                         loss = loss / self.gradient_accumulate_every
                         total_loss += loss.item()
 
@@ -348,9 +364,14 @@ class Trainer(object):
                         with torch.inference_mode():
                             milestone = self.step // self.sample_step
                             batches = num_to_groups(self.num_samples, self.batch_size)
+                            if self.config["trainer"]["condition"]:
+                                data_test = next(self.dl_test)
+                                condition = data_test["condition"].to(device)
+                            else: 
+                                condition = None
                             all_images_list = list(
                                 map(
-                                    lambda n: self.ema.ema_model.sample(batch_size=n),
+                                    lambda n: self.ema.ema_model.sample(batch_size=n, cond=condition),
                                     batches,
                                 )
                             )

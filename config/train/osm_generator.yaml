@@ -4,7 +4,7 @@ model:
   init_dim: None
   out_dim: None
   dim_mults: [1, 2, 4, 8]
-  channels: 3
+  channels: 1
   self_condition: False
   resnet_block_groups: 8
   learned_variance: False
@@ -17,6 +17,8 @@ model:
   full_attn: None
   flash_attn: False
   resnet_block_num: 2
+  conditional: True
+  conditional_dim: 2
 
 vis:
   channel_to_rgb: { 0: "white", 1: "blue", 2: "red" }
@@ -39,6 +41,8 @@ diffusion:
   min_snr_loss_weight: False
 
 trainer:
+  condition: True
+
   batch_size: 8
   mode: "train"
   milestone: 6
@@ -64,7 +68,7 @@ trainer:
 
   num_samples: 64
 
-  results_dir: "results/one-hot/predv_128_new_same_filter"
+  results_dir: "results/one-hot/predv_128_condition_test"
 
   calculate_fid: True
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur

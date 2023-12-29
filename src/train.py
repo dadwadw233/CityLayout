@@ -54,6 +54,8 @@ model = Unet(
     full_attn = None if trainer_config['model']['full_attn'] == 'None' else trainer_config['model']['full_attn'],   
     flash_attn = trainer_config['model']['flash_attn'],
     resnet_block_num = trainer_config['model']['resnet_block_num'], 
+    conditional=trainer_config['model']['conditional'],
+    conditional_dim=trainer_config['model']['conditional_dim'],
 )
 
 diffusion = GaussianDiffusion(
