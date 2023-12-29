@@ -204,6 +204,7 @@ class Trainer(object):
                 inception_block_idx=trainer_config["trainer"]["inception_block_idx"],
                 data_type=self.data_type,
                 mapping=trainer_config["vis"]["channel_to_rgb"],
+                condition=trainer_config["trainer"]["condition"],
             )
         self.save_best_and_latest_only = trainer_config["trainer"][
             "save_best_and_latest_only"
@@ -361,7 +362,7 @@ class Trainer(object):
                 if accelerator.is_main_process:
                     self.ema.update()
 
-                    if self.step != 0 and divisible_by(self.step, 1):
+                    if self.step != 0 and divisible_by(self.step, self.sample_step):
                         self.ema.ema_model.eval()
 
                         with torch.inference_mode():
@@ -423,12 +424,13 @@ class Trainer(object):
                             "overlapping_rate", overlapping_rate, self.step
                         )
 
-                        if self.calculate_fid and not self.config["trainer"]["condition"]:
+                        if self.calculate_fid:
                             try:
                                 fid_score = self.fid_scorer.fid_score()
                                 writer.add_scalar("fid_score", fid_score, self.step)
                                 accelerator.print(f"fid_score: {fid_score}")
                             except Exception as e:
+                                fid_score = 1e10
                                 accelerator.print("fid computation failed: \n")
                                 accelerator.print(e)
                         if self.save_best_and_latest_only:

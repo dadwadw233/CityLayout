@@ -29,7 +29,7 @@ data:
 
 diffusion:
   timesteps: 10000
-  ddim_timestep: 10
+  ddim_timestep: 5
   image_size: 256
   name: DDPM
   objective: "pred_v"
@@ -48,7 +48,7 @@ trainer:
   milestone: 6
   device: cuda
   lr: 5e-5
-  max_epochs: 100
+  max_epochs: 1000
   num_workers: 8
   shuffle: True
   pin_memory: True

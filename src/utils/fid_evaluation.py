@@ -34,6 +34,7 @@ class FIDEvaluation:
         inception_block_idx=2048,
         data_type="rgb",
         mapping=None,
+        condition=False,
     ):
         self.batch_size = batch_size
         self.n_samples = num_fid_samples
@@ -49,6 +50,7 @@ class FIDEvaluation:
         self.dataset_stats_loaded = False
         self.vis = OSMVisulizer(mapping)
         self.data_type = data_type
+        self.condition = condition
 
     def calculate_inception_features(self, samples):
         if self.channels == 1:
@@ -76,11 +78,19 @@ class FIDEvaluation:
                 f"Stacking Inception features for {self.n_samples} samples from the real dataset."
             )
             for _ in tqdm(range(num_batches)):
+                cond = None
                 try:
                     real_samples = next(self.dl)['layout']
+                    if self.condition:
+                        cond = next(self.dl)['condition'].to(self.device)
+                    else:
+                        cond = None
+                    
                 except StopIteration:
                     break
                 real_samples = real_samples.to(self.device)
+                if cond is not None:
+                    real_samples = torch.cat([real_samples, cond], dim=1)
                 if self.data_type == "one-hot":
                     real_samples = self.vis.onehot_to_rgb(real_samples)
                 real_features = self.calculate_inception_features(real_samples)
@@ -106,7 +116,11 @@ class FIDEvaluation:
             f"Stacking Inception features for {self.n_samples} generated samples."
         )
         for batch in tqdm(batches):
-            fake_samples = self.sampler.sample(batch_size=batch)
+            if self.condition:
+                cond = next(self.dl)['condition'].to(self.device)
+            else:
+                cond = None
+            fake_samples = self.sampler.sample(batch_size=batch, cond=cond)
             if self.data_type == "one-hot":
                 fake_samples = self.vis.onehot_to_rgb(fake_samples)
             fake_features = self.calculate_inception_features(fake_samples)

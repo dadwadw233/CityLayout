@@ -19,8 +19,8 @@ train_type = argparser.parse_args().train_type
 
 
 if train_type == 'one-hot':
-    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml')
-    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml')
+    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_cond_loader.yaml')
+    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_cond_generator.yaml')
 elif train_type == 'rgb':
     data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader_rgb.yaml')
     trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_rgb.yaml')
