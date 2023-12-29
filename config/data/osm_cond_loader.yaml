@@ -8,7 +8,7 @@ params:
   # define which layout type to use and modify the layout's granularity by user's choice
   custom: True
   device: "cuda"
-  condition: False
+  condition: True
 
 
 
@@ -48,7 +48,7 @@ data:
     }
   
 
-  condition_dim: []
+  condition_dim: [1, 2]
 
   
   channel_to_rgb: {

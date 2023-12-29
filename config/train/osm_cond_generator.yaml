@@ -4,7 +4,7 @@ model:
   init_dim: None
   out_dim: None
   dim_mults: [1, 2, 4, 8]
-  channels: 3
+  channels: 1
   self_condition: False
   resnet_block_groups: 8
   learned_variance: False
@@ -17,7 +17,7 @@ model:
   full_attn: None
   flash_attn: False
   resnet_block_num: 2
-  conditional: False
+  conditional: True
   conditional_dim: 2
 
 vis:
@@ -41,7 +41,7 @@ diffusion:
   min_snr_loss_weight: False
 
 trainer:
-  condition: False
+  condition: True
 
   batch_size: 8
   mode: "train"
@@ -73,5 +73,5 @@ trainer:
   calculate_fid: True
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
-  num_fid_samples: 768
-  inception_block_idx: 768
+  num_fid_samples: 2048
+  inception_block_idx: 2048
