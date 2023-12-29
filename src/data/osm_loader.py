@@ -267,7 +267,7 @@ class OSMDataset(Dataset):
             # delete condition data from layout (if dimmension is 1, keep it)
             data_dict["layout"] = torch.cat([data_dict["layout"][i].unsqueeze(0) for i in range(data_dict["layout"].shape[0]) if i not in self.config["data"]["condition_dim"]], dim=0)
         else:
-            data_dict["condition"] = None
+            data_dict["condition"] = torch.zeros_like(data_dict["layout"])
             
         # print(data_dict["layout"].max(), data_dict["layout"].min())
         # print(data_dict["condition"].max(), data_dict["condition"].min())

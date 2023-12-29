@@ -329,7 +329,10 @@ class Trainer(object):
                     # data = next(self.dl)["layout"].to(device)
                     data = next(self.dl)
                     layout = data["layout"].to(device)
-                    condition = data["condition"].to(device)
+                    if self.config["trainer"]["condition"]:
+                        condition = data["condition"].to(device)
+                    else:
+                        condition = None
                     
                     with self.accelerator.autocast():
                         loss = self.model(layout, condition)
@@ -425,8 +428,9 @@ class Trainer(object):
                                 fid_score = self.fid_scorer.fid_score()
                                 writer.add_scalar("fid_score", fid_score, self.step)
                                 accelerator.print(f"fid_score: {fid_score}")
-                            except:
-                                accelerator.print("fid computation failed")
+                            except Exception as e:
+                                accelerator.print("fid computation failed: \n")
+                                accelerator.print(e)
                         if self.save_best_and_latest_only:
                             if self.best_fid > fid_score:
                                 self.best_fid = fid_score

@@ -81,8 +81,8 @@ class FIDEvaluation:
                 except StopIteration:
                     break
                 real_samples = real_samples.to(self.device)
-                # if self.data_type == "one-hot":
-                #     real_samples = self.vis.onehot_to_rgb(real_samples)
+                if self.data_type == "one-hot":
+                    real_samples = self.vis.onehot_to_rgb(real_samples)
                 real_features = self.calculate_inception_features(real_samples)
                 stacked_real_features.append(real_features)
             stacked_real_features = (
@@ -107,8 +107,8 @@ class FIDEvaluation:
         )
         for batch in tqdm(batches):
             fake_samples = self.sampler.sample(batch_size=batch)
-            # if self.data_type == "one-hot":
-            #     fake_samples = self.vis.onehot_to_rgb(fake_samples)
+            if self.data_type == "one-hot":
+                fake_samples = self.vis.onehot_to_rgb(fake_samples)
             fake_features = self.calculate_inception_features(fake_samples)
             stacked_fake_features.append(fake_features)
         stacked_fake_features = torch.cat(stacked_fake_features, dim=0).cpu().numpy()
