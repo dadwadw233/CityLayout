@@ -358,7 +358,7 @@ class Trainer(object):
                 if accelerator.is_main_process:
                     self.ema.update()
 
-                    if self.step != 0 and divisible_by(self.step, self.sample_step):
+                    if self.step != 0 and divisible_by(self.step, 1):
                         self.ema.ema_model.eval()
 
                         with torch.inference_mode():
@@ -420,7 +420,7 @@ class Trainer(object):
                             "overlapping_rate", overlapping_rate, self.step
                         )
 
-                        if self.calculate_fid:
+                        if self.calculate_fid and not self.config["trainer"]["condition"]:
                             try:
                                 fid_score = self.fid_scorer.fid_score()
                                 writer.add_scalar("fid_score", fid_score, self.step)

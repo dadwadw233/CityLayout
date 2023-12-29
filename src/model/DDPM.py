@@ -275,9 +275,14 @@ class GaussianDiffusion(nn.Module):
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
     def model_predictions(
-        self, x, t, x_self_cond=None, clip_x_start=False, rederive_pred_noise=False
+        self, x, t, x_self_cond=None, cond=None, clip_x_start=False, rederive_pred_noise=False
     ):
-        model_output = self.model(x, t, x_self_cond)
+        if cond is not None:
+            x_cond = torch.cat((x, cond), dim=1)
+        else:
+            x_cond = x
+        model_output = self.model(x_cond, t, x_self_cond)
+
         maybe_clip = (
             partial(torch.clamp, min=-1.0, max=1.0) if clip_x_start else identity
         )
@@ -369,8 +374,6 @@ class GaussianDiffusion(nn.Module):
         )  # [(T-1, T-2), (T-2, T-3), ..., (1, 0), (0, -1)]
 
         img = torch.randn(shape, device=device) # bchw
-        if cond is not None:
-            img = torch.cat((img, cond), dim=1) # channel wise conditional
         imgs = [img]
 
         x_start = None
@@ -379,7 +382,7 @@ class GaussianDiffusion(nn.Module):
             time_cond = torch.full((batch,), time, device=device, dtype=torch.long)
             self_cond = x_start if self.self_condition else None
             pred_noise, x_start, *_ = self.model_predictions(
-                img, time_cond, self_cond, clip_x_start=True, rederive_pred_noise=True
+                img, time_cond, self_cond, cond, clip_x_start=True, rederive_pred_noise=True
             )
 
             if time_next < 0:
@@ -400,9 +403,12 @@ class GaussianDiffusion(nn.Module):
             img = x_start * alpha_next.sqrt() + c * pred_noise + sigma * noise
 
             imgs.append(img)
+            
+        
 
         ret = img if not return_all_timesteps else torch.stack(imgs, dim=1)
-
+        if not return_all_timesteps and cond is not None:
+            ret = torch.cat((ret, cond), dim=1)
         ret = self.unnormalize(ret)
         return ret
 
@@ -483,6 +489,8 @@ class GaussianDiffusion(nn.Module):
         # predict and take gradient step
 
         model_out = self.model(x, t, x_self_cond)
+
+        
 
         if self.objective == "pred_noise":
             target = noise
