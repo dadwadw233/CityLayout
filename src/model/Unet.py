@@ -234,14 +234,19 @@ class Unet(nn.Module):
         full_attn = None,    # defaults to full attention only for inner most layer
         flash_attn = False,
         resnet_block_num = 2, # number of resnet block in each layer
+        conditional = False,
+        conditional_dim = None
     ):
         super().__init__()
 
         # determine dimensions
-
+        self.resnet_block_num = resnet_block_num
         self.channels = channels
         self.self_condition = self_condition
         input_channels = channels * (2 if self_condition else 1)
+        if conditional:
+            assert conditional_dim is not None
+            input_channels += conditional_dim
 
         init_dim = default(init_dim, dim)
         self.init_conv = nn.Conv2d(input_channels, init_dim, 7, padding = 3)
@@ -296,12 +301,16 @@ class Unet(nn.Module):
 
             attn_klass = FullAttention if layer_full_attn else LinearAttention
 
-            self.downs.append(nn.ModuleList([
-                block_klass(dim_in, dim_in, time_emb_dim = time_dim),
-                block_klass(dim_in, dim_in, time_emb_dim = time_dim),
-                attn_klass(dim_in, dim_head = layer_attn_dim_head, heads = layer_attn_heads),
-                Downsample(dim_in, dim_out) if not is_last else nn.Conv2d(dim_in, dim_out, 3, padding = 1)
-            ]))
+            Res = nn.ModuleList([])
+            for _ in range(self.resnet_block_num):
+                Res.append(block_klass(dim_in, dim_in, time_emb_dim = time_dim))
+
+            Res.append(attn_klass(dim_in, dim_head = layer_attn_dim_head, heads = layer_attn_heads))
+            Res.append(Downsample(dim_in, dim_out) if not is_last else nn.Conv2d(dim_in, dim_out, 3, padding = 1))
+
+            self.downs.append(Res)
+
+
 
         mid_dim = dims[-1]
         self.mid_block1 = block_klass(mid_dim, mid_dim, time_emb_dim = time_dim)
@@ -313,12 +322,15 @@ class Unet(nn.Module):
 
             attn_klass = FullAttention if layer_full_attn else LinearAttention
 
-            self.ups.append(nn.ModuleList([
-                block_klass(dim_out + dim_in, dim_out, time_emb_dim = time_dim),
-                block_klass(dim_out + dim_in, dim_out, time_emb_dim = time_dim),
-                attn_klass(dim_out, dim_head = layer_attn_dim_head, heads = layer_attn_heads),
-                Upsample(dim_out, dim_in) if not is_last else  nn.Conv2d(dim_out, dim_in, 3, padding = 1)
-            ]))
+            Res = nn.ModuleList([])
+            for _ in range(self.resnet_block_num):
+                Res.append(block_klass(dim_out + dim_in, dim_out, time_emb_dim = time_dim))
+            
+            Res.append(attn_klass(dim_out, dim_head = layer_attn_dim_head, heads = layer_attn_heads))
+            Res.append(Upsample(dim_out, dim_in) if not is_last else nn.Conv2d(dim_out, dim_in, 3, padding = 1))
+
+            self.ups.append(Res)
+
 
         default_out_dim = channels * (1 if not learned_variance else 2)
         self.out_dim = default(out_dim, default_out_dim)

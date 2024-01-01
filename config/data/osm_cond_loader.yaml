@@ -8,7 +8,7 @@ params:
   # define which layout type to use and modify the layout's granularity by user's choice
   custom: True
   device: "cuda"
-  condition: False
+  condition: True
 
 
 
@@ -48,7 +48,7 @@ data:
     }
   
 
-  condition_dim: []
+  condition_dim: [0, 1]
 
   
   channel_to_rgb: {
@@ -59,10 +59,10 @@ data:
 
   filter:
     {
-      "building": 0.2, # <
-      "landuse": 0, # <
-      "natural": 0.3, # >
-      "road": 0.1, # >
+      "building": 0,
+      "landuse": 0,
+      "natural": 1,
+      "road": 1,
     }
 
   # predefined mapping layout types <----> one hot feature channels

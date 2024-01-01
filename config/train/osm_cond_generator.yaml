@@ -3,10 +3,10 @@ model:
   dim: 64
   init_dim: None
   out_dim: None
-  dim_mults: [1, 2, 4, 8, 16]
-  channels: 3
+  dim_mults: [1, 2, 4, 8]
+  channels: 1
   self_condition: False
-  resnet_block_groups: 8 # group norm
+  resnet_block_groups: 8
   learned_variance: False
   learned_sinusoidal_cond: False
   random_fourier_features: False
@@ -17,17 +17,19 @@ model:
   full_attn: None
   flash_attn: False
   resnet_block_num: 2
+  conditional: True
+  conditional_dim: 2
 
 vis:
   channel_to_rgb: { 0: "white", 1: "blue", 2: "red" }
 
 data:
   train:
-    config_path: "config/data/osm_loader_rgb.yaml"
+    config_path: "config/data/osm_cond_loader.yaml"
 
 diffusion:
   timesteps: 10000
-  ddim_timestep: 10
+  ddim_timestep: 5
   image_size: 256
   name: DDPM
   objective: "pred_v"
@@ -39,35 +41,37 @@ diffusion:
   min_snr_loss_weight: False
 
 trainer:
+  condition: True
+
+  batch_size: 8
   mode: "train"
   milestone: 6
-  batch_size: 8
   device: cuda
-  lr: 5e-4
+  lr: 5e-5
   max_epochs: 1000
-  num_workers: 16
+  num_workers: 8
   shuffle: True
   pin_memory: True
 
-  amp: False
+  amp: True
 
   ema_decay: 0.995
   ema_update_every: 20
   adam_betas: [0.9, 0.999]
-  sample_frequency: 50
+  sample_frequency: 5
   grad_accumulate: 4
-  save_best_and_latest_only: False
+  save_best_and_latest_only: True
   max_grad_norm: 1.
 
   split_batches: True
   mixed_precision_type: "fp16"
 
-  num_samples: 4
+  num_samples: 64
 
-  results_dir: "results/rgb/predv_10000_new"
+  results_dir: "results/one-hot/predv_128_condition_bw_r"
 
-  calculate_fid: False
+  calculate_fid: True
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
-  num_fid_samples: 30000
+  num_fid_samples: 2048
   inception_block_idx: 2048

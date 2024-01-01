@@ -11,11 +11,13 @@ path:
 # dump_h5: whether to dump the h5 file
 # max_processes: the maximum number of processes to use for preprocessing the geojson files
 params:
-  init_osm: False
+  init_osm: True
   osm_validation: True
+  debug: False
   image_validation: True
   dump_h5: True
-  max_processes: 64
+  visualize: False
+  max_processes: 16
 
 # define the geo coordinate system
 geo:
@@ -25,7 +27,7 @@ geo:
 plt_config:
   default:
     figsize: [10, 10]
-    radius: 1000
+    radius: 128
 
   landuse:
     alpha: 0.5
@@ -151,9 +153,23 @@ data_config:
         "tertiary": "pink",
         "residential": "blue",
         "service": "grey",
+        "living_street": "grey",
+        "pedestrian": "grey",
+        "footway": "grey",
       }
     feature_list:
-      ["motorway", "trunk", "primary", "secondary", "residential", "service"]
+      [
+        "motorway",
+        "trunk",
+        "primary",
+        "secondary",
+        "tertiary",
+        "residential",
+        "service",
+        "living_street",
+        "pedestrian",
+        "footway", 
+      ]
 
   node:
     color_dict:
@@ -165,8 +181,22 @@ data_config:
         "tertiary": "pink",
         "residential": "blue",
         "service": "grey",
+        "living_street": "grey",
+        "pedestrian": "grey",
+        "footway": "grey", 
       }
     feature_list:
-      ["motorway", "trunk", "primary", "secondary", "residential", "service"]
+      [
+        "motorway",
+        "trunk",
+        "primary",
+        "secondary",
+        "tertiary",
+        "residential",
+        "service",
+        "living_street",
+        "pedestrian",
+        "footway", 
+      ]
 
   building:
