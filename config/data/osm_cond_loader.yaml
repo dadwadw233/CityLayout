@@ -48,7 +48,7 @@ data:
     }
   
 
-  condition_dim: [1, 2]
+  condition_dim: [0, 1]
 
   
   channel_to_rgb: {

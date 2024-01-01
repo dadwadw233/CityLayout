@@ -114,6 +114,7 @@ class Trainer(object):
             shuffle=trainer_config["trainer"]["shuffle"],
             pin_memory=trainer_config["trainer"]["pin_memory"],
             num_workers=trainer_config["trainer"]["num_workers"],
+            drop_last=True,
         )
 
         dl = self.accelerator.prepare(dl)
@@ -127,6 +128,7 @@ class Trainer(object):
             shuffle=trainer_config["trainer"]["shuffle"],
             pin_memory=trainer_config["trainer"]["pin_memory"],
             num_workers=trainer_config["trainer"]["num_workers"],
+            drop_last=True,
         )
         dl_test = self.accelerator.prepare(dl_test)
         self.dl_test = cycle(dl_test)
@@ -309,12 +311,13 @@ class Trainer(object):
 
         self.model_summarize()
         self.trainer_config_summarize()
-        experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}_condition{}".format(
+        experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}_condition{}_resultfolder{}".format(
             time.strftime("%Y%m%d_%H%M%S"),
             self.config["trainer"]["lr"],
             self.config["diffusion"]["timesteps"],
             self.config["trainer"]["max_epochs"],
             self.config["trainer"]["condition"],
+            self.results_folder,
         )
         writer = SummaryWriter(log_dir=f"runs/{experiment_title}")
 
