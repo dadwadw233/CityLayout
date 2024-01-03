@@ -50,7 +50,7 @@ data:
 
   condition_dim: [0, 1]
 
-  
+# will be used in create rgb training data
   channel_to_rgb: {
     0: 'white',
     1: 'blue',
@@ -59,10 +59,10 @@ data:
 
   filter:
     {
-      "building": 0,
-      "landuse": 0,
-      "natural": 1,
-      "road": 1,
+      "building": -1, # <=
+      "landuse": -1, # <=
+      "natural": -1, # <=
+      "road": -1, # <=
     }
 
   # predefined mapping layout types <----> one hot feature channels

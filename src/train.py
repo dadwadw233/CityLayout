@@ -1,7 +1,7 @@
 from model.DDPM import GaussianDiffusion
 from model.Unet import Unet
 from trainer import Trainer
-from utils.utils import load_config
+from utils.utils import load_config, OSMVisulizer, Vectorizer
 import argparse
 import torch
 import numpy as np
@@ -19,14 +19,14 @@ train_type = argparser.parse_args().train_type
 
 
 if train_type == 'one-hot':
-    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_cond_loader.yaml')
-    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_cond_generator.yaml')
+    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml')
+    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml')
 elif train_type == 'rgb':
     data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader_rgb.yaml')
     trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_rgb.yaml')
 
 if argparser.parse_args().eval == 'True':
-    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_sample.yaml')
+    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_cond_generator_sample.yaml')
 
 seed_value = 3407  
 
@@ -80,7 +80,20 @@ trainer = Trainer(
 )
 
 if trainer_config['trainer']['mode'] == 'eval':
-    ret = trainer.sample(trainer_config['trainer']['num_samples'], trainer_config['trainer']['batch_size'], trainer_config['trainer']['milestone'])
+    
+        
+    vis = OSMVisulizer(trainer_config["vis"]["channel_to_rgb"])
+    vec = Vectorizer()
+
+    ret = trainer.sample(trainer_config['trainer']['num_samples'], trainer_config['trainer']['batch_size'], trainer_config['trainer']['milestone'],trainer_config['trainer']['condition'])
+
+    if train_type == 'one-hot':
+        vis.visulize_onehot_layout(ret, "./sample-onehot.png")
+        vis.visualize_rgb_layout(ret, "./sample-rgb.png")
+
+        # data_for_vec = ret
+        # f = vec.vectorize(data_for_vec[:, 0:1, :, :], 'building')
+        # vec.vectorize(data_for_vec[:, 2:3, :, :], data_type='road', init_features=f, color='blue')
     
     print(ret.shape)
 

@@ -42,7 +42,6 @@ data:
             "tertiary",
             "residential",
             "living_street",
-            "footway",
           ],
         ],
     }
@@ -59,10 +58,10 @@ data:
 
   filter:
     {
-      "building": 0.2, # <
-      "landuse": 0, # <
-      "natural": 0.3, # >
-      "road": 0.1, # >
+      "building": -1, # <=
+      "landuse": -1, # <=
+      "natural": -1, # <=
+      "road": -1, # <=
     }
 
   # predefined mapping layout types <----> one hot feature channels

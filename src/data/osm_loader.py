@@ -6,6 +6,8 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 import matplotlib.colors as mcolors
+import cv2
+from torchvision.transforms.functional import InterpolationMode
 
 
 class OSMDataset(Dataset):
@@ -35,7 +37,7 @@ class OSMDataset(Dataset):
         self.key_list = key_list
         self.resize = transforms.Compose(
             [
-                transforms.Resize((config["data"]["resize"])),
+                transforms.Resize((config["data"]["resize"]), interpolation=InterpolationMode.BICUBIC),
             ]
         )
         self.normalize_method = config["data"]["normalizer"]
@@ -43,14 +45,14 @@ class OSMDataset(Dataset):
         self.type = config["data"]["type"]
         self.channel_to_rgb = config["data"]["channel_to_rgb"]
 
+        self.road_augment = transforms.Lambda(lambda x: self.widen_lines(x, kernel_size=3))
+
         if self.normalize_method == "minmax":
             self.normalize = self.minmax
         elif self.normalize_method == "zscore":
             self.normalize = transforms.Compose([transforms.Normalize((0.0,), (1.0,))])
         elif self.normalize_method == "clamp":
-            self.normalize = transforms.Compose(
-                [self.clamp, transforms.Normalize((0.0,), (1.0,))]
-            )
+            self.normalize = self.clamp
         else:
             if config["data"]["std"] == None or config["data"]["mean"] == None:
                 raise ValueError("std or mean is None")
@@ -89,6 +91,8 @@ class OSMDataset(Dataset):
 
         ret = self.clamp(torch.cat(layout_list, dim=-1).permute(2, 0, 1).float())
 
+       
+
         return ret
 
     def hex_or_name_to_rgb(self, color):
@@ -109,6 +113,20 @@ class OSMDataset(Dataset):
         # return shape : (, h, w, c)
 
         return self.clamp(rgb_image.permute(2, 0, 1))
+    
+    def widen_lines(self, image, kernel_size=3):
+        
+        image = image.numpy()
+
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+        dilated_image = cv2.dilate(image, kernel, iterations=1)
+
+
+
+        dilated_image = torch.from_numpy(dilated_image)
+
+        return dilated_image
 
     def __len__(self):
         return len(self.data_list)
@@ -142,7 +160,7 @@ class OSMDataset(Dataset):
                             data_dict["building"].shape[1]
                             * data_dict["building"].shape[2]
                         )
-                        < self.config["data"]["filter"]["building"]
+                        <= self.config["data"]["filter"]["building"]
                     ):
                         return self.__getitem__(
                             np.random.randint(0, len(self.data_list))
@@ -159,7 +177,7 @@ class OSMDataset(Dataset):
                             data_dict["landuse"].shape[1]
                             * data_dict["landuse"].shape[2]
                         )
-                        < self.config["data"]["filter"]["landuse"]
+                        <= self.config["data"]["filter"]["landuse"]
                     ):
                         return self.__getitem__(
                             np.random.randint(0, len(self.data_list))
@@ -176,7 +194,7 @@ class OSMDataset(Dataset):
                             data_dict["natural"].shape[1]
                             * data_dict["natural"].shape[2]
                         )
-                        > self.config["data"]["filter"]["natural"]
+                        <= self.config["data"]["filter"]["natural"]
                     ):
                         return self.__getitem__(
                             np.random.randint(0, len(self.data_list))
@@ -195,7 +213,7 @@ class OSMDataset(Dataset):
                     if (
                         torch.count_nonzero(data_dict["road"])
                         / (data_dict["road"].shape[1] * data_dict["road"].shape[2])
-                        > self.config["data"]["filter"]["road"]
+                        <= self.config["data"]["filter"]["road"]
                     ):
                         return self.__getitem__(
                             np.random.randint(0, len(self.data_list))
@@ -237,7 +255,12 @@ class OSMDataset(Dataset):
             data_dict = self.transform(data_dict)
         else:
             for key in data_dict.keys():
+                
                 data_dict[key] = self.resize(data_dict[key])
+                if key == "road":
+                    data_dict[key] = self.road_augment(data_dict[key])
+                
+                data_dict[key] = self.normalize(data_dict[key])
 
 
         data_dict["name"] = data_name
@@ -259,6 +282,9 @@ class OSMDataset(Dataset):
         data_dict["layout"][torch.isnan(data_dict["layout"])] = 0
         data_dict["layout"][torch.isinf(data_dict["layout"])] = 0
 
+        mask = data_dict["layout"] > 0
+        data_dict["layout"][mask] = 1
+        
         if self.config["params"]["condition"]:
             assert np.max(self.config["data"]["condition_dim"]) <= data_dict["layout"].shape[0], "condition dim must be smaller than layout dim"
             data_dict["condition"] = torch.concat([data_dict["layout"][i].unsqueeze(0) for i in self.config["data"]["condition_dim"]], dim=0)
@@ -266,11 +292,14 @@ class OSMDataset(Dataset):
         
             # delete condition data from layout (if dimmension is 1, keep it)
             data_dict["layout"] = torch.cat([data_dict["layout"][i].unsqueeze(0) for i in range(data_dict["layout"].shape[0]) if i not in self.config["data"]["condition_dim"]], dim=0)
+            
+            mask = data_dict["condition"] > 0
+            data_dict["condition"][mask] = 1
         else:
             data_dict["condition"] = torch.zeros_like(data_dict["layout"])
             
-        # print(data_dict["layout"].max(), data_dict["layout"].min())
-        # print(data_dict["condition"].max(), data_dict["condition"].min())
+
+        
 
         h5py.File.close(data)
 

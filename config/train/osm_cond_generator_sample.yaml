@@ -4,7 +4,7 @@ model:
   init_dim: None
   out_dim: None
   dim_mults: [1, 2, 4, 8]
-  channels: 3
+  channels: 1
   self_condition: False
   resnet_block_groups: 8
   learned_variance: False
@@ -17,19 +17,29 @@ model:
   full_attn: None
   flash_attn: False
   resnet_block_num: 2
-  conditional: False
+  conditional: True
   conditional_dim: 2
 
+
 vis:
+# will be used in visualize one hot generation results
+  channel_to_rgb: { 0: "red", 1: "white", 2: "blue" }
+
+vec:
+  origin: [39.8965148476239, 116.3820984476239] # beijing
+  resolution: 1 # meters per pixel
+  crs: 3857 # web mercator
   channel_to_rgb: { 0: "white", 1: "blue", 2: "red" }
+  channel_to_geo: { 0: "Polygon", 1: "Polygon", 2: "LineString" }
+  channel_to_key: { 0: "building", 1: "natural", 2: "road" }
 
 data:
   train:
-    config_path: "config/data/osm_loader.yaml"
+    config_path: "config/data/osm_cond_loader.yaml"
 
 diffusion:
   timesteps: 10000
-  ddim_timestep: 10
+  ddim_timestep: 100
   image_size: 256
   name: DDPM
   objective: "pred_v"
@@ -41,36 +51,35 @@ diffusion:
   min_snr_loss_weight: False
 
 trainer:
-  condition: False
-
-  batch_size: 8
-  mode: "train"
-  milestone: 0
+  condition: True
+  mode: "eval"
+  milestone: 'latest'
+  batch_size: 2
   device: cuda
-  lr: 5e-5
-  max_epochs: 1000
-  num_workers: 8
+  lr: 3e-4
+  max_epochs: 600
+  num_workers: 16
   shuffle: True
   pin_memory: True
 
-  amp: True
+  amp: False
 
   ema_decay: 0.995
   ema_update_every: 20
   adam_betas: [0.9, 0.999]
-  sample_frequency: 5
+  sample_frequency: 10
   grad_accumulate: 4
-  save_best_and_latest_only: True
+  save_best_and_latest_only: False
   max_grad_norm: 1.
 
   split_batches: True
   mixed_precision_type: "fp16"
 
-  num_samples: 64
+  num_samples: 4
 
-  results_dir: "results/one-hot/predv_128_4000"
+  results_dir: "results/one-hot/predv_128_condition_bw_r"
 
-  calculate_fid: True
+  calculate_fid: False
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
   num_fid_samples: 2048

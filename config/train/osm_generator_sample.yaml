@@ -3,7 +3,7 @@ model:
   dim: 64
   init_dim: None
   out_dim: None
-  dim_mults: [1, 2, 4, 8, 16]
+  dim_mults: [1, 2, 4, 8]
   channels: 3
   self_condition: False
   resnet_block_groups: 8
@@ -20,8 +20,17 @@ model:
   conditional: False
   conditional_dim: 2
 
+
 vis:
-  channel_to_rgb: { 0: "#8F8F8F", 1: "#418DF0", 2: "blue" }
+  channel_to_rgb: { 0: "white", 1: "blue", 2: "red" }
+
+vec:
+  origin: [39.8965148476239, 116.3820984476239] # beijing
+  resolution: 1 # meters per pixel
+  crs: 3857 # web mercator
+  channel_to_rgb: { 0: "white", 1: "blue", 2: "red" }
+  channel_to_geo: { 0: "Polygon", 1: "Polygon", 2: "LineString" }
+  channel_to_key: { 0: "building", 1: "natural", 2: "road" }
 
 data:
   train:
@@ -29,7 +38,7 @@ data:
 
 diffusion:
   timesteps: 10000
-  ddim_timestep: 5
+  ddim_timestep: 50
   image_size: 256
   name: DDPM
   objective: "pred_v"
@@ -41,9 +50,10 @@ diffusion:
   min_snr_loss_weight: False
 
 trainer:
+  condition: False
   mode: "eval"
-  milestone: 40
-  batch_size: 4
+  milestone: 'latest'
+  batch_size: 2
   device: cuda
   lr: 3e-4
   max_epochs: 600
@@ -66,9 +76,9 @@ trainer:
 
   num_samples: 4
 
-  results_dir: "results/one-hot/predv_10000"
+  results_dir: "results/one-hot/predv_128_filter"
 
-  calculate_fid: True
+  calculate_fid: False
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
   num_fid_samples: 2048
