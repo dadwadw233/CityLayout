@@ -89,9 +89,9 @@ class Trainer(object):
 
         self.batch_size = trainer_config["trainer"]["batch_size"]
         self.gradient_accumulate_every = trainer_config["trainer"]["grad_accumulate"]
-        assert (
-            self.batch_size * self.gradient_accumulate_every
-        ) >= 16, f"your effective batch size (train_batch_size x gradient_accumulate_every) should be at least 16 or above"
+        # assert (
+        #     self.batch_size * self.gradient_accumulate_every
+        # ) >= 16, f"your effective batch size (train_batch_size x gradient_accumulate_every) should be at least 16 or above"
 
         self.max_epochs = trainer_config["trainer"]["max_epochs"]
         self.image_size = diffusion_model.image_size
