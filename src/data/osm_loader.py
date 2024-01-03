@@ -7,6 +7,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 import matplotlib.colors as mcolors
 import cv2
+from torchvision.transforms.functional import InterpolationMode
 
 
 class OSMDataset(Dataset):
@@ -36,7 +37,7 @@ class OSMDataset(Dataset):
         self.key_list = key_list
         self.resize = transforms.Compose(
             [
-                transforms.Resize((config["data"]["resize"])),
+                transforms.Resize((config["data"]["resize"]), interpolation=InterpolationMode.BICUBIC),
             ]
         )
         self.normalize_method = config["data"]["normalizer"]
@@ -92,6 +93,8 @@ class OSMDataset(Dataset):
 
         ret = self.clamp(torch.cat(layout_list, dim=-1).permute(2, 0, 1).float())
 
+       
+
         return ret
 
     def hex_or_name_to_rgb(self, color):
@@ -119,7 +122,9 @@ class OSMDataset(Dataset):
 
         kernel = np.ones((kernel_size, kernel_size), np.uint8)
 
-        dilated_image = cv2.dilate(image, kernel, iterations=3)
+        dilated_image = cv2.dilate(image, kernel, iterations=1)
+
+
 
         dilated_image = torch.from_numpy(dilated_image)
 
@@ -256,6 +261,8 @@ class OSMDataset(Dataset):
                 data_dict[key] = self.resize(data_dict[key])
                 if key == "road":
                     data_dict[key] = self.road_augment(data_dict[key])
+                
+                data_dict[key] = self.normalize(data_dict[key])
 
 
         data_dict["name"] = data_name
@@ -276,7 +283,7 @@ class OSMDataset(Dataset):
     
         data_dict["layout"][torch.isnan(data_dict["layout"])] = 0
         data_dict["layout"][torch.isinf(data_dict["layout"])] = 0
-
+        
         if self.config["params"]["condition"]:
             assert np.max(self.config["data"]["condition_dim"]) <= data_dict["layout"].shape[0], "condition dim must be smaller than layout dim"
             data_dict["condition"] = torch.concat([data_dict["layout"][i].unsqueeze(0) for i in self.config["data"]["condition_dim"]], dim=0)
