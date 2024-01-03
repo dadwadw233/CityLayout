@@ -429,9 +429,11 @@ class Trainer(object):
 
                         if self.calculate_fid:
                             try:
-                                fid_score = self.fid_scorer.fid_score()
+                                fid_score, kid_score, is_score = self.fid_scorer.evaluate()
+                                self.accelerator.print(f"fid_score: {fid_score}\nkid_score: {kid_score}\nis_score: {is_score}")
                                 writer.add_scalar("fid_score", fid_score, self.step)
-                                accelerator.print(f"fid_score: {fid_score}")
+                                writer.add_scalar("kid_score", kid_score, self.step)
+                                writer.add_scalar("is_score", is_score, self.step)
                             except Exception as e:
                                 fid_score = 1e10
                                 accelerator.print("fid computation failed: \n")
