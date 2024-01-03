@@ -93,7 +93,10 @@ def cal_overlapping_rate(tensor):
     
     region = torch.zeros_like((tensor[:, 0, :, :]))
     for i in range(c):
-        region += tensor[:, i, :, :]
+        mask = tensor[:, i, :, :] > 0.7
+        one_hot_tensor = torch.zeros_like(tensor[:, i, :, :])
+        one_hot_tensor[mask] = 1
+        region += one_hot_tensor
 
     region = region > 1
     

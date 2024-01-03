@@ -29,7 +29,7 @@ data:
 
 diffusion:
   timesteps: 10000
-  ddim_timestep: 5
+  ddim_timestep: 10
   image_size: 256
   name: DDPM
   objective: "pred_v"
@@ -58,7 +58,7 @@ trainer:
   ema_decay: 0.995
   ema_update_every: 20
   adam_betas: [0.9, 0.999]
-  sample_frequency: 10
+  sample_frequency: 5
   grad_accumulate: 4
   save_best_and_latest_only: True
   max_grad_norm: 1.
@@ -68,7 +68,7 @@ trainer:
 
   num_samples: 64
 
-  results_dir: "results/one-hot/predv_128_filter"
+  results_dir: "results/one-hot/predv_128_4000"
 
   calculate_fid: True
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur

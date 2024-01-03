@@ -9,7 +9,7 @@ import random
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument('--train_type', type=str, default='one-hot')
-argparser.add_argument('--eval', type=str, default='True')
+argparser.add_argument('--eval', type=str, default='False')
 
 
 print('training data type: ',argparser.parse_args().train_type)
@@ -19,7 +19,7 @@ train_type = argparser.parse_args().train_type
 
 
 if train_type == 'one-hot':
-    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_cond_loader.yaml')
+    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml')
     trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml')
 elif train_type == 'rgb':
     data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader_rgb.yaml')

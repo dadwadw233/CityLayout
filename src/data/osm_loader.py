@@ -52,9 +52,7 @@ class OSMDataset(Dataset):
         elif self.normalize_method == "zscore":
             self.normalize = transforms.Compose([transforms.Normalize((0.0,), (1.0,))])
         elif self.normalize_method == "clamp":
-            self.normalize = transforms.Compose(
-                [self.clamp, transforms.Normalize((0.0,), (1.0,))]
-            )
+            self.normalize = self.clamp
         else:
             if config["data"]["std"] == None or config["data"]["mean"] == None:
                 raise ValueError("std or mean is None")
@@ -283,6 +281,9 @@ class OSMDataset(Dataset):
     
         data_dict["layout"][torch.isnan(data_dict["layout"])] = 0
         data_dict["layout"][torch.isinf(data_dict["layout"])] = 0
+
+        mask = data_dict["layout"] > 0
+        data_dict["layout"][mask] = 1
         
         if self.config["params"]["condition"]:
             assert np.max(self.config["data"]["condition_dim"]) <= data_dict["layout"].shape[0], "condition dim must be smaller than layout dim"
@@ -291,11 +292,14 @@ class OSMDataset(Dataset):
         
             # delete condition data from layout (if dimmension is 1, keep it)
             data_dict["layout"] = torch.cat([data_dict["layout"][i].unsqueeze(0) for i in range(data_dict["layout"].shape[0]) if i not in self.config["data"]["condition_dim"]], dim=0)
+            
+            mask = data_dict["condition"] > 0
+            data_dict["condition"][mask] = 1
         else:
             data_dict["condition"] = torch.zeros_like(data_dict["layout"])
             
-        # print(data_dict["layout"].max(), data_dict["layout"].min())
-        # print(data_dict["condition"].max(), data_dict["condition"].min())
+
+        
 
         h5py.File.close(data)
 
