@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     ds = OSMDataset(config=ds_config)
 
-    dl = DataLoader(ds, batch_size=4, shuffle=False, num_workers=1)
+    dl = DataLoader(ds, batch_size=2, shuffle=False, num_workers=1)
 
     dl = accelerator.prepare(dl)
 
@@ -50,8 +50,15 @@ if __name__ == "__main__":
         print(data["building"].shape)
         print(data["name"])
         print(data['condition'].shape)
-        vis.visulize_onehot_layout(data['layout'], "/home/admin/workspace/yuyuanhong/code/CityLayout/test-{}.png".format(i))
-        vis.visualize_rgb_layout(data['layout'], "/home/admin/workspace/yuyuanhong/code/CityLayout/test-rgb-{}.png".format(i))
+        vis.visulize_onehot_layout(data['condition'], "/home/admin/workspace/yuyuanhong/code/CityLayout/test-{}.png".format(i))
+        vis.visualize_rgb_layout(data['condition'], "/home/admin/workspace/yuyuanhong/code/CityLayout/test-rgb-{}.png".format(i))
+
+        rgb_test = vis.onehot_to_rgb(data['condition'])
+        rgb_test_for_show = rgb_test[0]
+        plt.imsave("/home/admin/workspace/yuyuanhong/code/CityLayout/test1-rgb-{}.png".format(i), (rgb_test_for_show.permute(1,2,0)*255).byte().cpu().numpy())
+
+        exit(0)
+
         
         
         print(cal_overlapping_rate(data['layout']))

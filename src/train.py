@@ -19,23 +19,23 @@ train_type = argparser.parse_args().train_type
 
 
 if train_type == 'one-hot':
-    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml')
+    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_cond_loader.yaml')
     trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml')
 elif train_type == 'rgb':
     data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader_rgb.yaml')
     trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_rgb.yaml')
 
 if argparser.parse_args().eval == 'True':
-    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_sample.yaml')
-else:
-    seed_value = 3407  
+    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_cond_generator_sample.yaml')
 
-    torch.manual_seed(seed_value)
-    if torch.cuda.is_available():
-        torch.cuda.manual_seed(seed_value)
-        torch.cuda.manual_seed_all(seed_value)  # if using multi-GPU
-    np.random.seed(seed_value)
-    random.seed(seed_value)
+seed_value = 3407  
+
+torch.manual_seed(seed_value)
+if torch.cuda.is_available():
+    torch.cuda.manual_seed(seed_value)
+    torch.cuda.manual_seed_all(seed_value)  # if using multi-GPU
+np.random.seed(seed_value)
+random.seed(seed_value)
 
 model = Unet(
     dim = trainer_config['model']['dim'],
@@ -80,18 +80,20 @@ trainer = Trainer(
 )
 
 if trainer_config['trainer']['mode'] == 'eval':
+    
+        
     vis = OSMVisulizer(trainer_config["vis"]["channel_to_rgb"])
     vec = Vectorizer()
 
-    ret = trainer.sample(trainer_config['trainer']['num_samples'], trainer_config['trainer']['batch_size'], trainer_config['trainer']['milestone'])
+    ret = trainer.sample(trainer_config['trainer']['num_samples'], trainer_config['trainer']['batch_size'], trainer_config['trainer']['milestone'],trainer_config['trainer']['condition'])
 
     if train_type == 'one-hot':
         vis.visulize_onehot_layout(ret, "./sample-onehot.png")
         vis.visualize_rgb_layout(ret, "./sample-rgb.png")
 
-        data_for_vec = ret
-        f = vec.vectorize(data_for_vec[:, 0:1, :, :], 'building')
-        vec.vectorize(data_for_vec[:, 2:3, :, :], data_type='road', init_features=f, color='blue')
+        # data_for_vec = ret
+        # f = vec.vectorize(data_for_vec[:, 0:1, :, :], 'building')
+        # vec.vectorize(data_for_vec[:, 2:3, :, :], data_type='road', init_features=f, color='blue')
     
     print(ret.shape)
 

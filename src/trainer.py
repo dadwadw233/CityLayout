@@ -450,25 +450,33 @@ class Trainer(object):
         accelerator.print("training complete")
         writer.close()
 
-    def sample(self, num_samples=16, batch_size=16, milestone=None):
+    def sample(self, num_samples=16, batch_size=16, milestone=None, condition=None):
         self.load(milestone)
         self.model.eval()
-
+        device = self.device
         assert (
             num_samples % batch_size == 0
         ), f"num_samples ({num_samples}) must be divisible by batch_size ({batch_size})"
 
         batches = num_to_groups(num_samples, batch_size)
+        if self.config["trainer"]["condition"]:
+            data_test = next(self.dl_test)
+            cond = data_test["condition"].to(device)
+        else: 
+            cond = None
+
+
         all_images_list = list(
-            map(lambda n: self.ema.ema_model.sample(batch_size=n), batches)
+            map(lambda n: self.ema.ema_model.sample(batch_size=n, cond=cond), batches)
         )
 
         all_images = torch.cat(all_images_list, dim=0)
 
         if self.calculate_fid and self.accelerator.is_main_process:
-            fid_score = self.fid_scorer.fid_score()
-            self.accelerator.print(f"fid_score: {fid_score}")
+            fid_score, kid_score, is_score = self.fid_scorer.evaluate()
+            self.accelerator.print(f"fid_score: {fid_score}\nkid_score: {kid_score}\nis_score: {is_score}")
         # except:
         #     self.accelerator.print('fid computation failed')
 
+        # todo return generation reference
         return all_images
