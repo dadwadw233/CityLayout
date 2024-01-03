@@ -6,6 +6,7 @@ import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 import matplotlib.colors as mcolors
+import cv2
 
 
 class OSMDataset(Dataset):
@@ -42,6 +43,8 @@ class OSMDataset(Dataset):
 
         self.type = config["data"]["type"]
         self.channel_to_rgb = config["data"]["channel_to_rgb"]
+
+        self.road_augment = transforms.Lambda(lambda x: self.widen_lines(x, kernel_size=3))
 
         if self.normalize_method == "minmax":
             self.normalize = self.minmax
@@ -109,6 +112,18 @@ class OSMDataset(Dataset):
         # return shape : (, h, w, c)
 
         return self.clamp(rgb_image.permute(2, 0, 1))
+    
+    def widen_lines(self, image, kernel_size=3):
+        
+        image = image.numpy()
+
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+        dilated_image = cv2.dilate(image, kernel, iterations=3)
+
+        dilated_image = torch.from_numpy(dilated_image)
+
+        return dilated_image
 
     def __len__(self):
         return len(self.data_list)
@@ -142,7 +157,7 @@ class OSMDataset(Dataset):
                             data_dict["building"].shape[1]
                             * data_dict["building"].shape[2]
                         )
-                        < self.config["data"]["filter"]["building"]
+                        <= self.config["data"]["filter"]["building"]
                     ):
                         return self.__getitem__(
                             np.random.randint(0, len(self.data_list))
@@ -159,7 +174,7 @@ class OSMDataset(Dataset):
                             data_dict["landuse"].shape[1]
                             * data_dict["landuse"].shape[2]
                         )
-                        < self.config["data"]["filter"]["landuse"]
+                        <= self.config["data"]["filter"]["landuse"]
                     ):
                         return self.__getitem__(
                             np.random.randint(0, len(self.data_list))
@@ -176,7 +191,7 @@ class OSMDataset(Dataset):
                             data_dict["natural"].shape[1]
                             * data_dict["natural"].shape[2]
                         )
-                        > self.config["data"]["filter"]["natural"]
+                        <= self.config["data"]["filter"]["natural"]
                     ):
                         return self.__getitem__(
                             np.random.randint(0, len(self.data_list))
@@ -195,7 +210,7 @@ class OSMDataset(Dataset):
                     if (
                         torch.count_nonzero(data_dict["road"])
                         / (data_dict["road"].shape[1] * data_dict["road"].shape[2])
-                        > self.config["data"]["filter"]["road"]
+                        <= self.config["data"]["filter"]["road"]
                     ):
                         return self.__getitem__(
                             np.random.randint(0, len(self.data_list))
@@ -237,7 +252,10 @@ class OSMDataset(Dataset):
             data_dict = self.transform(data_dict)
         else:
             for key in data_dict.keys():
+                
                 data_dict[key] = self.resize(data_dict[key])
+                if key == "road":
+                    data_dict[key] = self.road_augment(data_dict[key])
 
 
         data_dict["name"] = data_name

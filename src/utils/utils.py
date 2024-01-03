@@ -360,7 +360,7 @@ class Vectorizer:
             plt.savefig(f"./{b_id}_geojson.png")
             plt.close('all')
             self.geojson_builder.init_builder()
-            exit(0)
+            
             
         
         # third step: vectorization

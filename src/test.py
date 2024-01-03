@@ -23,16 +23,16 @@ if __name__ == "__main__":
     accelerator = Accelerator()
 
     ds_config = load_config(
-        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml"
+        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_cond_loader.yaml"
     )
     trainer_config = load_config(
-        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml"
+        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_cond_generator.yaml"
     )
 
 
     ds = OSMDataset(config=ds_config)
 
-    dl = DataLoader(ds, batch_size=4, shuffle=True, num_workers=1)
+    dl = DataLoader(ds, batch_size=4, shuffle=False, num_workers=1)
 
     dl = accelerator.prepare(dl)
 
