@@ -42,7 +42,6 @@ data:
             "tertiary",
             "residential",
             "living_street",
-            "footway",
           ],
         ],
     }
