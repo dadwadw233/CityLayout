@@ -119,6 +119,9 @@ class OSMVisulizer:
         # print(data.shape)
         # exit(0)
         # print(path)
+        assert (
+            b > 1
+        ), f"batch size {b} is too small, please set batch size larger than 1"
 
         fig, axes = plt.subplots(b, c, figsize=(20, 20))
 
@@ -138,11 +141,16 @@ class OSMVisulizer:
         return mcolors.to_rgb(color)
 
     # need test
+    # input must be a one hot layout
     def visualize_rgb_layout(self, data, path) -> np.ndarray:
         B, C, H, W = data.shape
         assert (
             self.channel_to_rgb.__len__() >= C
-        ), f"channel to rgb mapping length {self.channel_to_rgb.__len__()} does not match channel number {c}"
+        ), f"channel to rgb mapping length {self.channel_to_rgb.__len__()} does not match channel number {C}"
+
+        assert (
+            B > 1
+        ), f"batch size {B} is too small, please set batch size larger than 1"
         data = data.cpu().numpy()
 
         fig, axs = plt.subplots(B, 1, figsize=(20, 20*B))  # 根据批次数量创建子图
@@ -172,8 +180,8 @@ class OSMVisulizer:
     def onehot_to_rgb(self, data):
         B, C, H, W = data.shape
         assert (
-            self.channel_to_rgb.__len__() == C
-        ), f"channel to rgb mapping length {self.channel_to_rgb.__len__()} does not match channel number {c}"
+            self.channel_to_rgb.__len__() >= C
+        ), f"channel to rgb mapping length {self.channel_to_rgb.__len__()} does not match channel number {C}"
 
 
         combined_image = torch.zeros((B, H, W, 3), dtype=torch.float32, device=data.device)
@@ -181,10 +189,10 @@ class OSMVisulizer:
         for b in range(B):
             for c in range(C):
                 color = torch.tensor(self.hex_or_name_to_rgb(self.channel_to_rgb[c]), device=data.device)
-                mask = data[b, c] > 0
+                mask = data[b, c] > 0.7
                 combined_image[b, mask, :] += color
         
-        combined_image = self.minmax(combined_image.permute(0, 3, 1, 2))
+        combined_image = self.minmax(combined_image.permute(0, 3, 1, 2)) # normalize to 0-1
 
         if torch.isnan(combined_image).any():
             combined_image[torch.isnan(combined_image)] = 0
@@ -196,7 +204,7 @@ class OSMVisulizer:
 class GeoJsonBuilder:
     def __init__(self, origin_lat_long, resolution):
         self.origin_lat_long = origin_lat_long
-        self.resolution = resolution
+        self.resolution = resolution # meters per pixel
         self.features = []
         self.crs = 3857
 
@@ -272,12 +280,13 @@ class Vectorizer:
                 # cv2.imwrite('./canny.png', eroded)
                 lines = cv2.HoughLinesP(image, 1, (np.pi / 180), 10, minLineLength=0.1, maxLineGap=10)
                 show = np.zeros_like(image)
-                for line in lines:
-                    x1, y1, x2, y2 = line[0]
-                    start = (x1, y1)
-                    end = (x2, y2)
-                    # cv2.line(show, (x1, y1), (x2, y2), (255, 0, 0), 1)
-                    pts.append([start, end])
+                if lines is not None:
+                    for line in lines:
+                        x1, y1, x2, y2 = line[0]
+                        start = (x1, y1)
+                        end = (x2, y2)
+                        # cv2.line(show, (x1, y1), (x2, y2), (255, 0, 0), 1)
+                        pts.append([start, end])
                 pts_set.append(pts)
             return pts_set
 
@@ -293,23 +302,24 @@ class Vectorizer:
 
                 # 查找轮廓
                 contours, _ = cv2.findContours(image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                if contours is not None:
 
-                for contour in contours:
-                    # 多边形拟合
-                    perimeter = cv2.arcLength(contour, False)
+                    for contour in contours:
+                        # 多边形拟合
+                        perimeter = cv2.arcLength(contour, False)
 
-                    # 设置逼近精度（例如，周长的1%）
-                    epsilon = 0.01 * perimeter
+                        # 设置逼近精度（例如，周长的1%）
+                        epsilon = 0.01 * perimeter
 
-                    # 轮廓逼近
-                    approx = cv2.approxPolyDP(contour, epsilon, False)
-                    
-                    approx = approx.reshape((-1, 2))
-                    if len(approx) < 3:
-                        continue
-                    if approx[-1][0]!= approx[0][0] or approx[-1][1] != approx[0][1]:
-                        approx = np.concatenate((approx, approx[0:1, :]), axis=0)
-                    pts.append(approx.tolist())
+                        # 轮廓逼近
+                        approx = cv2.approxPolyDP(contour, epsilon, False)
+                        
+                        approx = approx.reshape((-1, 2))
+                        if len(approx) < 3:
+                            continue
+                        if approx[-1][0]!= approx[0][0] or approx[-1][1] != approx[0][1]:
+                            approx = np.concatenate((approx, approx[0:1, :]), axis=0)
+                        pts.append(approx.tolist())
 
                     
 
@@ -365,3 +375,6 @@ class Vectorizer:
         
         # third step: vectorization
         return feature_list
+
+
+
