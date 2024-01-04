@@ -107,11 +107,13 @@ if trainer_config['trainer']['mode'] == 'eval':
     vis = OSMVisulizer(trainer_config["vis"]["channel_to_rgb"])
     vec = Vectorizer(config=trainer_config['vec'])
 
-    ret = trainer.sample(trainer_config['trainer']['num_samples'], trainer_config['trainer']['batch_size'], trainer_config['trainer']['milestone'],trainer_config['trainer']['condition'])
+    ret, ref = trainer.sample(trainer_config['trainer']['num_samples'], trainer_config['trainer']['batch_size'], trainer_config['trainer']['milestone'],trainer_config['trainer']['condition'])
 
     if train_type == 'one-hot':
         vis.visulize_onehot_layout(ret, "./sample-onehot.png")
         vis.visualize_rgb_layout(ret, "./sample-rgb.png")
+        if ref is not None:
+            vis.visulize_onehot_layout(ref, "./ref-onehot.png")
 
         data_for_vec = ret
         f = vec.vectorize(data_for_vec)
