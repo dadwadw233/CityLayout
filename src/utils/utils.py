@@ -114,17 +114,20 @@ def hex_or_name_to_rgb(color):
 # small helper modules
 # visulization class
 class OSMVisulizer:
-    def __init__(self, mapping, threshold=0.7):
+    def __init__(self, mapping, threshold=0.7, path="./"):
         self.name = "OSMVisulizer"
         self.channel_to_rgb = mapping
         self.threshold = threshold
+        self.path = path
+        if not os.path.exists(self.path):
+            os.makedirs(self.path, exist_ok=True)
 
     def minmax(self, data):
         data = data - data.min()
         data = data / data.max()
         return data
 
-    def visulize_onehot_layout(self, data, path) -> None:
+    def visulize_onehot_layout(self, data, path=None) -> None:
         b, c, h, w = data.shape
         # print(data.shape)
         # exit(0)
@@ -142,6 +145,8 @@ class OSMVisulizer:
                 else:
                     axes[i, j].imshow(data[i, j, :, :].cpu().numpy(), cmap="gray")
                     axes[i, j].axis("off")
+        if path is None:
+            path = os.path.join(self.path, "onehot.png")
         plt.savefig(path)
         plt.close()
 
@@ -151,7 +156,7 @@ class OSMVisulizer:
 
     # need test
     # input must be a one hot layout
-    def visualize_rgb_layout(self, data, path) -> np.ndarray:
+    def visualize_rgb_layout(self, data, path=None) -> np.ndarray:
         B, C, H, W = data.shape
         assert (
             self.channel_to_rgb.__len__() >= C
@@ -179,6 +184,8 @@ class OSMVisulizer:
         plt.axis("off")
         plt.imshow(combined_image)
         plt.show()
+        if path is None:
+            path = os.path.join(self.path, "rgb.png")
         plt.savefig(path)
         plt.close()
 
