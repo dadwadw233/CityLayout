@@ -105,6 +105,7 @@ def cal_overlapping_rate(tensor):
 
     return (region.sum(dim=[1, 2]).float() / (h * w)).mean()
 
+
 def hex_or_name_to_rgb(color):
     # 使用matplotlib的颜色转换功能
     return mcolors.to_rgb(color)
@@ -113,10 +114,10 @@ def hex_or_name_to_rgb(color):
 # small helper modules
 # visulization class
 class OSMVisulizer:
-    def __init__(self, mapping, thresold=0.7):
+    def __init__(self, mapping, threshold=0.7):
         self.name = "OSMVisulizer"
         self.channel_to_rgb = mapping
-        self.thresold = thresold
+        self.threshold = threshold
 
     def minmax(self, data):
         data = data - data.min()
@@ -167,7 +168,7 @@ class OSMVisulizer:
             combined_image = np.zeros((H, W, 3), dtype=np.float32)
             for c in range(C):
                 color = np.array(self.hex_or_name_to_rgb(self.channel_to_rgb[c]))
-                mask = data[b, c] > self.thresold 
+                mask = data[b, c] > self.threshold
                 combined_image[mask, :] += color
 
             combined_image = np.clip(combined_image, 0, 1)  # 确保颜色值在0-1范围内
@@ -199,7 +200,7 @@ class OSMVisulizer:
                 color = torch.tensor(
                     self.hex_or_name_to_rgb(self.channel_to_rgb[c]), device=data.device
                 )
-                mask = data[b, c] > self.thresold 
+                mask = data[b, c] > self.threshold
                 combined_image[b, mask, :] += color
 
         combined_image = self.minmax(
@@ -271,6 +272,9 @@ class GeoJsonBuilder:
     def init_builder(self):
         self.features = []
 
+    def empty(self):
+        return self.features.__len__() == 0
+
 
 class Vectorizer:
     def __init__(self, config=None):
@@ -278,27 +282,27 @@ class Vectorizer:
         assert config is not None, "config must be provided"
         self.config = config
         self.geojson_builder_b = GeoJsonBuilder(
-            origin_lat_long=self.config["vec"]["origin"],
-            resolution=self.config["vec"]["resolution"],
-            crs=self.config["vec"]["crs"],
+            origin_lat_long=self.config["origin"],
+            resolution=self.config["resolution"],
+            crs=self.config["crs"],
         )
         self.geojson_builder_c = GeoJsonBuilder(
-            origin_lat_long=self.config["vec"]["origin"],
-            resolution=self.config["vec"]["resolution"],
-            crs=self.config["vec"]["crs"],
+            origin_lat_long=self.config["origin"],
+            resolution=self.config["resolution"],
+            crs=self.config["crs"],
         )
 
-        self.channel_to_rgb = self.config["vec"]["channel_to_rgb"]
-        self.channel_to_geo = self.config["vec"]["channel_to_geo"]
-        self.channel_to_key = self.config["vec"]["channel_to_key"]
+        self.channel_to_rgb = self.config["channel_to_rgb"]
+        self.channel_to_geo = self.config["channel_to_geo"]
+        self.channel_to_key = self.config["channel_to_key"]
 
-        self.thresold = self.config["vec"]["thresold"]
-        self.path = self.config["vec"]["path"]
+        self.threshold = self.config["threshold"]
+        self.path = self.config["path"]
 
-        self.dump_geojson = self.config["vec"]["dump_geojson"]
-        self.background = self.config["vec"]["background"]
+        self.dump_geojson = self.config["dump_geojson"]
+        self.background = self.config["background"]
 
-        self.crs = self.config["vec"]["crs"]
+        self.crs = self.config["crs"]
 
     def __call__(self, data):
         return self.vectorize(data)
@@ -308,7 +312,7 @@ class Vectorizer:
 
         if data_type == "LineString":
             pts = []
-            image = img[b_id, :, :, :].transpose(1, 2, 0).astype(np.uint8)
+            image = img[:, :].astype(np.uint8)
             # gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
             # 边缘检测
@@ -333,7 +337,7 @@ class Vectorizer:
 
         elif data_type == "Polygon":
             pts = []
-            image = img[b_id, :, :, :].transpose(1, 2, 0).astype(np.uint8)
+            image = img[:, :].astype(np.uint8)
             # edges = cv2.Canny(image, 1, 1)
             # if b_id == 0:
             # cv2.imwrite('./canny.png', edges)
@@ -370,29 +374,29 @@ class Vectorizer:
         ), f"channel number {c} is larger than channel to rgb mapping length {self.channel_to_rgb.__len__()}"
 
         # first step: one hot data augmentation
-        # set data == 1 where data > thresold
-        img[img > self.thresold] = 1
-        img[img <= self.thresold] = 0
+        # set data == 1 where data > threshold
+        img[img > self.threshold] = 1
+        img[img <= self.threshold] = 0
 
         img = img.cpu().numpy()
         # second step : discretize the image into point set
 
         if os.path.exists(self.path):
             # create vectorization result folder
-            Path(os.join(self.path, "vec")).mkdir(parents=True, exist_ok=True)
+            Path(os.path.join(self.path, "vec")).mkdir(parents=True, exist_ok=True)
             # create geojson folder
 
         save_path = os.path.join(self.path, "vec")
 
         for b_id in range(b):
             # create result folder
-            Path(os.join(save_path, str(b_id))).mkdir(parents=True, exist_ok=True)
+            Path(os.path.join(save_path, str(b_id))).mkdir(parents=True, exist_ok=True)
             temp_path = os.path.join(save_path, str(b_id))
             self.geojson_builder_b.init_builder()
             # plt image for every single batch, each channel need to be plotted with different color
-            fig, ax = plt.subplots(figsize=(10, 10))
+            fig, ax = plt.subplots(figsize=(10, 10), facecolor=self.background)
             ax.axis("off")
-            
+
             for c_id in range(c):
                 color = hex_or_name_to_rgb(self.channel_to_rgb[c_id])
 
@@ -408,25 +412,31 @@ class Vectorizer:
                         self.geojson_builder_c.add_polygon(
                             pt, properties={self.channel_to_key[c_id]: "fake"}
                         )
-                channel_gdf = self.geojson_builder_c.get_geojson()
-                channel_feature = self.geojson_builder_c.get_features()
-                self.geojson_builder_b.append_features(channel_feature)
-                if self.dump_geojson:
-                    channel_gdf.to_file(
-                        os.path.join(temp_path, f"{self.channel_to_key[c_id]}_geojson.geojson"),
-                        driver="GeoJSON",
-                    )
-                channel_gdf.plot(ax=ax, color=color)
+
+                if not self.geojson_builder_c.empty():
+                    channel_gdf = self.geojson_builder_c.get_geojson()
+                    channel_feature = self.geojson_builder_c.get_features()
+                    self.geojson_builder_b.append_features(channel_feature)
+                    if self.dump_geojson:
+                        channel_gdf.to_file(
+                            os.path.join(
+                                temp_path,
+                                f"{self.channel_to_key[c_id]}_geojson.geojson",
+                            ),
+                            driver="GeoJSON",
+                        )
+                    channel_gdf.plot(ax=ax, color=color)
                 self.geojson_builder_c.init_builder()
-            
-            if self.dump_geojson:
+
+            if self.dump_geojson and not self.geojson_builder_b.empty():
                 self.geojson_builder_b.get_geojson().to_file(
                     os.path.join(temp_path, "fake.geojson"), driver="GeoJSON"
                 )
-            
-            # save image
-            plt.savefig(os.path.join(temp_path, "fake.png"))
-            plt.close("all")
 
+            # save image
+            plt.savefig(
+                os.path.join(temp_path, "fake.png"), bbox_inches="tight", pad_inches=0
+            )
+            plt.close("all")
 
         return None
