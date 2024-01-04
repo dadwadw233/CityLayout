@@ -105,13 +105,18 @@ def cal_overlapping_rate(tensor):
 
     return (region.sum(dim=[1, 2]).float() / (h * w)).mean()
 
+def hex_or_name_to_rgb(color):
+    # 使用matplotlib的颜色转换功能
+    return mcolors.to_rgb(color)
+
 
 # small helper modules
 # visulization class
 class OSMVisulizer:
-    def __init__(self, mapping):
+    def __init__(self, mapping, thresold=0.7):
         self.name = "OSMVisulizer"
         self.channel_to_rgb = mapping
+        self.thresold = thresold
 
     def minmax(self, data):
         data = data - data.min()
@@ -162,7 +167,7 @@ class OSMVisulizer:
             combined_image = np.zeros((H, W, 3), dtype=np.float32)
             for c in range(C):
                 color = np.array(self.hex_or_name_to_rgb(self.channel_to_rgb[c]))
-                mask = data[b, c] > 0.7
+                mask = data[b, c] > self.thresold 
                 combined_image[mask, :] += color
 
             combined_image = np.clip(combined_image, 0, 1)  # 确保颜色值在0-1范围内
@@ -194,7 +199,7 @@ class OSMVisulizer:
                 color = torch.tensor(
                     self.hex_or_name_to_rgb(self.channel_to_rgb[c]), device=data.device
                 )
-                mask = data[b, c] > 0.7
+                mask = data[b, c] > self.thresold 
                 combined_image[b, mask, :] += color
 
         combined_image = self.minmax(
@@ -208,11 +213,11 @@ class OSMVisulizer:
 
 
 class GeoJsonBuilder:
-    def __init__(self, origin_lat_long, resolution):
+    def __init__(self, origin_lat_long, resolution, crs):
         self.origin_lat_long = origin_lat_long
         self.resolution = resolution  # meters per pixel
         self.features = []
-        self.crs = 3857
+        self.crs = crs
 
     def add_line(self, line_pixel_coordinates, properties=None):
         line_geo_coordinates = [
@@ -275,10 +280,12 @@ class Vectorizer:
         self.geojson_builder_b = GeoJsonBuilder(
             origin_lat_long=self.config["vec"]["origin"],
             resolution=self.config["vec"]["resolution"],
+            crs=self.config["vec"]["crs"],
         )
         self.geojson_builder_c = GeoJsonBuilder(
             origin_lat_long=self.config["vec"]["origin"],
             resolution=self.config["vec"]["resolution"],
+            crs=self.config["vec"]["crs"],
         )
 
         self.channel_to_rgb = self.config["vec"]["channel_to_rgb"]
@@ -364,8 +371,8 @@ class Vectorizer:
 
         # first step: one hot data augmentation
         # set data == 1 where data > thresold
-        img[img > thresold] = 1
-        img[img <= thresold] = 0
+        img[img > self.thresold] = 1
+        img[img <= self.thresold] = 0
 
         img = img.cpu().numpy()
         # second step : discretize the image into point set
@@ -420,5 +427,6 @@ class Vectorizer:
             # save image
             plt.savefig(os.path.join(temp_path, "fake.png"))
             plt.close("all")
+
 
         return None
