@@ -473,7 +473,8 @@ class Trainer(object):
         )
 
         all_images = torch.cat(all_images_list, dim=0)
-
+        overlapping_rate = cal_overlapping_rate(all_images)
+        self.accelerator.print(f"overlapping rate: {overlapping_rate:.5f}")
         if self.calculate_fid and self.accelerator.is_main_process:
             fid_score, kid_score, is_score = self.fid_scorer.evaluate()
             self.accelerator.print(f"fid_score: {fid_score}\nkid_score: {kid_score}\nis_score: {is_score}")
