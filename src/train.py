@@ -9,7 +9,8 @@ import random
 
 argparser = argparse.ArgumentParser()
 argparser.add_argument('--train_type', type=str, default='one-hot')
-argparser.add_argument('--eval', type=str, default='False')
+argparser.add_argument('--eval', action='store_true', help='Enable eval mode')
+argparser.add_argument('--cond', action='store_true', help='Enable condition mode')
 
 
 print('training data type: ',argparser.parse_args().train_type)
@@ -19,14 +20,35 @@ train_type = argparser.parse_args().train_type
 
 
 if train_type == 'one-hot':
-    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml')
-    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml')
+    if argparser.parse_args().cond:
+        data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_cond_loader.yaml')
+        trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_cond_generator.yaml')
+    else:
+        data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml')
+        trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml')
 elif train_type == 'rgb':
-    data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader_rgb.yaml')
-    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_rgb.yaml')
+    if argparser.parse_args().cond:
+        data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_cond_loader_rgb.yaml')
+        trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_cond_generator_rgb.yaml')
+    else:
+        data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader_rgb.yaml')
+        trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_rgb.yaml')
 
-if argparser.parse_args().eval == 'True':
-    trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_cond_generator_sample.yaml')
+if argparser.parse_args().eval:
+    if train_type == 'one-hot':
+        if argparser.parse_args().cond:
+            data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_cond_loader.yaml')
+            trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_cond_generator_sample.yaml')
+        else:
+            data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml')
+            trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_sample.yaml')
+    else:
+        if argparser.parse_args().cond:
+            data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_cond_loader_rgb.yaml')
+            trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_cond_generator_rgb_sample.yaml')
+        else:
+            data_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader_rgb.yaml')
+            trainer_config = load_config('/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_rgb_sample.yaml')
 
 seed_value = 3407  
 
@@ -83,7 +105,7 @@ if trainer_config['trainer']['mode'] == 'eval':
     
         
     vis = OSMVisulizer(trainer_config["vis"]["channel_to_rgb"])
-    vec = Vectorizer()
+    vec = Vectorizer(config=trainer_config['vec'])
 
     ret = trainer.sample(trainer_config['trainer']['num_samples'], trainer_config['trainer']['batch_size'], trainer_config['trainer']['milestone'],trainer_config['trainer']['condition'])
 
@@ -91,9 +113,8 @@ if trainer_config['trainer']['mode'] == 'eval':
         vis.visulize_onehot_layout(ret, "./sample-onehot.png")
         vis.visualize_rgb_layout(ret, "./sample-rgb.png")
 
-        # data_for_vec = ret
-        # f = vec.vectorize(data_for_vec[:, 0:1, :, :], 'building')
-        # vec.vectorize(data_for_vec[:, 2:3, :, :], data_type='road', init_features=f, color='blue')
+        data_for_vec = ret
+        f = vec.vectorize(data_for_vec)
     
     print(ret.shape)
 

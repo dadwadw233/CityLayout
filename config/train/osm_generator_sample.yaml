@@ -21,16 +21,23 @@ model:
   conditional_dim: 2
 
 
-vis:
-  channel_to_rgb: { 0: "white", 1: "blue", 2: "red" }
+
+vis: &vis
+  channel_to_rgb: {0: "burlywood", 1: "lightblue", 2: "dimgray"}
+  path: samples/one-hot/predv_128_filter
+  threshold: 0.7
 
 vec:
+  !!merge <<: *vis
   origin: [39.8965148476239, 116.3820984476239] # beijing
   resolution: 1 # meters per pixel
   crs: 3857 # web mercator
-  channel_to_rgb: { 0: "white", 1: "blue", 2: "red" }
-  channel_to_geo: { 0: "Polygon", 1: "Polygon", 2: "LineString" }
-  channel_to_key: { 0: "building", 1: "natural", 2: "road" }
+  channel_to_geo: {0: "Polygon", 1: "Polygon", 2: "LineString"}
+  channel_to_key: {0: "building", 1: "natural", 2: "hightway"}
+  background: "linen" # background color for show
+  dump_geojson: True
+
+
 
 data:
   train:
@@ -38,7 +45,7 @@ data:
 
 diffusion:
   timesteps: 10000
-  ddim_timestep: 50
+  ddim_timestep: 1000
   image_size: 256
   name: DDPM
   objective: "pred_v"
@@ -57,7 +64,7 @@ trainer:
   device: cuda
   lr: 3e-4
   max_epochs: 600
-  num_workers: 16
+  num_workers: 8
   shuffle: True
   pin_memory: True
 
