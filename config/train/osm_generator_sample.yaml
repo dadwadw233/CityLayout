@@ -33,7 +33,7 @@ vec:
   resolution: 1 # meters per pixel
   crs: 3857 # web mercator
   channel_to_geo: {0: "Polygon", 1: "Polygon", 2: "LineString"}
-  channel_to_key: {0: "building", 1: "natural", 2: "hightway"}
+  channel_to_key: {0: "building", 1: "natural", 2: "highway"}
   background: "linen" # background color for show
   dump_geojson: True
 

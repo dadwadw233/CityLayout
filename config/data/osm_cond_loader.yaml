@@ -48,7 +48,7 @@ data:
     }
   
 
-  condition_dim: [0, 1]
+  condition_dim: [1, 2]
 
 # will be used in create rgb training data
   channel_to_rgb: {
