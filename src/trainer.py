@@ -482,7 +482,8 @@ class Trainer(object):
             )
 
         all_images = torch.cat(all_images_list, dim=0)
-        ref = torch.cat(ref_list, dim=0)
+        if self.config["trainer"]["condition"]:
+            ref = torch.cat(ref_list, dim=0)
         overlapping_rate = cal_overlapping_rate(all_images)
         self.accelerator.print(f"overlapping rate: {overlapping_rate:.5f}")
         if self.calculate_fid and self.accelerator.is_main_process:
