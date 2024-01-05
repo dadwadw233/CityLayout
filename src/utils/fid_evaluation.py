@@ -177,6 +177,7 @@ class FIDEvaluation:
                 cond = next(self.dl)['condition'].to(self.device)
             else:
                 cond = None
+            # do not cat cond to fake_samples, because the sample function has already done this
             fake_samples = self.sampler.sample(batch_size=batch, cond=cond)
             if self.data_type == "one-hot":
                 fake_samples = self.vis.onehot_to_rgb(fake_samples)

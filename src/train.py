@@ -80,15 +80,15 @@ if argparser.parse_args().eval:
             trainer_config = load_config(
                 "/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_rgb_sample.yaml"
             )
+else:
+    seed_value = 3407
 
-seed_value = 3407
-
-torch.manual_seed(seed_value)
-if torch.cuda.is_available():
-    torch.cuda.manual_seed(seed_value)
-    torch.cuda.manual_seed_all(seed_value)  # if using multi-GPU
-np.random.seed(seed_value)
-random.seed(seed_value)
+    torch.manual_seed(seed_value)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed(seed_value)
+        torch.cuda.manual_seed_all(seed_value)  # if using multi-GPU
+    np.random.seed(seed_value)
+    random.seed(seed_value)
 
 model = Unet(
     dim=trainer_config["model"]["dim"],

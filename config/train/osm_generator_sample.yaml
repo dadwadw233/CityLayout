@@ -24,7 +24,7 @@ model:
 
 vis: &vis
   channel_to_rgb: {0: "burlywood", 1: "lightblue", 2: "dimgray"}
-  path: samples/one-hot/predv_128_filter
+  path: samples/one-hot/predv_128_4000
   threshold: 0.7
 
 vec:
@@ -44,8 +44,8 @@ data:
     config_path: "config/data/osm_loader.yaml"
 
 diffusion:
-  timesteps: 10000
-  ddim_timestep: 1000
+  timesteps: 4000
+  ddim_timestep: 100
   image_size: 256
   name: DDPM
   objective: "pred_v"
@@ -59,8 +59,8 @@ diffusion:
 trainer:
   condition: False
   mode: "eval"
-  milestone: 'latest'
-  batch_size: 2
+  milestone: 'best'
+  batch_size: 16
   device: cuda
   lr: 3e-4
   max_epochs: 600
@@ -81,11 +81,11 @@ trainer:
   split_batches: True
   mixed_precision_type: "fp16"
 
-  num_samples: 4
+  num_samples: 16
 
-  results_dir: "results/one-hot/predv_128_filter"
+  results_dir: "results/one-hot/predv_128_4000"
 
-  calculate_fid: False
+  calculate_fid: True
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
   num_fid_samples: 2048
