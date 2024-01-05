@@ -58,10 +58,10 @@ data:
 
   filter:
     {
-      "building": -1, # <=
+      "building": 0.01, # <=
       "landuse": -1, # <=
       "natural": -1, # <=
-      "road": -1, # <=
+      "road": 0, # <=
     }
 
   # predefined mapping layout types <----> one hot feature channels
