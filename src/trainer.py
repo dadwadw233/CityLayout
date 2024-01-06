@@ -461,19 +461,31 @@ class Trainer(object):
         ), f"num_samples ({num_samples}) must be divisible by batch_size ({batch_size})"
 
         batches = num_to_groups(num_samples, batch_size)
+        ref_list = []
         if self.config["trainer"]["condition"]:
-            data_test = next(self.dl_test)
-            cond = data_test["condition"].to(device)
+            all_images_list = []
+            for i in range(len(batches)):
+                data_sample = next(self.dl_test)
+                cond = data_sample["condition"].to(device)
+                ref = data_sample["layout"].to(device)
+                ref_list.append(ref)
+                all_images_list.append(
+                    self.model.sample(batch_size=batch_size, cond=cond)
+                )
         else: 
             cond = None
+            ref = None
 
 
-        all_images_list = list(
-            map(lambda n: self.ema.ema_model.sample(batch_size=n, cond=cond), batches)
-        )
+            all_images_list = list(
+                map(lambda n: self.ema.ema_model.sample(batch_size=n, cond=cond), batches)
+            )
 
         all_images = torch.cat(all_images_list, dim=0)
-
+        if self.config["trainer"]["condition"]:
+            ref = torch.cat(ref_list, dim=0)
+        overlapping_rate = cal_overlapping_rate(all_images)
+        self.accelerator.print(f"overlapping rate: {overlapping_rate:.5f}")
         if self.calculate_fid and self.accelerator.is_main_process:
             fid_score, kid_score, is_score = self.fid_scorer.evaluate()
             self.accelerator.print(f"fid_score: {fid_score}\nkid_score: {kid_score}\nis_score: {is_score}")
@@ -481,4 +493,6 @@ class Trainer(object):
         #     self.accelerator.print('fid computation failed')
 
         # todo return generation reference
-        return all_images
+        
+
+        return all_images, ref

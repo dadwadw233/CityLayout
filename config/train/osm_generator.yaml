@@ -28,7 +28,7 @@ data:
     config_path: "config/data/osm_loader.yaml"
 
 diffusion:
-  timesteps: 10000
+  timesteps: 2500
   ddim_timestep: 10
   image_size: 256
   name: DDPM
@@ -66,12 +66,15 @@ trainer:
   split_batches: True
   mixed_precision_type: "fp16"
 
+  # evaluate per sample_frequency epochs and sample 64 images 
+  # to calculate average overlap rate
   num_samples: 64
 
-  results_dir: "results/one-hot/predv_128_4000"
+  results_dir: "results/one-hot/predv_128_2500_filter"
 
   calculate_fid: True
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
   num_fid_samples: 2048
+  # [64, 128, 768, 2048] can be used, but 2048 is FID calculation's standard value which is recommended
   inception_block_idx: 2048

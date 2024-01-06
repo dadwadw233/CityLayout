@@ -418,6 +418,8 @@ class GaussianDiffusion(nn.Module):
         sample_fn = (
             self.p_sample_loop if not self.is_ddim_sampling else self.ddim_sample
         )
+        if cond is not None:
+            cond = self.normalize(cond)
         return sample_fn(
             (batch_size, channels, image_size, image_size), cond,
             return_all_timesteps=return_all_timesteps,

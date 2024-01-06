@@ -21,17 +21,23 @@ model:
   conditional_dim: 2
 
 
-vis:
-# will be used in visualize one hot generation results
-  channel_to_rgb: { 0: "red", 1: "white", 2: "blue" }
+vis: &vis
+  #channel_to_rgb: {0: "burlywood", 1: "lightblue", 2: "dimgray"}
+  channel_to_rgb: {0: "dimgray", 1: "burlywood", 2: "lightblue"}
+  path: samples/one-hot/predv_128_condition_bw_r
+  threshold: 0.7
 
 vec:
+  !!merge <<: *vis
   origin: [39.8965148476239, 116.3820984476239] # beijing
   resolution: 1 # meters per pixel
   crs: 3857 # web mercator
-  channel_to_rgb: { 0: "white", 1: "blue", 2: "red" }
-  channel_to_geo: { 0: "Polygon", 1: "Polygon", 2: "LineString" }
-  channel_to_key: { 0: "building", 1: "natural", 2: "road" }
+  channel_to_geo: {0: "LineString", 1: "Polygon", 2: "Polygon"}
+  channel_to_key: {0: "highway", 1: "building", 2: "natural"}
+  # channel_to_geo: {0: "Polygon", 1: "Polygon", 2: "LineString"}
+  # channel_to_key: {0: "building", 1: "natural", 2: "highway"}
+  background: "linen" # background color for show
+  dump_geojson: True
 
 data:
   train:
@@ -54,7 +60,7 @@ trainer:
   condition: True
   mode: "eval"
   milestone: 'latest'
-  batch_size: 2
+  batch_size: 16
   device: cuda
   lr: 3e-4
   max_epochs: 600
@@ -75,11 +81,11 @@ trainer:
   split_batches: True
   mixed_precision_type: "fp16"
 
-  num_samples: 4
+  num_samples: 16
 
   results_dir: "results/one-hot/predv_128_condition_bw_r"
 
-  calculate_fid: False
+  calculate_fid: True
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
   num_fid_samples: 2048
