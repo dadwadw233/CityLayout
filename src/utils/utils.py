@@ -10,6 +10,9 @@ import geopandas as gpd
 from shapely.geometry import LineString, Point, Polygon
 import cv2
 from pathlib import Path
+import trimesh
+from pyproj import Proj, transform, Transformer
+
 
 
 def cycle(dl):
@@ -257,7 +260,8 @@ class GeoJsonBuilder:
         new_lat = origin_lat - delta_lat
         new_lon = origin_lon + delta_lon
 
-        return new_lat, new_lon
+        # geojson: (lon, lat)
+        return new_lon, new_lat
 
     def get_geojson(self):
         gdf = gpd.GeoDataFrame(
@@ -298,6 +302,7 @@ class Vectorizer:
             resolution=self.config["resolution"],
             crs=self.config["crs"],
         )
+        self.mesh_builder = MeshBuilder(config=self.config)
 
         self.channel_to_rgb = self.config["channel_to_rgb"]
         self.channel_to_geo = self.config["channel_to_geo"]
@@ -403,6 +408,8 @@ class Vectorizer:
             # plt image for every single batch, each channel need to be plotted with different color
             fig, ax = plt.subplots(figsize=(10, 10), facecolor=self.background)
             ax.axis("off")
+            ax.set_aspect('equal')
+
 
             for c_id in range(c):
                 color = hex_or_name_to_rgb(self.channel_to_rgb[c_id])
@@ -439,6 +446,10 @@ class Vectorizer:
                 self.geojson_builder_b.get_geojson().to_file(
                     os.path.join(temp_path, "fake.geojson"), driver="GeoJSON"
                 )
+                self.mesh_builder.geojson2mesh(
+                    self.geojson_builder_b.get_geojson(),
+                    os.path.join(temp_path, "fake.obj"),
+                )
 
             # save image
             plt.savefig(
@@ -447,3 +458,83 @@ class Vectorizer:
             plt.close("all")
 
         return None
+
+
+class MeshBuilder:
+
+    def __init__(self, config=None):
+        self.name = "MeshBuilder"
+        assert config is not None, "config must be provided"
+        self.config = config
+        self.origin_lat_long = self.config["origin"]
+        self.resolution = self.config["resolution"]
+        self.in_proj = Proj(init='epsg:4326')  # 输入投影，WGS84
+        self.out_proj = Proj(init='epsg:3857')  # 输出投影，通常用于Web Mercator
+        self.transformer = Transformer.from_proj(self.in_proj, self.out_proj, always_xy=True)
+
+    def convert_coords(self, coords):
+        """将地理坐标转换为笛卡尔坐标"""
+        origin_lat, origin_lon = self.origin_lat_long
+        reference_x, reference_y = self.transformer.transform(origin_lon, origin_lat)
+        return [(self.transformer.transform(lon, lat) - np.array([reference_x, reference_y])) / self.resolution for lon, lat in coords]
+        
+
+
+    def create_3d_building(self, polygon, height):
+        """为建筑物创建3D网格"""
+        try: 
+            if isinstance(polygon, Polygon):
+                vertices = np.array(self.convert_coords(polygon.exterior.coords))
+                vertices = np.c_[vertices, np.zeros(len(vertices))]
+
+                top_vertices = vertices + np.array([0, 0, height])
+                vertices = np.vstack([vertices, top_vertices])
+
+                faces = [[i, i+1, len(vertices)//2 + i + 1, len(vertices)//2 + i] for i in range(len(vertices)//2 - 1)]
+                return trimesh.Trimesh(vertices=vertices, faces=faces)
+    
+        except Exception as e:
+            return None
+    
+    def create_3d_road(self, line, width, height):
+        """为道路创建3D网格"""
+        try:
+            if isinstance(line, LineString):
+                offset = width / 2.0
+                polygon = line.buffer(offset, cap_style=2, join_style=2)
+                
+                vertices = np.array(self.convert_coords(polygon.exterior.coords))
+                vertices = np.c_[vertices, np.zeros(len(vertices))]
+
+                top_vertices = vertices + np.array([0, 0, height])
+                vertices = np.vstack([vertices, top_vertices])
+
+                faces = [[i, i+1, len(vertices)//2 + i + 1, len(vertices)//2 + i] for i in range(len(vertices)//2 - 1)]
+                return trimesh.Trimesh(vertices=vertices, faces=faces)
+        except Exception as e:
+            return None
+
+    def geojson2mesh(self, gdf, path):
+        meshes = []
+
+        for feature in gdf.geometry:
+            # 确保几何类型是多边形
+            if isinstance(feature, Polygon):
+                # 将多边形的坐标转换为 [x, y, z] 格式
+                height = np.random.randint(10, 30)
+                mesh = self.create_3d_building(feature, height)
+                if mesh is not None:
+                    meshes.append(mesh)
+            # elif isinstance(feature, LineString):
+            #     # 将线的坐标转换为 [x, y, z] 格式
+            #     width = np.random.randint(2, 5)
+            #     height = np.random.randint(1, 2)
+            #     mesh = self.create_3d_road(feature, width, height)
+            #     if mesh is not None:
+            #         meshes.append(mesh)
+                
+
+        
+        combined_mesh = trimesh.util.concatenate(meshes)
+        combined_mesh.export(path)
+        

@@ -24,7 +24,7 @@ model:
 
 vis: &vis
   channel_to_rgb: {0: "burlywood", 1: "lightblue", 2: "dimgray"}
-  path: samples/one-hot/predv_128_4000
+  path: samples/one-hot/predv_128_4000_filter
   threshold: 0.7
 
 vec:
@@ -59,7 +59,7 @@ diffusion:
 trainer:
   condition: False
   mode: "eval"
-  milestone: 'best'
+  milestone: 'latest'
   batch_size: 16
   device: cuda
   lr: 3e-4
@@ -83,7 +83,7 @@ trainer:
 
   num_samples: 16
 
-  results_dir: "results/one-hot/predv_128_4000"
+  results_dir: "results/one-hot/predv_128_4000_filter"
 
   calculate_fid: True
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
