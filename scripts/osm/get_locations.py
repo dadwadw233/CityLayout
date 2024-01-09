@@ -39,14 +39,14 @@ config = load_config(
 cities = config["name"]["cities"]
 landmarks = config["name"]["landmarks"]
 
-cities = list(set(cities))
+cities = list(cities)
 
 
 landmarks = list(set(landmarks))
 
 radius = 128
 geo_redius = (radius / 1000) / 111.319444
-padding = 4
+padding = 10
 
 
 with open("city_coordinates.txt", "w") as file:
@@ -77,31 +77,3 @@ with open("city_coordinates.txt", "w") as file:
 
 print("Coordinates extraction completed.")
 
-
-with open("landmark_coordinates.txt", "w") as file:
-    for landmark in tqdm.tqdm(landmarks, desc="Processing landmarks"):
-        retries = 10
-        while True:
-            try:
-                lat, lon = get_city_coordinates_withproxy(landmark)
-                if lat and lon:
-                    # file.write(f'{landmark.replace(" ", "")} {lat} {lon}\n')
-                    min_lat = lat - geo_redius * padding * 2
-                    min_lon = lon - geo_redius * padding * 2
-                    for i in range(padding * 2 + 1):
-                        for j in range(padding * 2 + 1):
-                            lat2 = min_lat + geo_redius * i * 2
-                            lon2 = min_lon + geo_redius * j * 2
-                            file.write(f'{landmark.replace(" ", "")}-{i}-{j} {lat2} {lon2}\n')
-                else:
-                    print(f"{landmark} not found")
-                # time.sleep(0.5)
-                break
-            except:
-                print(f"Error processing {landmark}, retrying...")
-                retries -= 1
-                time.sleep(10)
-                if retries == 0:
-                    break
-
-print("Coordinates extraction completed.")
