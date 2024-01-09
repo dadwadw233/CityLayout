@@ -59,7 +59,7 @@ plt_config:
     bbox_inches: "tight"
     format: "jpg"
     pad_inches: 0
-    cmap: "gray"
+    cmap: "gray" # to show the building's height
     edgecolor: "black"
 
   combained:

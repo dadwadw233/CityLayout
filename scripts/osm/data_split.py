@@ -68,17 +68,17 @@ if __name__ == "__main__":
     if not os.path.exists(output):
         os.makedirs(output)
 
-    output_train = os.path.join(output, "train_128")
+    output_train = os.path.join(output, "train_128_height")
     output_val = os.path.join(output, "val")
-    output_test = os.path.join(output, "test")
+    output_test = os.path.join(output, "test_128_height")
 
     print("output_train: ", output_train)
     print("output_val: ", output_val)
     print("output_test: ", output_test)
 
-    train_data_rate = 1
+    train_data_rate = 0.8
     val_data_rate = 0.
-    test_data_rate = 0.
+    test_data_rate = 0.2
 
     print("train : val : test", train_data_rate, val_data_rate, test_data_rate)
 

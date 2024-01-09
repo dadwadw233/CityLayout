@@ -538,3 +538,15 @@ class MeshBuilder:
         combined_mesh = trimesh.util.concatenate(meshes)
         combined_mesh.export(path)
         
+
+class DataAnalyser:
+    def __init__(self, config=None):
+        self.name = "DataAnalyser"
+        assert config is not None, "config must be provided"
+        self.config = config
+
+    def __call__(self, data):
+        return self.analyse(data)
+
+    def analyse(self, data):
+        pass
