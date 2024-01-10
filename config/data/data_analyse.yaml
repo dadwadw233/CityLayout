@@ -11,7 +11,7 @@ params:
   condition: False
 
 analyse:
-  path: /home/admin/workspace/yuyuanhong/code/CityLayout/data/analyse/analyse_128_height/natural
+  path: /home/admin/workspace/yuyuanhong/code/CityLayout/data/analyse/analyse_128_height/road
   types: ["overlap"]
   threshold: 0.9
   evaluate_data_limit: 20480
@@ -34,21 +34,20 @@ data:
       ],
       "natural":
         [
-          ["grassland"],
-          ["tree"],
-          ["tree_row"],
-          ["wood"],
-          ["water"],
-          ["wetland"],
-          ["beach"],
-          ["sand"],
-          ["hill"],
-          ["valley"],
-          ["bare_rock"],
+          
         ],
       "road":
         [
-          
+          ["motorway"],
+          ["trunk"],
+          ["primary"],
+          ["secondary"],
+          ["tertiary"],
+          ["residential"],
+          ["service"],
+          ["living_street"],
+          ["pedestrian"],
+          ["footway"],
         ],
         "height": [],
     }
