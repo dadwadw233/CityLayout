@@ -4,7 +4,7 @@
 # pop_file_path: The path to the population density file
 path:
   input: "./city_coordinates.txt"
-  output: "../../data/raw/osm/cities"
+  output: "../../data/raw/osm/cities_441"
   pop_file_path: "../../data/raw/pop/kontur/kontur_population_20231101.gpkg"
 
 data:
