@@ -15,7 +15,7 @@ import argparse
 from accelerate import Accelerator
 
 import matplotlib.pyplot as plt
-from utils.utils import cycle, load_config
+from utils.utils import cycle, load_config, DataAnalyser
 from torchvision import transforms as T, utils
 from tqdm import tqdm
 from scipy import stats
@@ -44,7 +44,7 @@ if __name__ == "__main__":
     accelerator = Accelerator()
 
     ds_config = load_config(
-        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml"
+        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/data_analyse.yaml"
     )
     trainer_config = load_config(
         "/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml"
@@ -68,60 +68,13 @@ if __name__ == "__main__":
     road = []
     building = []
     natural = []
+    handle = DataAnalyser(config=ds_config)
+    handle.init_folder()
     for _ in tqdm(range(len(ds))):
         data = next(dl)
-        road_rate = torch.count_nonzero(data["road"]) / (data["road"].shape[2] * data["road"].shape[3])
-
-        building_rate = torch.count_nonzero(data["building"]) / (data["building"].shape[2] * data["building"].shape[3])
-
-        natural_rate = torch.count_nonzero(data["natural"]) / (data["natural"].shape[2] * data["natural"].shape[3])
-
-        road.append(road_rate.cpu())
-
-        building.append(building_rate.cpu())
-
-        natural.append(natural_rate.cpu())
-
-        cnt += 1
+        handle.add_data(data['layout'])
+       
+    
+    # handle.contrast_analyse()
+    handle.analyse()
         
-        
-    # print overlap rate satistic result
-    print("road:", np.mean(road), np.std(road))
-    print("building:", np.mean(building), np.std(building))
-    print("natural:", np.mean(natural), np.std(natural))
-
-
-    # plt overlap rate satistic result separately
-
-    plt.figure()
-    plt.hist(road, bins=100, color="red", label="road")
-    plt.xlabel("overlap rate")
-    plt.ylabel("count")
-    plt.legend()
-    plt.savefig("overlap_rate_road.png")
-    plt.close()
-
-
-    plt.figure()
-    plt.hist(building, bins=100, color="blue", label="building")
-    plt.xlabel("overlap rate")
-    plt.ylabel("count")
-    plt.legend()
-    plt.savefig("overlap_rate_building.png")
-    plt.close()
-
-    plt.figure()
-    plt.hist(natural, bins=100, color="green", label="natural")
-    plt.xlabel("overlap rate")
-    plt.ylabel("count")
-    plt.legend()
-    plt.savefig("overlap_rate_natural.png")
-    plt.close()
-
-    mode_bin_building, building_freq = discretize_data(building, 0.01)
-    mode_bin_road, road_freq = discretize_data(road, 0.01)
-    mode_bin_natural, natural_freq = discretize_data(natural, 0.01)
-
-    print("building众数区间:", mode_bin_building, "频数:", building_freq)
-    print("road众数区间:", mode_bin_road, "频数:", road_freq)
-    print("natural众数区间:", mode_bin_natural, "频数:", natural_freq)
