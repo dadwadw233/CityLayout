@@ -28,7 +28,7 @@ data:
     config_path: "config/data/osm_loader.yaml"
 
 diffusion:
-  timesteps: 100
+  timesteps: 2000
   ddim_timestep: 10
   image_size: 256
   name: DDPM
@@ -70,7 +70,7 @@ trainer:
   # to calculate average overlap rate
   num_samples: 64
 
-  results_dir: "results/one-hot/predv_128_100_filter"
+  results_dir: "results/one-hot/predv_128_2000_filter"
 
   calculate_fid: True
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur

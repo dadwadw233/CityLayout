@@ -1,8 +1,8 @@
 # script's root path has been changed to the root of the repository
 # so there is no need to use relative paths anymore
 path:
-  input: "data/raw/osm/cities"
-  output: "data/raw/osm/cities"
+  input: "data/raw/osm/cities_441"
+  output: "data/raw/osm/cities_441"
 
 # some parameters for preprocessing
 # init_osm: whether to delete the existing image/h5/npy files in the target directory (geojson files will not be deleted)
