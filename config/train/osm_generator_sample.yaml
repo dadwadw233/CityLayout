@@ -45,7 +45,7 @@ data:
 
 diffusion:
   timesteps: 2500
-  ddim_timestep: 300
+  ddim_timestep: 1000
   image_size: 256
   name: DDPM
   objective: "pred_v"
