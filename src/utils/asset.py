@@ -8,9 +8,9 @@ import cv2
 import geopandas as gpd
 import trimesh
 from pyproj import Proj, Transformer
-from utils import hex_or_name_to_rgb
-from log import *
-from config import ConfigParser
+from utils.utils import hex_or_name_to_rgb
+from utils.log import *
+from utils.config import ConfigParser
 import torch
 from tqdm import tqdm
 
@@ -20,14 +20,15 @@ class AssetGen:
     # image to geo file (geojson, shapefile, openstreetmap)
     # image to mesh file (obj, ply, stl)
     # image to image file (png, jpg, tiff)
-    def __init__(self, config=None):
+    def __init__(self, config=None, path="./"):
         self.name = "AssetGen"
         assert config is not None, "config must be provided, which include params for vectorizer and mesh builder"
         self.config = config
         self.config_parser = ConfigParser()
         self.config_parser.set_config(config)
-        self.vectorizer = Vectorizer(config=self.config_parser.get_config_by_name("vec"))
-        self.mesh_builder = MeshBuilder(config=self.config_parser.get_config_by_name("mesh"))
+        self.path=path
+        self.vectorizer = Vectorizer(config=self.config_parser.get_config_by_name("Vec"), path=self.path)
+        self.mesh_builder = MeshBuilder(config=self.config_parser.get_config_by_name("Mesh"))
 
         self.asset = {}
         self.data = None
@@ -172,7 +173,7 @@ class GeoJsonBuilder:
 
 
 class Vectorizer:
-    def __init__(self, config=None):
+    def __init__(self, config=None, path="./"):
         self.name = "Vectorizer"
         assert config is not None, "config must be provided"
         self.config = config
@@ -193,11 +194,11 @@ class Vectorizer:
         self.channel_to_key = self.config["channel_to_key"]
 
         self.threshold = self.config["threshold"]
-        self.path = self.config["path"]
+        
 
         self.dump_geojson = self.config["dump_geojson"]
         self.background = self.config["background"]
-
+        self.path = path
         self.crs = self.config["crs"]
 
     def __call__(self, data):
@@ -356,8 +357,8 @@ class MeshBuilder:
         self.config = config
         self.origin_lat_long = self.config["origin"]
         self.resolution = self.config["resolution"]
-        self.in_proj = Proj(init='epsg:4326')  # 输入投影，WGS84
-        self.out_proj = Proj(init='epsg:3857')  # 输出投影，通常用于Web Mercator
+        self.in_proj = Proj('epsg:4326')  # 输入投影，WGS84
+        self.out_proj = Proj('epsg:3857')  # 输出投影，通常用于Web Mercator
         self.transformer = Transformer.from_proj(self.in_proj, self.out_proj, always_xy=True)
 
     def convert_coords(self, coords):

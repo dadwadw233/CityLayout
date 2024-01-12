@@ -1,11 +1,6 @@
-from utils.log import *
+from CityDM import CityDM
 
-def test():
-    INFO("This is a test message")
-    DEBUG("This is a test message")
-    WARNING("This is a test message")
-    ERROR("This is a test message")
-    CRITICAL("This is a test message")
+path = "/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/uniDM_train.yaml"
 
-if __name__ == "__main__":
-    test()
+citydm = CityDM(path)
+citydm.train()

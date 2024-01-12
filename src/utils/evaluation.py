@@ -5,9 +5,9 @@ from pytorch_fid.inception import InceptionV3
 from tqdm.auto import tqdm
 
 
-from vis import OSMVisulizer
+from utils.vis import OSMVisulizer
 
-from log import *
+from utils.log import *
 
 
 from torchmetrics.image.fid import FrechetInceptionDistance
@@ -42,13 +42,11 @@ class Evaluation:
         sampler,
         channels=3,
         accelerator=None,
-        stats_dir="./results",
         device="cuda",
         num_fid_samples=50000,
         inception_block_idx=2048,
         data_type="rgb",
         mapping=None,
-        condition=False,
     ):
         self.batch_size = batch_size
         self.n_samples = num_fid_samples
@@ -56,7 +54,7 @@ class Evaluation:
         self.channels = channels
         self.dl = dl
         self.sampler = sampler
-        self.stats_dir = stats_dir
+
 
 
         self.print_fn = print if accelerator is None else accelerator.print
@@ -67,7 +65,7 @@ class Evaluation:
 
         self.vis = OSMVisulizer(mapping)
         self.data_type = data_type
-        self.condition = condition
+
 
         if num_fid_samples < inception_block_idx:
             WARNING(
@@ -107,7 +105,8 @@ class Evaluation:
 
         self.evaluate_dict = {}
 
-    
+    def summary(self):
+        pass
 
     def update_sampler(self, sampler):
         self.sampler = sampler

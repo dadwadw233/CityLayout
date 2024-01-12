@@ -24,6 +24,8 @@ class OSMDataset(Dataset):
         if data_dir is None:
             if self.mode == "train":
                 self.data_dir = config["path"]["train_dir"]
+            elif self.mode == "val":
+                self.data_dir = config["path"]["val_dir"]
             else:
                 self.data_dir = config["path"]["test_dir"]
         else:

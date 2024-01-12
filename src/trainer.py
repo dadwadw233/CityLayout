@@ -46,7 +46,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import time
 
-
+# will be deprecated in the future by pytorch-lightning or self-well-designed hyper module
 class Trainer(object):
     def __init__(
         self,
