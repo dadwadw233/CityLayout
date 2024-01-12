@@ -1,5 +1,6 @@
 import os
 import yaml
+from log import *
 
 
 class ConfigParser:
@@ -12,7 +13,14 @@ class ConfigParser:
             else:
                 self.config = None
                 self.config_path = None 
-                raise ValueError("Config file does not exist!")
+                WARNING(f"load config failed, config file {config_path} does not exist!")
+                
+        else:
+            INFO("config path is not provided! Please use set_config() to provide config dict or register_config() to provide config path")
+
+    def set_config(self, config: dict):
+
+        self.config = config
 
     def parse(self):
         with open(self.config_path, 'r') as f:
