@@ -22,7 +22,7 @@ import torch
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-
+import wandb
 
 
 def num_to_groups(num, divisor):
@@ -43,60 +43,68 @@ class Evaluation:
         channels=3,
         accelerator=None,
         device="cuda",
-        num_fid_samples=50000,
-        inception_block_idx=2048,
-        data_type="rgb",
         mapping=None,
+        config=None,
     ):
         self.batch_size = batch_size
-        self.n_samples = num_fid_samples
+        
         self.device = device
         self.channels = channels
+
         self.dl = dl
         self.sampler = sampler
 
+        self.num_fid_samples = config['num_fid_samples']
+        self.inception_block_idx = config['inception_block_idx']
+        self.config = config
+        
+        self.metrics_list = config['metrics_list']
+        self.data_type = config['data_type']
+
+
+  
 
 
         self.print_fn = print if accelerator is None else accelerator.print
-        assert inception_block_idx in InceptionV3.BLOCK_INDEX_BY_DIM
+        assert self.inception_block_idx in InceptionV3.BLOCK_INDEX_BY_DIM
         
 
 
 
         self.vis = OSMVisulizer(mapping)
-        self.data_type = data_type
+        
 
 
-        if num_fid_samples < inception_block_idx:
+        if self.num_fid_samples < self.inception_block_idx:
             WARNING(
-                f"num_fid_samples {num_fid_samples} is smaller than inception_block_idx {inception_block_idx}, "
+                f"num_fid_samples {self.num_fid_samples} is smaller than inception_block_idx {self.inception_block_idx}, "
                 "this may cause error when computing FID, please set num_fid_samples larger than (or at least equal to) inception_block_idx"
             )
 
         # metrics for evaluate Image Similarity
-        self.FID_calculator = FrechetInceptionDistance(feature=inception_block_idx, normalize=True).to(device)
-        self.KID_calculator = KernelInceptionDistance(feature=inception_block_idx, normalize=True).to(device)
-        self.MIFID_calculator = MemorizationInformedFrechetInceptionDistance(feature=inception_block_idx, normalize=True).to(device)
+        self.FID_calculator = FrechetInceptionDistance(feature=self.inception_block_idx, normalize=True).to(device)
+        self.KID_calculator = KernelInceptionDistance(feature=self.inception_block_idx, normalize=True, subset_size=self.num_fid_samples//4).to(device)
+        self.MIFID_calculator = MemorizationInformedFrechetInceptionDistance(feature=self.inception_block_idx, normalize=True).to(device)
 
         # metrics for evaluate Image Quality
         self.IS_caluculator = InceptionScore(normalize=True).to(device)
 
 
-        # MultoModal metrics
-        self.CLIP_calculator = CLIPImageQualityAssessment(data_range=1.0).to(device)
+        
         
 
 
         # predifine some prompts for CLIP
-        color = 'green'
-        self.prompt_pair = [
+        
+        self.prompt_pair = (
             ("a city region", "not a city region"),
-            ("a city map include buildings and roads", "not a city map"),
+            ("a city map include buildings and roads", "a city map without buildings and roads"),
             ("high quality city map", "low quality city map"),
-            ("the background's color is "+color, "the background's color is not "+color),
-            ("the city map real", "the city map fake"),
-
-        ]
+            ("the background's color is black", "the background's color is not black"),
+            ("a real city map", "a fake city map")
+        )
+        # MultoModal metrics
+        self.CLIP_calculator = CLIPImageQualityAssessment(data_range=1.0, prompts=self.prompt_pair).to(device)
 
         # some matrics to evaluate conditional generation's consistency
         self.LPIPS_calculator = LearnedPerceptualImagePatchSimilarity(net_type='squeeze', normalize=True).to(device)
@@ -105,93 +113,179 @@ class Evaluation:
 
         self.evaluate_dict = {}
 
-    def summary(self):
-        pass
+        self.condition = False
+
+    def get_evaluation_dict(self):
+        return self.evaluate_dict
+    
+
+    def set_condtion(self, condition):
+        self.condition = condition
+
+    def recursive(self, d) -> str:
+        # help get_summary function to convert dict to string recursively
+        summary_str = ""
+        for k, v in d.items():
+            if isinstance(v, dict):
+                summary_str += self.recursive(v)
+            else:
+                summary_str += f"{k}: {v}\n"
+        return summary_str
+
+    def summary(self) -> str:
+        summary_str = ""
+        summary_str += "Begin Evaluation Summary:\n"
+        summary_str += "----------------------------------------\n"
+        summary_str += "key: value\n"
+        summary_str += "----------------------------------------\n"
+        for k, v in self.config.items():
+            # consider the case that v is a dict recursively
+            if isinstance(v, dict):
+                summary_str += self.recursive(v)
+            else:
+                summary_str += f"{k}: {v}\n"
+
+        summary_str += "----------------------------------------\n"
+        summary_str += "End Evaluation Summary\n"
+
+        return summary_str
+
+        
 
     def update_sampler(self, sampler):
         self.sampler = sampler
 
     @torch.inference_mode()
     def validation (self, condition=False):
-        pass
+        # init evaluate dict
+        self.evaluate_dict = {}
+        self.evaluate_dict['CLIP'] = {}
+        for prompt in self.prompt_pair:
+            prompt_str = prompt[0] + " vs " + prompt[1]
+            self.evaluate_dict['CLIP'][prompt_str] = {'fake': [], 'real': []}
+
+        self.set_condtion(condition)
+
+        if not self.image_evaluation():
+            ERROR("Error occured when evaluating images")
+            return False
+        else:
+            INFO("Evaluation finished")
+            return True
 
     @torch.inference_mode()
-    def sample_real_data(self, cond=None):
-        if cond is not None:
-            cond = cond.to(self.device)
+    def sample_real_data(self):
+        
         real_samples = next(self.dl)['layout']
-        if cond is not None:
-            real_samples = torch.cat([real_samples, cond], dim=1)
+        
         if self.data_type == "one-hot":
             real_samples = self.vis.onehot_to_rgb(real_samples)
         
         real_samples = real_samples.to(self.device)
         return real_samples
+    
+    @torch.inference_mode()
+    def sample_fake_data(self, cond=None):
+        if cond is not None:
+            cond = cond.to(self.device)
+        fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=cond)
+        if self.data_type == "one-hot":
+            fake_samples = self.vis.onehot_to_rgb(fake_samples)
         
+        fake_samples = fake_samples.to(self.device)
+        return fake_samples
         
+    
+
+    @torch.inference_mode()
+    def multimodal_evaluation(self, real, fake):
+        # init evaluate dict
+        
+        try:
+            real_score = self.CLIP_calculator(real)
+            fake_score = self.CLIP_calculator(fake)
+
+
+            keys = real_score.keys()
+            for pk, clip_k in zip(self.prompt_pair, keys):
+                
+                prompt_key = pk[0] + " vs " + pk[1]
+                self.evaluate_dict['CLIP'][prompt_key]['fake'].append(fake_score[clip_k].mean().item())
+                self.evaluate_dict['CLIP'][prompt_key]['real'].append(real_score[clip_k].mean().item())
+                
+            return True
+        except Exception as e:
+            ERROR(f"Error when calculating CLIP: {e}")
+            return False
+        
+
 
 
     @torch.inference_mode()
-    def evaluate(self):
-        
-        self.sampler.eval()
-        batches = num_to_groups(self.n_samples, self.batch_size)
+    def image_evaluation(self):
 
-        self.print_fn(
-            f"Stacking real sample..."
-        )
-        for batch in tqdm(batches):
-            cond = None
-            try:
-                data = next(self.dl)
-                real_samples = data['layout']
+        try:    
+        
+            self.sampler.eval()
+
+            batches = num_to_groups(self.num_fid_samples, self.batch_size)
+
+            INFO(f"Start evaluating images")
+            
+            for batch in tqdm(batches, leave=False):
+                real_samples = self.sample_real_data()
+                
+                real_samples = real_samples.to(self.device)
+                self.FID_calculator.update(real_samples, True)
+                self.KID_calculator.update(real_samples, True)
+                self.MIFID_calculator.update(real_samples, True)
+
+            
+            
                 if self.condition:
-                    cond = data['condition'].to(self.device)
+                    cond = next(self.dl)['layout'].to(self.device)
                 else:
                     cond = None
+
+                fake_samples = self.sample_fake_data(cond=cond)
+                self.FID_calculator.update(fake_samples, False)
+                self.KID_calculator.update(fake_samples, False)
+                self.MIFID_calculator.update(fake_samples, False)
+                self.IS_caluculator.update(fake_samples)
+                if 'clip' in self.metrics_list:
+                    self.multimodal_evaluation(real_samples, fake_samples)
+            
                 
-            except StopIteration:
-                break
-            real_samples = real_samples.to(self.device)
-            if cond is not None:
-                real_samples = torch.cat([real_samples, cond], dim=1)
-            if self.data_type == "one-hot":
-                real_samples = self.vis.onehot_to_rgb(real_samples)
-            
-            real_samples = real_samples.to(self.device)
-            self.FID_calculator.update(real_samples, True)
-            self.KID_calculator.update(real_samples, True)
 
-        self.print_fn(
-            f"Stacking fake sample..."
-        )
-        for batch in tqdm(batches):
-            if self.condition:
-                cond = next(self.dl)['condition'].to(self.device)
-            else:
-                cond = None
-            # do not cat cond to fake_samples, because the sample function has already done this
-            fake_samples = self.sampler.sample(batch_size=batch, cond=cond)
-            if self.data_type == "one-hot":
-                fake_samples = self.vis.onehot_to_rgb(fake_samples)
-            
-            fake_samples = fake_samples.to(self.device)
-            self.FID_calculator.update(fake_samples, False)
-            self.KID_calculator.update(fake_samples, False)
-            self.IS_caluculator.update(fake_samples)
+            if 'fid' in self.metrics_list:
+                self.evaluate_dict['FID'] = self.FID_calculator.compute().item()
+            if 'kid' in self.metrics_list:
+                mean, std = self.KID_calculator.compute()
+                self.evaluate_dict['KID'] = mean.item()
+                self.evaluate_dict['KID_std'] = std.item()
+            if 'mifid' in self.metrics_list:
+                self.evaluate_dict['MIFID'] = self.MIFID_calculator.compute().item()
+            if 'is' in self.metrics_list:
+                mean, std = self.IS_caluculator.compute()
+                self.evaluate_dict['IS'] = mean.item()
+                self.evaluate_dict['IS_std'] = std.item()
+            if 'clip' in self.metrics_list:
+                # get mean score for each prompt
+                for prompt in self.prompt_pair:
+                    prompt_str = prompt[0] + " vs " + prompt[1]
+                    self.evaluate_dict['CLIP'][prompt_str]['fake'] = np.mean(self.evaluate_dict['CLIP'][prompt_str]['fake'])
+                    self.evaluate_dict['CLIP'][prompt_str]['real'] = np.mean(self.evaluate_dict['CLIP'][prompt_str]['real'])
+
+            return True
         
-            
+        except Exception as e:
+            ERROR(f"Error when calculating FID and KID: {e}")
+            self.evaluate_dict['FID'] = None
+            self.evaluate_dict['KID'] = None
+            self.evaluate_dict['MIFID'] = None
+            self.evaluate_dict['IS'] = None
 
-        fid = self.FID_calculator.compute().item()
-        kid_mean, kid_std = self.KID_calculator.compute()
-        kid = kid_mean.item()
-        
-        is_mean, is_std = self.IS_caluculator.compute()
-        is_score = is_mean.item()
-
-
-        
-        return fid, kid, is_score
+            return False
     
 
 

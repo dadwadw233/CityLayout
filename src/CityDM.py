@@ -57,12 +57,13 @@ import inspect
 from utils.evaluation import Evaluation
 from utils.asset import AssetGen
 import numpy as np
+import wandb
 
 class CityDM(object):
 
     def __init__(self, config_path) -> None:
         super().__init__()
-
+        os.environ["TOKENIZERS_PARALLELISM"] = "true"
         assert config_path is not None, "config path is None!"
         assert os.path.exists(config_path), f"config file {config_path} does not exist!"
         self.config_path = config_path
@@ -74,6 +75,8 @@ class CityDM(object):
         self.accelerator = Accelerator(**acc_config)
         INFO(f"Accelerator initialized!")
         
+        self.timesteps = self.config_parser.get_config_by_name("Model")["diffusion"]["timesteps"]
+        self.data_type = self.config_parser.get_config_by_name("Evaluation")["data_type"]
 
         try:
             # Init Model
@@ -82,7 +85,7 @@ class CityDM(object):
 
 
             # Init Diffusion
-            diffusion_config = model_config["diffusion"]
+            diffusion_config = model_config["diffusion"].copy()
             diffusion_config['model'] = self.backbone
             self.diffusion = GaussianDiffusion(**diffusion_config)
         except Exception as e:
@@ -207,6 +210,7 @@ class CityDM(object):
         INFO(f"Utils initialized!")
 
 
+        
 
         
         # evaluation prepare
@@ -215,15 +219,13 @@ class CityDM(object):
                                         dl=self.val_dataloader if self.mode == "train" else self.test_dataloader,
                                         sampler=self.ema.ema_model,
                                         accelerator=self.accelerator,
-                                        num_fid_samples=eval_config["num_fid_samples"],
-                                        inception_block_idx=eval_config["inception_block_idx"],
-                                        data_type=eval_config["data_type"],
                                         mapping=eval_config["channel_to_rgb"],
+                                        config=eval_config,
                         )
         # 👆 代码evaluation初始化还可以再优化 优化成全config的形式
         INFO(f"Evaluation initialized!")
         # print some info
-        self.evaluation.summary()
+        INFO(self.evaluation.summary())
 
         self.best_evaluation_result = None
 
@@ -258,9 +260,23 @@ class CityDM(object):
         # last some preperation for train
         self.now_epoch = 0
         self.now_step = 0
+        self.best_validation_result = None
+        self.max_step = self.epochs * len(self.train_dataset) // (self.batch_size * self.grad_accumulate)
         # Done
         INFO(f"CityDM initialized!")
 
+    def check_best_or_not(self, result):
+        if self.best_evaluation_result is None and result is not None:
+            self.best_evaluation_result = result
+            return True
+        elif result is None:
+            return False
+        else:
+            if self.best_evaluation_result["FID"] < result["FID"]:
+                self.best_evaluation_result = result
+                return True
+            else:
+                return False
 
     
     @property
@@ -268,9 +284,14 @@ class CityDM(object):
         return self.accelerator.device
     
 
-    def save_ckpts(self, epoch, step, best=False):
+    def save_ckpts(self, epoch, step, best=False, latest=False):
         if self.accelerator.is_main_process:
-            ckpt_path = os.path.join(self.ckpt_results_dir, f"ckpt_{epoch}_{step}.pth")
+            if not best and not latest:
+                ckpt_path = os.path.join(self.ckpt_results_dir, f"ckpt_{epoch}_{step}.pth")
+            elif best:
+                ckpt_path = os.path.join(self.ckpt_results_dir, f"best_ckpt.pth")
+            else:
+                ckpt_path = os.path.join(self.ckpt_results_dir, f"latest_ckpt.pth")
             
             ckpt = {
                 "epoch": epoch,
@@ -317,8 +338,148 @@ class CityDM(object):
         INFO("Model Summary End")
     
     def train(self):
+        wandb.init(project="CityLayout", entity="913217005", config = self.config_parser.get_config_all())
+
+
         
-        self.config_summarize()
+        experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}_resultfolder{}".format(
+            time.strftime("%Y%m%d_%H%M%S"),
+            self.lr,
+            self.timesteps,
+            self.epochs,
+            self.results_dir,
+        )
+        writer = SummaryWriter(log_dir=f"runs-DEBUG/{experiment_title}")
+        
+        with tqdm(
+            initial=self.now_step,
+            total=self.max_step,
+            disable=not self.accelerator.is_main_process,
+        ) as pbar:
+            
+            while self.now_step < self.max_step:
+                total_loss = 0.0
+
+                for _ in range(self.grad_accumulate):
+                    # data = next(self.dl)["layout"].to(device)
+                    data = next(self.train_dataloader)
+                    layout = data["layout"].to(self.device)
+                    
+                    with self.accelerator.autocast():
+                        loss = self.diffusion(layout)
+                        loss = loss / self.grad_accumulate
+                        total_loss += loss.item()
+
+                    self.accelerator.backward(loss)
+
+                writer.add_scalar("loss", float(total_loss), self.now_step)
+                writer.add_scalar("lr", self.scheduler.get_last_lr()[0], self.now_step)
+                wandb.log({"loss": float(total_loss), "lr": self.scheduler.get_last_lr()[0]})
+
+                pbar.set_description(
+                    f'loss: {total_loss:.5f}, lr: {self.optimizer.param_groups[0]["lr"]:.6f}, epoch: {self.now_step* self.batch_size*self.grad_accumulate/len(self.train_dataset):.2f}'
+                )
+
+                self.accelerator.wait_for_everyone()
+                self.accelerator.clip_grad_norm_(self.diffusion.parameters(), self.max_grad_norm)
+
+                self.scheduler.step()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+
+                self.accelerator.wait_for_everyone()
+
+                self.now_step += 1
+                self.now_epoch = (self.now_step * self.batch_size * self.grad_accumulate) // len(self.train_dataset)
+                if self.accelerator.is_main_process:
+                    self.ema.update()
+
+                    if self.now_step != 0 and divisible_by(self.now_step, self.sample_frequency):
+                        self.ema.ema_model.eval()
+
+                        with torch.inference_mode():
+                            milestone = self.now_step // self.sample_frequency
+                            batches = num_to_groups(self.num_samples, self.batch_size)
+                            
+                            all_images_list = list(
+                                map(
+                                    lambda n: self.ema.ema_model.sample(batch_size=n, cond=None),
+                                    batches,
+                                )
+                            )
+
+                        all_images = torch.cat(
+                            all_images_list, dim=0
+                        )  # (num_samples, channel, image_size, image_size)
+
+                        image_for_show = all_images[:4] 
+                        if self.data_type == "rgb":
+                            utils.save_image(
+                                image_for_show,
+                                os.path.join(
+                                    self.vis_results_dir, f"sample-{milestone}-c-rgb.png"
+                                ),
+                                nrow=int(math.sqrt(self.num_samples)),
+                            )
+                            self.vis.visualize_rgb_layout(
+                                image_for_show,
+                                os.path.join(
+                                    self.vis_results_dir, f"sample-{milestone}-rgb.png"
+                                )
+                            )
+                        else:
+                            self.vis.visulize_onehot_layout(
+                                image_for_show,
+                                os.path.join(
+                                    self.vis_results_dir, f"sample-{milestone}-onehot.png"
+                                )
+                            )
+                            self.vis.visualize_rgb_layout(
+                                image_for_show,
+                                os.path.join(
+                                    self.vis_results_dir, f"sample-{milestone}-rgb.png"
+                                )
+                            )
+                        # whether to calculate fid
+                        overlapping_rate = cal_overlapping_rate(all_images)
+                        self.accelerator.print(
+                            f"overlapping rate: {overlapping_rate:.5f}"
+                        )
+                        writer.add_scalar(
+                            "overlapping_rate", overlapping_rate, self.now_step
+                        )
+
+                        
+                        val_result = None
+                        try:
+                            if(self.evaluation.validation(False)):
+                                val_result = self.evaluation.get_evaluation_dict()
+                                # self.accelerator.print(val_result)
+                                for k, v in val_result.items():
+                                    writer.add_scalar(k, v, self.now_step)
+                            
+                                    
+                            
+                        except Exception as e:
+                            self.accelerator.print("computation failed: \n")
+                            self.accelerator.print(e)
+
+                        if val_result is not None:
+                            for k, v in val_result.items():
+
+                                wandb.log({k: v})
+                                
+                        if self.save_best_and_latest_only:
+                            if self.check_best_or_not(val_result):
+                                self.save_ckpts(epoch=self.now_epoch, step=self.now_step, best=True)
+                            self.save_ckpts(epoch=self.now_epoch, step=self.now_step, latest=True)
+                        else:
+                            self.save_ckpts(epoch=self.now_epoch, step=self.now_step)
+
+                pbar.update(1)
+
+        self.accelerator.print("training complete")
+        writer.close()
 
 
 

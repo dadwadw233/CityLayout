@@ -46,8 +46,8 @@ Model:
     conditional_dim: 2
 
   diffusion:
-    timesteps: 2000
-    sampling_timesteps: 10
+    timesteps: 2500
+    sampling_timesteps: 100
     image_size: 256
     objective: "pred_v"
     beta_schedule: "sigmoid"
@@ -67,7 +67,7 @@ Main:
   milestone: 0
   device: cuda
   lr: 5e-5
-  max_epochs: 1000
+  max_epochs: 500
   num_workers: 8
 
 
@@ -78,7 +78,7 @@ Main:
   scheduler: "cosine" # or "step"
   adam_betas: [0.9, 0.999]
 
-  sample_frequency: 5
+  sample_frequency: 1000
   grad_accumulate: 4
   
   max_grad_norm: 1.
@@ -89,18 +89,19 @@ Validation:
   # to calculate average overlap rate
   num_samples: 64
 
-  results_dir: "results/one-hot/predv_128_2000_filter"
+  results_dir: "results/one-hot/uni-test-2500-filter"
 
 Evaluation: 
   !!merge <<: *vis
   data_type: "one-hot" # or "rgb"
 
-  calculate_fid: True
+  metrics_list : ["fid", "mifid", "kid", "clip", "is"]
+
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
-  num_fid_samples: 2048
+  num_fid_samples: 64
   # [64, 128, 768, 2048] can be used, but 2048 is FID calculation's standard value which is recommended
-  inception_block_idx: 2048
+  inception_block_idx: 64
 
 
 Data:

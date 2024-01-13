@@ -320,10 +320,10 @@ class GaussianDiffusion(nn.Module):
     def get_random_noise_forward(self, image):
         # select random channel to add standard gaussian noise
         b, c, h, w = image.shape
-
+        
         noise = torch.zeros_like(image, device=self.device)
 
-        noise_channel_num = torch.randint(0, c)
+        noise_channel_num = torch.randint(0, c, (1,))
         # random select noise_channel_num channels to add noise
 
         # first select noise_channel_num channels
@@ -340,7 +340,7 @@ class GaussianDiffusion(nn.Module):
 
         b, c, h, w = image.shape
 
-        noise_channel_num = torch.randint(0, c)
+        noise_channel_num = torch.randint(0, c, (1,))
         # random select noise_channel_num channels to add noise
         noise_channel_idx = torch.randperm(c)[:noise_channel_num]
 
@@ -406,7 +406,7 @@ class GaussianDiffusion(nn.Module):
         )  # [(T-1, T-2), (T-2, T-3), ..., (1, 0), (0, -1)]
 
 
-        if org is None:
+        if org is not None:
             img = self.random_mask_image_backward(org) # bchw
         else:
             img = torch.randn(shape, device=device) # bchw
@@ -414,7 +414,7 @@ class GaussianDiffusion(nn.Module):
 
         x_start = None
 
-        for time, time_next in tqdm(time_pairs, desc="sampling loop time step"):
+        for time, time_next in time_pairs:
             time_cond = torch.full((batch,), time, device=device, dtype=torch.long)
             self_cond = x_start if self.self_condition else None
             pred_noise, x_start, *_ = self.model_predictions(
