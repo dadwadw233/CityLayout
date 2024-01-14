@@ -379,7 +379,8 @@ class CityDM(object):
                 wandb.log({"loss": float(total_loss), "lr": self.scheduler.get_last_lr()[0]})
 
                 pbar.set_description(
-                    f'loss: {total_loss:.5f}, lr: {self.optimizer.param_groups[0]["lr"]:.6f}, epoch: {self.now_step* self.batch_size*self.grad_accumulate/len(self.train_dataset):.2f}'
+                    f'loss: {total_loss:.5f}, lr: {self.optimizer.param_groups[0]["lr"]:.6f}, 
+                    epoch: {self.now_step* self.batch_size*self.grad_accumulate/len(self.train_dataset):.2f}'
                 )
 
                 self.accelerator.wait_for_everyone()
@@ -397,93 +398,101 @@ class CityDM(object):
                     self.ema.update()
 
                     if self.now_step != 0 and divisible_by(self.now_step, self.sample_frequency):
-                        self.ema.ema_model.eval()
-
-                        with torch.inference_mode():
-                            milestone = self.now_step // self.sample_frequency
-                            batches = num_to_groups(self.num_samples, self.batch_size)
-                            
-                            all_images_list = list(
-                                map(
-                                    lambda n: self.ema.ema_model.sample(batch_size=n, cond=None),
-                                    batches,
-                                )
-                            )
-
-                        all_images = torch.cat(
-                            all_images_list, dim=0
-                        )  # (num_samples, channel, image_size, image_size)
-
-                        image_for_show = all_images[:4] 
-                        if self.data_type == "rgb":
-                            utils.save_image(
-                                image_for_show,
-                                os.path.join(
-                                    self.vis_results_dir, f"sample-{milestone}-c-rgb.png"
-                                ),
-                                nrow=int(math.sqrt(self.num_samples)),
-                            )
-                            self.vis.visualize_rgb_layout(
-                                image_for_show,
-                                os.path.join(
-                                    self.vis_results_dir, f"sample-{milestone}-rgb.png"
-                                )
-                            )
-                        else:
-                            self.vis.visulize_onehot_layout(
-                                image_for_show,
-                                os.path.join(
-                                    self.vis_results_dir, f"sample-{milestone}-onehot.png"
-                                )
-                            )
-                            self.vis.visualize_rgb_layout(
-                                image_for_show,
-                                os.path.join(
-                                    self.vis_results_dir, f"sample-{milestone}-rgb.png"
-                                )
-                            )
-                        # whether to calculate fid
-                        overlapping_rate = cal_overlapping_rate(all_images)
-                        self.accelerator.print(
-                            f"overlapping rate: {overlapping_rate:.5f}"
-                        )
-                        writer.add_scalar(
-                            "overlapping_rate", overlapping_rate, self.now_step
-                        )
-
+                        self.validation(writer)
                         
-                        val_result = None
-                        try:
-                            if(self.evaluation.validation(False)):
-                                val_result = self.evaluation.get_evaluation_dict()
-                                # self.accelerator.print(val_result)
-                                for k, v in val_result.items():
-                                    writer.add_scalar(k, v, self.now_step)
-                            
-                                    
-                            
-                        except Exception as e:
-                            self.accelerator.print("computation failed: \n")
-                            self.accelerator.print(e)
-
-                        if val_result is not None:
-                            for k, v in val_result.items():
-
-                                wandb.log({k: v})
-                                
-                        if self.save_best_and_latest_only:
-                            if self.check_best_or_not(val_result):
-                                self.save_ckpts(epoch=self.now_epoch, step=self.now_step, best=True)
-                            self.save_ckpts(epoch=self.now_epoch, step=self.now_step, latest=True)
-                        else:
-                            self.save_ckpts(epoch=self.now_epoch, step=self.now_step)
 
                 pbar.update(1)
 
         self.accelerator.print("training complete")
         writer.close()
 
+    def validation(self, writer):
+        self.ema.ema_model.eval()
 
+        with torch.inference_mode():
+            milestone = self.now_step // self.sample_frequency
+            batches = num_to_groups(self.num_samples, self.batch_size)
+            
+            all_images_list = list(
+                map(
+                    lambda n: self.ema.ema_model.sample(batch_size=n, cond=None),
+                    batches,
+                )
+            )
+
+        all_images = torch.cat(
+            all_images_list, dim=0
+        )  # (num_samples, channel, image_size, image_size)
+
+        image_for_show = all_images[:4] 
+        if self.data_type == "rgb":
+            utils.save_image(
+                image_for_show,
+                os.path.join(
+                    self.vis_results_dir, f"sample-{milestone}-c-rgb.png"
+                ),
+                nrow=int(math.sqrt(self.num_samples)),
+            )
+            self.vis.visualize_rgb_layout(
+                image_for_show,
+                os.path.join(
+                    self.vis_results_dir, f"sample-{milestone}-rgb.png"
+                )
+            )
+        else:
+            self.vis.visulize_onehot_layout(
+                image_for_show,
+                os.path.join(
+                    self.vis_results_dir, f"sample-{milestone}-onehot.png"
+                )
+            )
+            self.vis.visualize_rgb_layout(
+                image_for_show,
+                os.path.join(
+                    self.vis_results_dir, f"sample-{milestone}-rgb.png"
+                )
+            )
+        # whether to calculate fid
+        overlapping_rate = cal_overlapping_rate(all_images)
+        self.accelerator.print(
+            f"overlapping rate: {overlapping_rate:.5f}"
+        )
+        writer.add_scalar(
+            "overlapping_rate", overlapping_rate, self.now_step
+        )
+        wandb.log({"overlapping_rate": overlapping_rate})
+
+        
+        val_result = None
+        try:
+            if(self.evaluation.validation(False)):
+                val_result = self.evaluation.get_evaluation_dict()
+                # self.accelerator.print(val_result)
+                for k, v in val_result.items():
+                    writer.add_scalar(k, v, self.now_step)
+            
+                    
+            
+        except Exception as e:
+            self.accelerator.print("computation failed: \n")
+            self.accelerator.print(e)
+
+        if val_result is not None:
+            for k, v in val_result.items():
+
+                wandb.log({k: v})
+                
+        if self.save_best_and_latest_only:
+            if self.check_best_or_not(val_result):
+                self.save_ckpts(epoch=self.now_epoch, step=self.now_step, best=True)
+            self.save_ckpts(epoch=self.now_epoch, step=self.now_step, latest=True)
+        else:
+            self.save_ckpts(epoch=self.now_epoch, step=self.now_step)
+
+        self.ema.ema_model.train()
+
+    def sample(self):
+        pass
 
         
             
