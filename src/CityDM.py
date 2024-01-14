@@ -6,7 +6,7 @@ from functools import partial
 from collections import namedtuple
 from multiprocessing import cpu_count
 from typing import Any
-
+from datetime import timedelta
 import torch
 from torch import nn, einsum
 from torch.cuda.amp import autocast
@@ -35,7 +35,6 @@ from utils.utils import (
     num_to_groups,
     has_int_squareroot,
     divisible_by,
-    OSMVisulizer,
     cal_overlapping_rate,
 )
 
@@ -56,6 +55,7 @@ import os
 import inspect
 from utils.evaluation import Evaluation
 from utils.asset import AssetGen
+from utils.vis import OSMVisulizer
 import numpy as np
 import wandb
 
@@ -186,26 +186,26 @@ class CityDM(object):
         self.results_dir = val_config["results_dir"] 
         # add time stamp to results_dir
         self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()))
-        self.vis_results_dir = os.path.join(self.results_dir, "vis")
+        self.val_results_dir = os.path.join(self.results_dir, "val")
         self.ckpt_results_dir = os.path.join(self.results_dir, "ckpt")
         self.asset_results_dir = os.path.join(self.results_dir, "asset")
         self.sample_results_dir = os.path.join(self.results_dir, "sample")
 
         os.makedirs(self.results_dir, exist_ok=True)
-        os.makedirs(self.vis_results_dir, exist_ok=True)
+        os.makedirs(self.val_results_dir, exist_ok=True)
         os.makedirs(self.ckpt_results_dir, exist_ok=True)
         os.makedirs(self.asset_results_dir, exist_ok=True)
         os.makedirs(self.sample_results_dir, exist_ok=True)
         # log some info
         INFO(f"Results dir: {self.results_dir}")
-        INFO(f"Vis results dir: {self.vis_results_dir}")
+        INFO(f"Vis results dir: {self.val_results_dir}")
         INFO(f"Checkpoint results dir: {self.ckpt_results_dir}")
         INFO(f"Asset results dir: {self.asset_results_dir}")
         INFO(f"Sample results dir: {self.sample_results_dir}")
 
         # utils prepare
         self.vis_config = self.config_parser.get_config_by_name("Vis")
-        self.vis = OSMVisulizer(self.vis_config["channel_to_rgb"], self.vis_config["threshold"], self.vis_results_dir)
+        self.vis = OSMVisulizer(self.vis_config["channel_to_rgb"], self.vis_config["threshold"], self.val_results_dir)
         self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
         INFO(f"Utils initialized!")
 
@@ -244,6 +244,7 @@ class CityDM(object):
         self.now_step = 0
         self.best_validation_result = None
         self.max_step = self.epochs * len(self.train_dataset) // (self.batch_size * self.grad_accumulate)
+        self.not_best = 0
 
 
         # Init Scheduler
@@ -340,8 +341,11 @@ class CityDM(object):
         INFO("Model Summary End")
     
     def train(self):
-        wandb.init(project="CityLayout", entity="913217005", config = self.config_parser.get_config_all())
-
+        if self.accelerator.is_main_process:
+            # replace result_dir's "/" with "-"
+            display_name = self.results_dir.replace("/", "-")
+            wandb.init(project="CityLayout", entity="913217005", config = self.config_parser.get_config_all(), name=display_name)
+            wandb.watch(self.diffusion)
 
         
         experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}_resultfolder{}".format(
@@ -379,7 +383,7 @@ class CityDM(object):
                 wandb.log({"loss": float(total_loss), "lr": self.scheduler.get_last_lr()[0]})
 
                 pbar.set_description(
-                    f'loss: {total_loss:.5f}, lr: {self.optimizer.param_groups[0]["lr"]:.6f}, 
+                    f'loss: {total_loss:.5f}, lr: {self.optimizer.param_groups[0]["lr"]:.6f}, \
                     epoch: {self.now_step* self.batch_size*self.grad_accumulate/len(self.train_dataset):.2f}'
                 )
 
@@ -409,16 +413,20 @@ class CityDM(object):
     def validation(self, writer):
         self.ema.ema_model.eval()
 
+        
         with torch.inference_mode():
             milestone = self.now_step // self.sample_frequency
+            now_val_path = os.path.join(self.val_results_dir, f"milestone_{milestone}_val")
+            os.makedirs(now_val_path, exist_ok=True)
             batches = num_to_groups(self.num_samples, self.batch_size)
-            
+            INFO(f"Start sampling {self.num_samples} images...")
             all_images_list = list(
                 map(
                     lambda n: self.ema.ema_model.sample(batch_size=n, cond=None),
                     batches,
                 )
             )
+            INFO(f"Sampling {self.num_samples} images done!")
 
         all_images = torch.cat(
             all_images_list, dim=0
@@ -429,27 +437,27 @@ class CityDM(object):
             utils.save_image(
                 image_for_show,
                 os.path.join(
-                    self.vis_results_dir, f"sample-{milestone}-c-rgb.png"
+                    now_val_path, f"sample-{milestone}-c-rgb.png"
                 ),
                 nrow=int(math.sqrt(self.num_samples)),
             )
             self.vis.visualize_rgb_layout(
                 image_for_show,
                 os.path.join(
-                    self.vis_results_dir, f"sample-{milestone}-rgb.png"
+                    now_val_path, f"sample-{milestone}-rgb.png"
                 )
             )
         else:
             self.vis.visulize_onehot_layout(
                 image_for_show,
                 os.path.join(
-                    self.vis_results_dir, f"sample-{milestone}-onehot.png"
+                    now_val_path, f"sample-{milestone}-onehot.png"
                 )
             )
             self.vis.visualize_rgb_layout(
                 image_for_show,
                 os.path.join(
-                    self.vis_results_dir, f"sample-{milestone}-rgb.png"
+                    now_val_path, f"sample-{milestone}-rgb.png"
                 )
             )
         # whether to calculate fid
@@ -460,16 +468,14 @@ class CityDM(object):
         writer.add_scalar(
             "overlapping_rate", overlapping_rate, self.now_step
         )
-        wandb.log({"overlapping_rate": overlapping_rate})
+        wandb.log({"overlapping_rate": overlapping_rate}, commit=False)
 
         
         val_result = None
         try:
-            if(self.evaluation.validation(False)):
+            if(self.evaluation.validation(False, os.path.join(now_val_path, "data_analyse"))):
                 val_result = self.evaluation.get_evaluation_dict()
                 # self.accelerator.print(val_result)
-                for k, v in val_result.items():
-                    writer.add_scalar(k, v, self.now_step)
             
                     
             
@@ -478,13 +484,22 @@ class CityDM(object):
             self.accelerator.print(e)
 
         if val_result is not None:
-            for k, v in val_result.items():
-
-                wandb.log({k: v})
+            wandb.log(val_result, commit=False)
                 
         if self.save_best_and_latest_only:
             if self.check_best_or_not(val_result):
                 self.save_ckpts(epoch=self.now_epoch, step=self.now_step, best=True)
+            else:
+                self.not_best +=1
+                if self.not_best >= 5:
+                    wandb.alert(
+                        title="CityLayout",
+                        text="Model may be overfitting!, please check!",
+                        level=wandb.AlertLevel.WARNING,
+                        wait_duration=timedelta(minutes=5),  # 7 days
+                    )
+                    self.not_best = 0
+                
             self.save_ckpts(epoch=self.now_epoch, step=self.now_step, latest=True)
         else:
             self.save_ckpts(epoch=self.now_epoch, step=self.now_step)

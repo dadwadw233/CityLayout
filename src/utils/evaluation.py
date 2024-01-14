@@ -110,6 +110,8 @@ class Evaluation:
         self.LPIPS_calculator = LearnedPerceptualImagePatchSimilarity(net_type='squeeze', normalize=True).to(device)
         self.SSIM_calculator = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
 
+        # data satistics evaluator
+        self.data_analyser = DataAnalyser(config=config)
 
         self.evaluate_dict = {}
 
@@ -156,7 +158,7 @@ class Evaluation:
         self.sampler = sampler
 
     @torch.inference_mode()
-    def validation (self, condition=False):
+    def validation (self, condition=False,  path=None):
         # init evaluate dict
         self.evaluate_dict = {}
         self.evaluate_dict['CLIP'] = {}
@@ -166,7 +168,7 @@ class Evaluation:
 
         self.set_condtion(condition)
 
-        if not self.image_evaluation():
+        if not self.image_evaluation(path=path):
             ERROR("Error occured when evaluating images")
             return False
         else:
@@ -177,6 +179,7 @@ class Evaluation:
     def sample_real_data(self):
         
         real_samples = next(self.dl)['layout']
+        self.data_analyser.add_data(real_samples, fake=False)
         
         if self.data_type == "one-hot":
             real_samples = self.vis.onehot_to_rgb(real_samples)
@@ -189,6 +192,7 @@ class Evaluation:
         if cond is not None:
             cond = cond.to(self.device)
         fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=cond)
+        self.data_analyser.add_data(fake_samples, fake=True)
         if self.data_type == "one-hot":
             fake_samples = self.vis.onehot_to_rgb(fake_samples)
         
@@ -222,7 +226,7 @@ class Evaluation:
 
 
     @torch.inference_mode()
-    def image_evaluation(self):
+    def image_evaluation(self, path=None):
 
         try:    
         
@@ -254,6 +258,14 @@ class Evaluation:
                 self.IS_caluculator.update(fake_samples)
                 if 'clip' in self.metrics_list:
                     self.multimodal_evaluation(real_samples, fake_samples)
+
+            # sample some real data and fake data to show by wandb
+            real_samples = self.sample_real_data()
+            fake_samples = self.sample_fake_data(cond = None)
+            real_samples = real_samples[0].permute(1, 2, 0).cpu().numpy()
+            fake_samples = fake_samples[0].permute(1, 2, 0).cpu().numpy()
+            wandb.log({"real": [wandb.Image(real_samples, caption="real")]})
+            wandb.log({"fake": [wandb.Image(fake_samples, caption="fake")]})
             
                 
 
@@ -275,6 +287,10 @@ class Evaluation:
                     prompt_str = prompt[0] + " vs " + prompt[1]
                     self.evaluate_dict['CLIP'][prompt_str]['fake'] = np.mean(self.evaluate_dict['CLIP'][prompt_str]['fake'])
                     self.evaluate_dict['CLIP'][prompt_str]['real'] = np.mean(self.evaluate_dict['CLIP'][prompt_str]['real'])
+            if 'data_analysis' in self.metrics_list:
+                self.data_analyser.contrast_analyse(path)
+            self.data_analyser.release_data()
+            
 
             return True
         
@@ -284,6 +300,7 @@ class Evaluation:
             self.evaluate_dict['KID'] = None
             self.evaluate_dict['MIFID'] = None
             self.evaluate_dict['IS'] = None
+            self.evaluate_dict['CLIP'] = None
 
             return False
     
@@ -301,14 +318,20 @@ class DataAnalyser:
 
     def _parse_config(self, config):
         assert config is not None, "config must be provided"
-        self.path = config["analyse"]["path"]
-        self.layout_keys = config["data"]["custom_dict"]
-        self.analyse_types = config["analyse"]["types"]
-        self.threshold = config["analyse"]["threshold"]
-        self.limit = config["analyse"]["evaluate_data_limit"]
+        if "path" not in config:
+            self.path = None
+        else:
+            self.path = config["path"]
+        self.layout_keys = config["custom_dict"]
+        self.analyse_types = config["types"]
+        self.threshold = config["threshold"]
+        self.limit = config["evaluate_data_limit"]
         self.mapping = []
 
     def init_folder(self):
+        if self.path is None:
+            WARNING("path is not provided, plz set path param while using analyse function, or default path will be used: ./analysis")
+            return
         if not os.path.exists(self.path):
             os.makedirs(self.path, exist_ok=True)
         else:
@@ -316,8 +339,9 @@ class DataAnalyser:
                 if file.endswith(".png") or file.endswith(".txt"):
                     os.remove(os.path.join(self.path, file))
 
-    def _init_data_dict(self, fake=False):
+    def _init_data_dict(self):
         data_dict = {"real": {}, "fake": {}}
+        self.mapping = []
         
         for idx in self.layout_keys:
             for subgroup in self.layout_keys[idx]:
@@ -361,6 +385,8 @@ class DataAnalyser:
         """Save the plot to the specified path."""
         file_path = os.path.join(self.path, filename)
         plt.savefig(file_path, dpi=300, bbox_inches="tight")
+        # upload to wandb
+        wandb.log({filename: wandb.Image(file_path)})
         plt.close()
     
     def _calculate_statistics(self, data):
@@ -551,9 +577,18 @@ class DataAnalyser:
 
 
 
-    def contrast_analyse(self):
+    def contrast_analyse(self, path=None):
         """analyse the contrast between fake and real data"""
         assert self.real_size != 0 and self.fake_size != 0, "please add data first"
+        if path is not None:
+            self.path = path
+            self.init_folder()
+            flag = True
+        elif self.path is None:
+            self.path = os.path.join(os.getcwd(), "analysis")
+            self.init_folder()
+            flag = True
+            WARNING("path is not provided, use default path: ./analysis")
 
 
         evaluation_data_size = self.real_size if self.real_size < self.fake_size else self.fake_size
@@ -590,6 +625,9 @@ class DataAnalyser:
         self.output_results_to_file(fake_statistics, "fake_statistics.txt")
         self.output_results_to_file(clusters, "uni_clusters.txt")
 
+        if flag:
+            self.path = None
+
         
     # some helper functions 👇
     # some emoji for fun
@@ -603,11 +641,10 @@ class DataAnalyser:
         return self.real_size, self.fake_size
     
 
-    def release_data (self, fake: bool = False):
-        if fake:
-            self.data_dict["fake"] = self._init_data_dict(fake=True)
-        else:
-            self.data_dict["real"] = self._init_data_dict(fake=False)
+    def release_data (self):
+        self.data_dict = self._init_data_dict()
+        self.real_size = 0
+        self.fake_size = 0
             
 
     
