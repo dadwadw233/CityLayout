@@ -51,9 +51,9 @@ class OSMVisulizer:
     # input must be a one hot layout
     def visualize_rgb_layout(self, data, path=None) -> np.ndarray:
         B, C, H, W = data.shape
-        assert (
-            self.channel_to_rgb.__len__() >= C
-        ), f"channel to rgb mapping length {self.channel_to_rgb.__len__()} does not match channel number {C}"
+        # assert (
+        #     self.channel_to_rgb.__len__() >= C
+        # ), f"channel to rgb mapping length {self.channel_to_rgb.__len__()} does not match channel number {C}"
 
         assert (
             B > 1
@@ -65,7 +65,7 @@ class OSMVisulizer:
         for b in range(B):
             combined_image = np.zeros((H, W, 3), dtype=np.float32)
             for c in range(C):
-                color = np.array(self.hex_or_name_to_rgb(self.channel_to_rgb[c]))
+                color = np.array(self.hex_or_name_to_rgb(self.channel_to_rgb[c%len(self.channel_to_rgb)])) # haddle condition result
                 mask = data[b, c] > self.threshold
                 combined_image[mask, :] += color
 

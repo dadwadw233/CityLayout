@@ -402,35 +402,57 @@ class CityDM(object):
                     self.ema.update()
 
                     if self.now_step != 0 and divisible_by(self.now_step, self.sample_frequency):
-                        self.validation(writer)
+                        self.validation(writer, cond=False)
+                        INFO(f"Validation done!")
                         
+                        self.validation(writer, cond=True)
+                        INFO(f"Validation with cond done!")                        
 
                 pbar.update(1)
 
         self.accelerator.print("training complete")
         writer.close()
 
-    def validation(self, writer):
+    def validation(self, writer, cond=False):
         self.ema.ema_model.eval()
+        if cond:
+            wandb_key = "val_cond"
+        else:
+            wandb_key = "val"
 
         
         with torch.inference_mode():
             milestone = self.now_step // self.sample_frequency
-            now_val_path = os.path.join(self.val_results_dir, f"milestone_{milestone}_val")
+            now_val_path = os.path.join(self.val_results_dir, f"milestone_{milestone}_val_cond_{cond}")
             os.makedirs(now_val_path, exist_ok=True)
             batches = num_to_groups(self.num_samples, self.batch_size)
             INFO(f"Start sampling {self.num_samples} images...")
-            all_images_list = list(
-                map(
-                    lambda n: self.ema.ema_model.sample(batch_size=n, cond=None),
-                    batches,
+            if cond == True:
+                # sample some real images from val_Dataloader as cond
+                all_images_list = None
+                for b in range(len(batches)):
+                    cond_image = next(self.val_dataloader)["layout"].to(self.device)
+                    if all_images_list is None:
+                        all_images_list = self.ema.ema_model.sample(batch_size=batches[b], cond=cond_image)
+                    else:
+                        all_images_list = torch.cat(
+                            (all_images_list, self.ema.ema_model.sample(batch_size=batches[b], cond=cond_image)), dim=0
+                        )
+            else:
+                all_images_list = list(
+                    map(
+                        lambda n: self.ema.ema_model.sample(batch_size=n, cond=None),
+                        batches,
+                    )
                 )
-            )
             INFO(f"Sampling {self.num_samples} images done!")
 
-        all_images = torch.cat(
-            all_images_list, dim=0
-        )  # (num_samples, channel, image_size, image_size)
+        if cond == True:
+            all_images = all_images_list
+        else:
+            all_images = torch.cat(
+                all_images_list, dim=0
+            )  # (num_samples, channel, image_size, image_size)
 
         image_for_show = all_images[:4] 
         if self.data_type == "rgb":
@@ -468,12 +490,12 @@ class CityDM(object):
         writer.add_scalar(
             "overlapping_rate", overlapping_rate, self.now_step
         )
-        wandb.log({"overlapping_rate": overlapping_rate}, commit=False)
+        wandb.log({wandb_key: {"overlapping_rate": overlapping_rate}}, commit=False)
 
         
         val_result = None
         try:
-            if(self.evaluation.validation(False, os.path.join(now_val_path, "data_analyse"))):
+            if(self.evaluation.validation(cond, os.path.join(now_val_path, "data_analyse"))):
                 val_result = self.evaluation.get_evaluation_dict()
                 # self.accelerator.print(val_result)
             
@@ -484,9 +506,9 @@ class CityDM(object):
             self.accelerator.print(e)
 
         if val_result is not None:
-            wandb.log(val_result, commit=False)
+            wandb.log({wandb_key: val_result}, commit=False)
                 
-        if self.save_best_and_latest_only:
+        if self.save_best_and_latest_only and not cond:
             if self.check_best_or_not(val_result):
                 self.save_ckpts(epoch=self.now_epoch, step=self.now_step, best=True)
             else:
@@ -501,7 +523,7 @@ class CityDM(object):
                     self.not_best = 0
                 
             self.save_ckpts(epoch=self.now_epoch, step=self.now_step, latest=True)
-        else:
+        elif not self.save_best_and_latest_only:
             self.save_ckpts(epoch=self.now_epoch, step=self.now_step)
 
         self.ema.ema_model.train()

@@ -75,7 +75,7 @@ Model:
 
   diffusion:
     timesteps: 2500
-    sampling_timesteps: 10
+    sampling_timesteps: 100
     image_size: 256
     objective: "pred_v"
     beta_schedule: "sigmoid"
@@ -106,7 +106,7 @@ Main:
   scheduler: "cosine" # or "step"
   adam_betas: [0.9, 0.999]
 
-  sample_frequency: 5
+  sample_frequency: 1000
   grad_accumulate: 4
   
   max_grad_norm: 1.
@@ -164,30 +164,7 @@ Data:
     # define the layout type and granularity
     # if custom is True, the layout type and granularity will be defined by 'custom_dict'
     # or all the layout types will be used
-    custom_dict:
-      {
-        "building": [["building"]],
-        "landuse": [],
-        "natural":
-          [
-            # ["grassland", "tree", "tree_row", "wood"],
-            ["water", "wetland", "beach", "sand"],
-            # ["hill", "valley", "bare_rock"],
-          ],
-        "road":
-          [
-            [
-              "motorway",
-              "trunk",
-              "primary",
-              "secondary",
-              "tertiary",
-              "residential",
-              "living_street",
-            ],
-          ],
-          "height": [],
-      }
+    !!merge <<: *common
     
 
     condition_dim: []

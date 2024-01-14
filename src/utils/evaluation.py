@@ -191,7 +191,10 @@ class Evaluation:
     def sample_fake_data(self, cond=None):
         if cond is not None:
             cond = cond.to(self.device)
-        fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=cond)
+            fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=cond)
+            fake_samples = fake_samples[:, :self.channels, :, :]
+        else:
+            fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=None)
         self.data_analyser.add_data(fake_samples, fake=True)
         if self.data_type == "one-hot":
             fake_samples = self.vis.onehot_to_rgb(fake_samples)
@@ -260,12 +263,13 @@ class Evaluation:
                     self.multimodal_evaluation(real_samples, fake_samples)
 
             # sample some real data and fake data to show by wandb
-            real_samples = self.sample_real_data()
-            fake_samples = self.sample_fake_data(cond = None)
-            real_samples = real_samples[0].permute(1, 2, 0).cpu().numpy()
-            fake_samples = fake_samples[0].permute(1, 2, 0).cpu().numpy()
-            wandb.log({"real": [wandb.Image(real_samples, caption="real")]})
-            wandb.log({"fake": [wandb.Image(fake_samples, caption="fake")]})
+            if not self.condition:
+                real_samples = self.sample_real_data()
+                fake_samples = self.sample_fake_data(cond = None)
+                real_samples = real_samples[0].permute(1, 2, 0).cpu().numpy()
+                fake_samples = fake_samples[0].permute(1, 2, 0).cpu().numpy()
+                wandb.log({"real": [wandb.Image(real_samples, caption="real")]}, commit=False)
+                wandb.log({"fake": [wandb.Image(fake_samples, caption="fake")]}, commit=False)
             
                 
 
@@ -386,7 +390,7 @@ class DataAnalyser:
         file_path = os.path.join(self.path, filename)
         plt.savefig(file_path, dpi=300, bbox_inches="tight")
         # upload to wandb
-        wandb.log({filename: wandb.Image(file_path)})
+        wandb.log({filename: wandb.Image(file_path)}, commit=False)
         plt.close()
     
     def _calculate_statistics(self, data):
@@ -510,6 +514,8 @@ class DataAnalyser:
                 all_stds.append(std)
                 plt.scatter(mean, std, label=key, color=self.GREAT_COLOR_SET[self.mapping.index(key)])
 
+            length = data_dict.__len__()
+
             for key, values in fake_data_dict.items():
                 mean = np.mean(values[analyse_type])
                 std = np.std(values[analyse_type])
@@ -517,7 +523,7 @@ class DataAnalyser:
                     continue
                 all_means.append(mean)
                 all_stds.append(std)
-                plt.scatter(mean, std, label=key, color=self.GREAT_COLOR_SET[self.mapping.index(key)//2], marker='x')
+                plt.scatter(mean, std, label=key, color=self.GREAT_COLOR_SET[self.mapping.index(key) - length], marker='x')
 
             plt.xlim(left=min(all_means)*0.8, right=max(all_means)*1.2)
             plt.ylim(bottom=min(all_stds)*0.8, top=max(all_stds)*1.2)
@@ -534,10 +540,12 @@ class DataAnalyser:
             for key, values in data_dict.items():
                 all_values = [v for v in values[analyse_type] if v != 0]
                 plt.hist(all_values, bins=20, label=key, alpha=0.5, color=self.GREAT_COLOR_SET[self.mapping.index(key)])    
+            
+            length = data_dict.__len__()
 
             for key, values in fake_data_dict.items():
                 all_values = [v for v in values[analyse_type] if v != 0]
-                plt.hist(all_values, bins=20, label=key, alpha=0.5, color=self.GREAT_COLOR_SET[self.mapping.index(key)//2], histtype='step', linestyle='dashed')    
+                plt.hist(all_values, bins=20, label=key, alpha=0.5, color=self.GREAT_COLOR_SET[self.mapping.index(key) - length], histtype='step', linestyle='dashed')    
 
             plt.legend(bbox_to_anchor=(1.04, 1), loc="upper left")
             plt.tight_layout()
