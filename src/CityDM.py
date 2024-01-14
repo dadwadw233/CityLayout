@@ -238,9 +238,17 @@ class CityDM(object):
             ERROR(f"Optimizer type {self.opt_type} not supported!")
             raise ValueError(f"Optimizer type {self.opt_type} not supported!")
         
+        
+        #  some preperation for train
+        self.now_epoch = 0
+        self.now_step = 0
+        self.best_validation_result = None
+        self.max_step = self.epochs * len(self.train_dataset) // (self.batch_size * self.grad_accumulate)
+
+
         # Init Scheduler
         if self.scheduler_type == "cosine":
-            self.scheduler = lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=self.epochs)
+            self.scheduler = lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=self.max_step)
         elif self.scheduler_type == "step":
             self.scheduler = lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)
         else:
@@ -254,14 +262,8 @@ class CityDM(object):
         
         
 
-        # todo init wandb
             
 
-        # last some preperation for train
-        self.now_epoch = 0
-        self.now_step = 0
-        self.best_validation_result = None
-        self.max_step = self.epochs * len(self.train_dataset) // (self.batch_size * self.grad_accumulate)
         # Done
         INFO(f"CityDM initialized!")
 
