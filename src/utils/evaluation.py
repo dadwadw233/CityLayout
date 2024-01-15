@@ -320,6 +320,7 @@ class DataAnalyser:
         self.real_size = 0
         self.fake_size = 0
         self.condition = None
+        
 
     def _parse_config(self, config):
         assert config is not None, "config must be provided"
@@ -331,6 +332,7 @@ class DataAnalyser:
         self.analyse_types = config["types"]
         self.threshold = config["threshold"]
         self.limit = config["evaluate_data_limit"]
+
         self.mapping = []
         
 
@@ -370,10 +372,12 @@ class DataAnalyser:
         return {analyse_type: [] for analyse_type in self.analyse_types}
 
     @staticmethod
-    def cal_overlap(data) -> np.float32:
+    def cal_overlap(self, data) -> np.float32: # todo use the threshold to calculate the overlap
         h, w = data.shape
         area = h * w
-        overlap_rate = np.count_nonzero(data) / area
+        region = np.where(data > self.threshold, 1, 0)
+        overlap_area = np.sum(region)
+        overlap_rate = overlap_area / area
         return overlap_rate
 
     def _setup_plot(self, title=None, xlabel=None, ylabel=None, figsize=(10, 8)):
