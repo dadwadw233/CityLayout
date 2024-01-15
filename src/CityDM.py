@@ -512,15 +512,15 @@ class CityDM(object):
             if self.check_best_or_not(val_result):
                 self.save_ckpts(epoch=self.now_epoch, step=self.now_step, best=True)
             else:
-                self.not_best +=1
-                if self.not_best >= 5:
-                    wandb.alert(
-                        title="CityLayout",
-                        text="Model may be overfitting!, please check!",
-                        level=wandb.AlertLevel.WARNING,
-                        wait_duration=timedelta(minutes=5),  # 7 days
-                    )
-                    self.not_best = 0
+                # self.not_best +=1
+                # if self.not_best >= 5:
+                #     wandb.alert(
+                #         title="CityLayout",
+                #         text="Model may be overfitting!, please check!",
+                #         level=wandb.AlertLevel.WARNING,
+                #         wait_duration=timedelta(minutes=5),  # 7 days
+                #     )
+                self.not_best = 0
                 
             self.save_ckpts(epoch=self.now_epoch, step=self.now_step, latest=True)
         elif not self.save_best_and_latest_only:

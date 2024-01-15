@@ -340,7 +340,7 @@ class GaussianDiffusion(nn.Module):
 
         b, c, h, w = image.shape
 
-        noise_channel_num = torch.randint(0, c, (1,))
+        noise_channel_num = torch.randint(1, c, (1,))
         # random select noise_channel_num channels to add noise
         noise_channel_idx = torch.randperm(c)[:noise_channel_num]
 
@@ -408,8 +408,10 @@ class GaussianDiffusion(nn.Module):
 
         if org is not None:
             img = self.random_mask_image_backward(org) # bchw
+            masked_org = img.clone()
         else:
             img = torch.randn(shape, device=device) # bchw
+            masked_org = None
         imgs = [img]
 
         x_start = None
@@ -443,8 +445,8 @@ class GaussianDiffusion(nn.Module):
         
 
         ret = img if not return_all_timesteps else torch.stack(imgs, dim=1)
-        if not return_all_timesteps and org is not None:
-            ret = torch.cat((ret, org), dim=1)
+        if not return_all_timesteps and masked_org is not None:
+            ret = torch.cat((ret, masked_org), dim=1)
         ret = self.unnormalize(ret)
         return ret
 

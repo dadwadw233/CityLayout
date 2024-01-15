@@ -292,7 +292,7 @@ class Evaluation:
                     self.evaluate_dict['CLIP'][prompt_str]['fake'] = np.mean(self.evaluate_dict['CLIP'][prompt_str]['fake'])
                     self.evaluate_dict['CLIP'][prompt_str]['real'] = np.mean(self.evaluate_dict['CLIP'][prompt_str]['real'])
             if 'data_analysis' in self.metrics_list:
-                self.data_analyser.contrast_analyse(path)
+                self.data_analyser.contrast_analyse(path, self.condition)
             self.data_analyser.release_data()
             
 
@@ -319,6 +319,7 @@ class DataAnalyser:
         self.data_dict = self._init_data_dict()
         self.real_size = 0
         self.fake_size = 0
+        self.condition = None
 
     def _parse_config(self, config):
         assert config is not None, "config must be provided"
@@ -331,6 +332,7 @@ class DataAnalyser:
         self.threshold = config["threshold"]
         self.limit = config["evaluate_data_limit"]
         self.mapping = []
+        
 
     def init_folder(self):
         if self.path is None:
@@ -390,7 +392,10 @@ class DataAnalyser:
         file_path = os.path.join(self.path, filename)
         plt.savefig(file_path, dpi=300, bbox_inches="tight")
         # upload to wandb
-        wandb.log({filename: wandb.Image(file_path)}, commit=False)
+        if self.condition:
+            wandb.log({filename+'_cond': wandb.Image(file_path)}, commit=False)
+        else:
+            wandb.log({filename: wandb.Image(file_path)}, commit=False)
         plt.close()
     
     def _calculate_statistics(self, data):
@@ -583,11 +588,14 @@ class DataAnalyser:
         self.output_results_to_file(statistics, "statistics.txt")
         self.output_results_to_file(clusters, "clusters.txt")
 
+    def set_condtion(self, condition):
+        self.condition = condition
 
-
-    def contrast_analyse(self, path=None):
+    def contrast_analyse(self, path=None, condition=None):
         """analyse the contrast between fake and real data"""
         assert self.real_size != 0 and self.fake_size != 0, "please add data first"
+        if condition is not None:
+            self.set_condtion(condition)
         if path is not None:
             self.path = path
             self.init_folder()

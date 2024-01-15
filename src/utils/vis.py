@@ -65,7 +65,9 @@ class OSMVisulizer:
         for b in range(B):
             combined_image = np.zeros((H, W, 3), dtype=np.float32)
             for c in range(C):
-                color = np.array(self.hex_or_name_to_rgb(self.channel_to_rgb[c%len(self.channel_to_rgb)])) # haddle condition result
+                if c >= self.channel_to_rgb.__len__():
+                    break # 超出颜色映射表的通道不再绘制
+                color = np.array(self.hex_or_name_to_rgb(self.channel_to_rgb[c])) # haddle condition result
                 mask = data[b, c] > self.threshold
                 combined_image[mask, :] += color
 
