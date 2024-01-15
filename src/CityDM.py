@@ -345,7 +345,7 @@ class CityDM(object):
             # replace result_dir's "/" with "-"
             display_name = self.results_dir.replace("/", "-")
             wandb.init(project="CityLayout", entity="913217005", config = self.config_parser.get_config_all(), name=display_name)
-            wandb.watch(self.diffusion)
+            wandb.watch(self.diffusion, log="all")
 
         
         experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}_resultfolder{}".format(
@@ -409,7 +409,7 @@ class CityDM(object):
                         INFO(f"Validation with cond done!")                        
 
                 pbar.update(1)
-
+        wandb.finish()
         self.accelerator.print("training complete")
         writer.close()
 
