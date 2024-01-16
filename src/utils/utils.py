@@ -886,4 +886,7 @@ class DataAnalyser:
                     else:
                         self.data_dict["real"][self.mapping[c_id]]["overlap"].append(self.cal_overlap(data[idx, c_id, :, :]))
 
+    def get_data_dict(self, fake: bool = False):
+        return self.data_dict["fake"] if fake else self.data_dict["real"]
+        
 
