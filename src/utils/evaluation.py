@@ -117,10 +117,24 @@ class Evaluation:
 
         self.condition = False
 
+
+    @torch.inference_mode()
     def get_evaluation_dict(self):
         return self.evaluate_dict
     
+    @torch.inference_mode()
+    def reset_metrics_stats(self):
+        self.FID_calculator.reset()
+        self.KID_calculator.reset()
+        self.MIFID_calculator.reset()
+        self.IS_caluculator.reset()
+        self.CLIP_calculator.reset()
+        self.LPIPS_calculator.reset()
+        self.SSIM_calculator.reset()
+        self.data_analyser.release_data()
 
+    
+    @torch.inference_mode()
     def set_condtion(self, condition):
         self.condition = condition
 
@@ -238,29 +252,32 @@ class Evaluation:
             batches = num_to_groups(self.num_fid_samples, self.batch_size)
 
             INFO(f"Start evaluating images")
-            
-            for batch in tqdm(batches, leave=False):
-                real_samples = self.sample_real_data()
+            try: 
+                for batch in tqdm(batches, leave=False):
+                    real_samples = self.sample_real_data()
+                    
+                    real_samples = real_samples.to(self.device)
+                    self.FID_calculator.update(real_samples, True)
+                    self.KID_calculator.update(real_samples, True)
+                    self.MIFID_calculator.update(real_samples, True)
+
                 
-                real_samples = real_samples.to(self.device)
-                self.FID_calculator.update(real_samples, True)
-                self.KID_calculator.update(real_samples, True)
-                self.MIFID_calculator.update(real_samples, True)
+                
+                    if self.condition:
+                        cond = next(self.dl)['layout'].to(self.device)
+                    else:
+                        cond = None
 
-            
-            
-                if self.condition:
-                    cond = next(self.dl)['layout'].to(self.device)
-                else:
-                    cond = None
-
-                fake_samples = self.sample_fake_data(cond=cond)
-                self.FID_calculator.update(fake_samples, False)
-                self.KID_calculator.update(fake_samples, False)
-                self.MIFID_calculator.update(fake_samples, False)
-                self.IS_caluculator.update(fake_samples)
-                if 'clip' in self.metrics_list:
-                    self.multimodal_evaluation(real_samples, fake_samples)
+                    fake_samples = self.sample_fake_data(cond=cond)
+                    self.FID_calculator.update(fake_samples, False)
+                    self.KID_calculator.update(fake_samples, False)
+                    self.MIFID_calculator.update(fake_samples, False)
+                    self.IS_caluculator.update(fake_samples)
+                    if 'clip' in self.metrics_list:
+                        self.multimodal_evaluation(real_samples, fake_samples)
+            except Exception as e:
+                ERROR(f"Error when evaluating images: {e}")
+                raise f"Error occured while sample and update metrics\n {e}"
 
             # sample some real data and fake data to show by wandb
             if not self.condition:
@@ -293,8 +310,11 @@ class Evaluation:
                     self.evaluate_dict['CLIP'][prompt_str]['real'] = np.mean(self.evaluate_dict['CLIP'][prompt_str]['real'])
             if 'data_analysis' in self.metrics_list:
                 self.data_analyser.contrast_analyse(path, self.condition)
-            self.data_analyser.release_data()
             
+            # reset metrics and release CUDA memory
+            INFO(f"Finish evaluating images\nReset metrics and release CUDA memory")
+            self.reset_metrics_stats()
+            torch.cuda.empty_cache()
 
             return True
         
@@ -662,6 +682,7 @@ class DataAnalyser:
     
 
     def release_data (self):
+        del self.data_dict
         self.data_dict = self._init_data_dict()
         self.real_size = 0
         self.fake_size = 0
