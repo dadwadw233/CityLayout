@@ -58,6 +58,7 @@ from utils.asset import AssetGen
 from utils.vis import OSMVisulizer
 import numpy as np
 import wandb
+import json
 
 class CityDM(object):
 
@@ -180,34 +181,91 @@ class CityDM(object):
         
 
         # Validation prepare
-        val_config = self.config_parser.get_config_by_name("Validation")
-        self.save_best_and_latest_only = val_config["save_best_and_latest_only"]
-        self.num_samples = val_config["num_samples"]
-        self.results_dir = val_config["results_dir"] 
-        # add time stamp to results_dir
-        self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()))
-        self.val_results_dir = os.path.join(self.results_dir, "val")
-        self.ckpt_results_dir = os.path.join(self.results_dir, "ckpt")
-        self.asset_results_dir = os.path.join(self.results_dir, "asset")
-        self.sample_results_dir = os.path.join(self.results_dir, "sample")
+        if self.mode == "train":
+            val_config = self.config_parser.get_config_by_name("Validation")
+            self.save_best_and_latest_only = val_config["save_best_and_latest_only"]
+            self.num_samples = val_config["num_samples"]
+            self.results_dir = val_config["results_dir"] 
+            # add time stamp to results_dir
+            self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()))
+            self.val_results_dir = os.path.join(self.results_dir, "val")
+            self.ckpt_results_dir = os.path.join(self.results_dir, "ckpt")
+            self.asset_results_dir = os.path.join(self.results_dir, "asset")
+            self.sample_results_dir = os.path.join(self.results_dir, "sample")
 
-        os.makedirs(self.results_dir, exist_ok=True)
-        os.makedirs(self.val_results_dir, exist_ok=True)
-        os.makedirs(self.ckpt_results_dir, exist_ok=True)
-        os.makedirs(self.asset_results_dir, exist_ok=True)
-        os.makedirs(self.sample_results_dir, exist_ok=True)
-        # log some info
-        INFO(f"Results dir: {self.results_dir}")
-        INFO(f"Vis results dir: {self.val_results_dir}")
-        INFO(f"Checkpoint results dir: {self.ckpt_results_dir}")
-        INFO(f"Asset results dir: {self.asset_results_dir}")
-        INFO(f"Sample results dir: {self.sample_results_dir}")
+            os.makedirs(self.results_dir, exist_ok=True)
+            os.makedirs(self.val_results_dir, exist_ok=True)
+            os.makedirs(self.ckpt_results_dir, exist_ok=True)
+            os.makedirs(self.asset_results_dir, exist_ok=True)
+            os.makedirs(self.sample_results_dir, exist_ok=True)
+            # log some info
+            INFO(f"Results dir: {self.results_dir}")
+            INFO(f"Vis results dir: {self.val_results_dir}")
+            INFO(f"Checkpoint results dir: {self.ckpt_results_dir}")
+            INFO(f"Asset results dir: {self.asset_results_dir}")
+            INFO(f"Sample results dir: {self.sample_results_dir}")
 
-        # utils prepare
-        self.vis_config = self.config_parser.get_config_by_name("Vis")
-        self.vis = OSMVisulizer(self.vis_config["channel_to_rgb"], self.vis_config["threshold"], self.val_results_dir)
-        self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
-        INFO(f"Utils initialized!")
+            # utils prepare
+            self.vis_config = self.config_parser.get_config_by_name("Vis")
+            self.vis = OSMVisulizer(self.vis_config["channel_to_rgb"], self.vis_config["threshold"], self.val_results_dir)
+            self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
+            INFO(f"Utils initialized!")
+
+            # Init Optimizer
+            if self.opt_type == "adam":
+                self.optimizer = Adam(self.diffusion.parameters(), lr=self.lr, betas=self.adam_betas)
+            elif self.opt_type == "sgd":
+                self.optimizer = SGD(self.diffusion.parameters(), lr=self.lr)
+            else:
+                ERROR(f"Optimizer type {self.opt_type} not supported!")
+                raise ValueError(f"Optimizer type {self.opt_type} not supported!")
+            self.max_step = self.epochs * len(self.train_dataset) // (self.batch_size * self.grad_accumulate)
+
+            # Init Scheduler
+            if self.scheduler_type == "cosine":
+                self.scheduler = lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=self.max_step)
+            elif self.scheduler_type == "step":
+                self.scheduler = lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)
+            else:
+                ERROR(f"Scheduler type {self.scheduler_type} not supported!")
+                raise ValueError(f"Scheduler type {self.scheduler_type} not supported!")
+            
+            # prepare model, optimizer, scheduler with accelerator
+            self.optimizer, self.scheduler = self.accelerator.prepare(
+                self.optimizer, self.scheduler
+            )
+
+        elif self.mode == "test":
+            test_config = self.config_parser.get_config_by_name("Test")
+            self.num_samples = test_config["num_samples"]
+            self.results_dir = test_config["results_dir"] 
+            self.ckpt_results_dir = test_config["ckpt_results_dir"]
+            if self.ckpt_results_dir is None or not os.path.exists(self.ckpt_results_dir) or not os.path.isdir(self.ckpt_results_dir):
+                ERROR(f"ckpt_results_dir {self.ckpt_results_dir} does not exist!")
+                raise ValueError(f"ckpt_results_dir {self.ckpt_results_dir} does not exist!")
+            # add time stamp to results_dir
+            # check if results_dir exists
+            
+            self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-test'
+
+
+            self.asset_results_dir = os.path.join(self.results_dir, "asset")
+            self.sample_results_dir = os.path.join(self.results_dir, "sample")
+
+            os.makedirs(self.results_dir, exist_ok=True)
+            os.makedirs(self.asset_results_dir, exist_ok=True)
+            os.makedirs(self.sample_results_dir, exist_ok=True)
+            # log some info
+            INFO(f"Results dir: {self.results_dir}")
+            INFO(f"Vis results dir: {self.sample_results_dir}")
+            INFO(f"Asset results dir: {self.asset_results_dir}")
+            INFO(f"Sample results dir: {self.sample_results_dir}")
+
+            # utils prepare
+            self.vis_config = self.config_parser.get_config_by_name("Vis")
+            self.vis = OSMVisulizer(self.vis_config["channel_to_rgb"], self.vis_config["threshold"], self.sample_results_dir)
+            self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
+            INFO(f"Utils initialized!")
 
 
         
@@ -228,37 +286,19 @@ class CityDM(object):
         INFO(self.evaluation.summary())
 
         self.best_evaluation_result = None
-
-        # Init Optimizer
-        if self.opt_type == "adam":
-            self.optimizer = Adam(self.diffusion.parameters(), lr=self.lr, betas=self.adam_betas)
-        elif self.opt_type == "sgd":
-            self.optimizer = SGD(self.diffusion.parameters(), lr=self.lr)
-        else:
-            ERROR(f"Optimizer type {self.opt_type} not supported!")
-            raise ValueError(f"Optimizer type {self.opt_type} not supported!")
         
         
         #  some preperation for train
         self.now_epoch = 0
         self.now_step = 0
         self.best_validation_result = None
-        self.max_step = self.epochs * len(self.train_dataset) // (self.batch_size * self.grad_accumulate)
+        
         self.not_best = 0
 
 
-        # Init Scheduler
-        if self.scheduler_type == "cosine":
-            self.scheduler = lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=self.max_step)
-        elif self.scheduler_type == "step":
-            self.scheduler = lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)
-        else:
-            ERROR(f"Scheduler type {self.scheduler_type} not supported!")
-            raise ValueError(f"Scheduler type {self.scheduler_type} not supported!")
         
-        # prepare model, optimizer, scheduler with accelerator
-        self.diffusion, self.optimizer, self.scheduler = self.accelerator.prepare(
-            self.diffusion, self.optimizer, self.scheduler
+        self.diffusion = self.accelerator.prepare(
+            self.diffusion
         )
         
         
@@ -315,11 +355,12 @@ class CityDM(object):
                 torch.save(ckpt, ckpt_path)
                 INFO(f"Ckpt saved to {ckpt_path}")
     
-    def load_ckpts(self, ckpt_path):
+    def load_ckpts(self, ckpt_path, mode="train"):
         ckpt = torch.load(ckpt_path)
         self.diffusion.load_state_dict(ckpt["diffusion"])
-        self.optimizer.load_state_dict(ckpt["optimizer"])
-        self.scheduler.load_state_dict(ckpt["scheduler"])
+        if mode == "train":
+            self.optimizer.load_state_dict(ckpt["optimizer"])
+            self.scheduler.load_state_dict(ckpt["scheduler"])
         self.ema.load_state_dict(ckpt["ema"])
         self.best_evaluation_result = ckpt["best_evaluation_result"]
         self.seed = ckpt["seed"]
@@ -528,8 +569,111 @@ class CityDM(object):
 
         self.ema.ema_model.train()
 
-    def sample(self):
-        pass
+    def sample(self, cond=False):
+        INFO(f"Start sampling {self.num_samples} images...")
+        INFO(F"Sample result save to {self.sample_results_dir}")
+
+        INFO(f"sample mode: {'random' if not cond is None else 'conditional'}")
+
+        # check and load ckpt
+        INFO(f"ckpt path: {self.ckpt_results_dir}")
+        ckpt_path = os.path.join(self.ckpt_results_dir, "latest_ckpt.pth")
+
+        INFO(f"ckpt path: {ckpt_path}")
+        try:
+            self.load_ckpts(ckpt_path, mode="test")
+            INFO(f"ckpt loaded!")
+            INFO(f"ckpt step & epoch: {self.now_step}, {self.now_epoch}")
+        except Exception as e:
+            ERROR(f"load ckpt failed! {e}")
+            raise e
+        
+        # sample
+        self.ema.ema_model.eval()
+        with torch.inference_mode():
+            batches = num_to_groups(self.num_samples, self.batch_size)
+            if cond is True:
+                # sample some real images from val_Dataloader as cond
+                all_images = None
+                for b in tqdm(range(len(batches)), desc="sampling", leave=False, colour="green"):
+                    cond_image = next(self.test_dataloader)["layout"].to(self.device)
+                    if all_images is None:
+                        all_images = self.ema.ema_model.sample(batch_size=batches[b], cond=cond_image)
+                    else:
+                        all_images = torch.cat(
+                            (all_images, self.ema.ema_model.sample(batch_size=batches[b], cond=cond_image)), dim=0
+                        )
+            else:
+                all_images = list(
+                    map(
+                        lambda n: self.ema.ema_model.sample(batch_size=n, cond=None),
+                        batches,
+                    )
+                )
+
+        if cond is True:
+            all_images = all_images
+        else:
+            all_images = torch.cat(
+                all_images, dim=0
+            )
+        INFO(f"Sampling {self.num_samples} images done!")
+
+        
+
+        # save and evaluate
+
+        if self.data_type == "rgb":
+            utils.save_image(
+                all_images[:int(self.num_samples//4)],
+                os.path.join(
+                    self.sample_results_dir, f"sample-c-rgb.png"
+                ),
+                nrow=int(math.sqrt(self.num_samples)),
+            )
+            self.vis.visualize_rgb_layout(
+                all_images[:int(self.num_samples//4)],
+                os.path.join(
+                    self.sample_results_dir, f"sample-rgb.png"
+                )
+            )
+        else:
+            self.vis.visulize_onehot_layout(
+                all_images[:int(self.num_samples//4)],
+                os.path.join(
+                    self.sample_results_dir, f"sample-onehot.png"
+                )
+            )
+            self.vis.visualize_rgb_layout(
+                all_images[:int(self.num_samples//4)],
+                os.path.join(
+                    self.sample_results_dir, f"sample-rgb.png"
+                )
+            )
+
+        # vectorize
+        # bchw
+        self.asset_gen.set_data(all_images[:, 0:3 :, :])
+        self.asset_gen.generate_geojson()
+
+        # evaluate
+        try:
+            self.evaluation.validation(cond, os.path.join(self.sample_results_dir, "data_analyse"))
+            result = self.evaluation.get_evaluation_dict()
+            # write evaluation to file
+            path = os.path.join(self.sample_results_dir, "evaluation.json")
+            with open(path, "w") as f:
+                for key in result.keys():
+                    f.write(f"{key}: {result[key]}\n")
+            
+
+        except Exception as e:
+            self.accelerator.print("evaluation failed: \n")
+            self.accelerator.print(e)
+        
+
+        
+        # return all_images, result
 
         
             

@@ -1,12 +1,21 @@
 from CityDM import CityDM
-import pstats, cProfile
+import argparse
+import os
 
-path = "/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/uniDM_train.yaml"
+parser = argparse.ArgumentParser()
+parser.add_argument("--path", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/uniDM_sample.yaml")
+parser.add_argument("--sample", action="store_true", default=False)
+parser.add_argument("--train", action="store_true", default=False)
+parser.add_argument("--cond", action="store_true", default=False)
+path = parser.parse_args().path
+
 
 citydm = CityDM(path)
-# analyse the time cost of the function
-cProfile.runctx('citydm.train()', globals(), locals(), './Profile.prof')
 
-# sort the profile by time cost
-s = pstats.Stats('./Profile.prof')
-s.strip_dirs().sort_stats('time').print_stats()
+if parser.parse_args().sample:
+    citydm.sample(cond=parser.parse_args().cond)    
+
+elif parser.parse_args().train:
+    citydm.train()
+
+    
