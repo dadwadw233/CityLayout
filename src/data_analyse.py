@@ -42,12 +42,17 @@ def discretize_data(data, bin_width):
     
     return mode_bin, histogram[max_freq_index]
 
+
+## todo split bug need to fix
 def data_spliter(data, data_names, _bin, train_ratio=0.9, test_ratio=0.05, val_ratio=0.05):
     assert len(data.keys()) == 1
     data = data[list(data.keys())[0]]['overlap']
     total_size = len(data)
+    DEBUG("total size: {}".format(total_size))
     bins_len = math.ceil(1 / _bin)
     bins = [[] for _ in range(bins_len)]
+
+    assert len(data) == len(data_names)
 
     # 假设 data 是一个列表或类似结构
     for i in range(len(data)):
@@ -123,6 +128,6 @@ if __name__ == "__main__":
        
     
     # handle.contrast_analyse()
-    handle.analyse()
-    #data_spliter(handle.get_data_dict(False),data_names, _bin=0.01, train_ratio=0.9, test_ratio=0.05, val_ratio=0.05)
+    # handle.analyse()
+    data_spliter(handle.get_data_dict(False), data_names, _bin=0.01, train_ratio=0.9, test_ratio=0.05, val_ratio=0.05)
         
