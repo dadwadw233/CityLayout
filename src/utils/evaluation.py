@@ -191,13 +191,16 @@ class Evaluation:
 
     @torch.inference_mode()
     def sample_real_data(self):
-        
+        # DEBUG(f"sample real data")
         real_samples = next(self.dl)['layout']
+        # DEBUG(f"real samples shape: {real_samples.shape}")
         self.data_analyser.add_data(real_samples, fake=False)
         
         if self.data_type == "one-hot":
+            # DEBUG(f"real samples shape: {real_samples.shape}")
             real_samples = self.vis.onehot_to_rgb(real_samples)
         
+        # DEBUG(f"real samples shape: {real_samples.shape}")
         real_samples = real_samples.to(self.device)
         return real_samples
     
@@ -209,6 +212,8 @@ class Evaluation:
             fake_samples = fake_samples[:, :self.channels, :, :]
         else:
             fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=None)
+
+        # DEBUG(f"fake samples shape: {fake_samples.shape}")
         self.data_analyser.add_data(fake_samples, fake=True)
         if self.data_type == "one-hot":
             fake_samples = self.vis.onehot_to_rgb(fake_samples)
@@ -253,7 +258,9 @@ class Evaluation:
 
             INFO(f"Start evaluating images")
             try: 
+                # DEBUG(f"batches: {batches}")
                 for batch in tqdm(batches, leave=False):
+                    # DEBUG(f"batch: {batch}")
                     real_samples = self.sample_real_data()
                     
                     real_samples = real_samples.to(self.device)
@@ -277,7 +284,7 @@ class Evaluation:
                         self.multimodal_evaluation(real_samples, fake_samples)
             except Exception as e:
                 ERROR(f"Error when evaluating images: {e}")
-                raise f"Error occured while sample and update metrics\n {e}"
+                raise e
 
             # sample some real data and fake data to show by wandb
             if not self.condition:
@@ -285,30 +292,36 @@ class Evaluation:
                 fake_samples = self.sample_fake_data(cond = None)
                 real_samples = real_samples[0].permute(1, 2, 0).cpu().numpy()
                 fake_samples = fake_samples[0].permute(1, 2, 0).cpu().numpy()
-                wandb.log({"real": [wandb.Image(real_samples, caption="real")]}, commit=False)
-                wandb.log({"fake": [wandb.Image(fake_samples, caption="fake")]}, commit=False)
+                # wandb.log({"real": [wandb.Image(real_samples, caption="real")]}, commit=False)
+                # wandb.log({"fake": [wandb.Image(fake_samples, caption="fake")]}, commit=False)
             
                 
 
             if 'fid' in self.metrics_list:
+                
                 self.evaluate_dict['FID'] = self.FID_calculator.compute().item()
             if 'kid' in self.metrics_list:
+                
                 mean, std = self.KID_calculator.compute()
                 self.evaluate_dict['KID'] = mean.item()
                 self.evaluate_dict['KID_std'] = std.item()
             if 'mifid' in self.metrics_list:
+                
                 self.evaluate_dict['MIFID'] = self.MIFID_calculator.compute().item()
             if 'is' in self.metrics_list:
+                
                 mean, std = self.IS_caluculator.compute()
                 self.evaluate_dict['IS'] = mean.item()
                 self.evaluate_dict['IS_std'] = std.item()
             if 'clip' in self.metrics_list:
+                
                 # get mean score for each prompt
                 for prompt in self.prompt_pair:
                     prompt_str = prompt[0] + " vs " + prompt[1]
                     self.evaluate_dict['CLIP'][prompt_str]['fake'] = np.mean(self.evaluate_dict['CLIP'][prompt_str]['fake'])
                     self.evaluate_dict['CLIP'][prompt_str]['real'] = np.mean(self.evaluate_dict['CLIP'][prompt_str]['real'])
             if 'data_analysis' in self.metrics_list:
+                # DEBUG(f"Start calculating data analysis")
                 self.data_analyser.contrast_analyse(path, self.condition)
             
             # reset metrics and release CUDA memory
@@ -351,6 +364,7 @@ class DataAnalyser:
         self.layout_keys = config["custom_dict"]
         self.analyse_types = config["types"]
         self.threshold = config["threshold"]
+        self.cluster_threshold = config["cluster_threshold"]
         self.limit = config["evaluate_data_limit"]
 
         self.mapping = []
@@ -391,7 +405,7 @@ class DataAnalyser:
     def _init_subgroup_data(self):
         return {analyse_type: [] for analyse_type in self.analyse_types}
 
-    @staticmethod
+    
     def cal_overlap(self, data) -> np.float32: # todo use the threshold to calculate the overlap
         h, w = data.shape
         area = h * w
@@ -416,10 +430,10 @@ class DataAnalyser:
         file_path = os.path.join(self.path, filename)
         plt.savefig(file_path, dpi=300, bbox_inches="tight")
         # upload to wandb
-        if self.condition:
-            wandb.log({filename+'_cond': wandb.Image(file_path)}, commit=False)
-        else:
-            wandb.log({filename: wandb.Image(file_path)}, commit=False)
+        # if self.condition:
+        #     wandb.log({filename+'_cond': wandb.Image(file_path)}, commit=False)
+        # else:
+        #     wandb.log({filename: wandb.Image(file_path)}, commit=False)
         plt.close()
     
     def _calculate_statistics(self, data):
@@ -456,7 +470,19 @@ class DataAnalyser:
         for analyse_type in self.analyse_types:
             flattened_data = self._flatten_data(data_dict, analyse_type)
             corr_matrix[analyse_type] = self._calculate_correlation_matrix(data_dict, analyse_type)
-            # ... Cluster the data based on the correlation matrix ...
+            
+            for i, key in enumerate(data_dict.keys()):
+                clusters[key] = {}
+                for j, key2 in enumerate(data_dict.keys()):
+                    if i == j:
+                        continue
+                    clusters[key][analyse_type] = []
+                    if corr_matrix[analyse_type][i, j] > self.cluster_threshold:
+                        clusters[key][analyse_type].append(key2)
+            
+
+        
+        # DEBUG(f"clusters: {clusters}")
         return clusters, corr_matrix
 
     def output_results_to_file(self, results, filename):
@@ -465,6 +491,9 @@ class DataAnalyser:
             for analyse_type in self.analyse_types:
                 file.write(f"{analyse_type.upper()}\n")
                 for key, values in results.items():
+                    # check key is none
+                    if key is None:
+                        continue
                     file.write(f"{key}: {values[analyse_type]}\n")
                 file.write("\n")
 
@@ -667,6 +696,8 @@ class DataAnalyser:
 
         if flag:
             self.path = None
+
+        # DEBUG(f"real statistics: {statistics}")
 
         
     # some helper functions 👇

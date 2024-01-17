@@ -69,13 +69,13 @@ Model:
     attn_heads: 4
     full_attn: None
     flash_attn: False
-    resnet_block_num: 2
-    conditional: False
+    resnet_block_num: 3 # change this from 2 to 3
+    conditional: False # do not change this
     conditional_dim: 2
 
   diffusion:
     timesteps: 2500
-    sampling_timesteps: 10
+    sampling_timesteps: 20
     image_size: 256
     objective: "pred_v"
     beta_schedule: "sigmoid"
@@ -94,7 +94,7 @@ Main:
   mode: "train"
   milestone: 0
   device: cuda
-  lr: 5e-5
+  lr: 1e-4
   max_epochs: 500
   num_workers: 8
 
@@ -117,7 +117,7 @@ Validation:
   # to calculate average overlap rate
   num_samples: 64
 
-  results_dir: "results/one-hot/uni-test-2500-filter"
+  results_dir: "results/one-hot/uni-test-2500-filter-large"
 
 Evaluation: 
   !!merge <<: *vis
@@ -131,7 +131,7 @@ Evaluation:
   # [64, 128, 768, 2048] can be used, but 2048 is FID calculation's standard value which is recommended
   inception_block_idx: 2048
   types: ["overlap"]
-  threshold: 0.9
+  cluster_threshold: 0.9
   evaluate_data_limit: 20480
   !!merge <<: *common
 
@@ -141,7 +141,7 @@ Data:
   num_workers: 8
   # root path for city_name.h5
   path:
-    train_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
+    train_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_large
     test_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
     val_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
 

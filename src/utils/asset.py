@@ -47,7 +47,7 @@ class AssetGen:
     def set_data(self, data):
         # check data is image or not
         assert data is not None, "data must be provided"
-        if data.shape != 4:
+        if data.shape.__len__() != 4:
             ERROR(f"data shape {data.shape} is not valid, please provide data with shape [b, c, h, w]")
             return False
 

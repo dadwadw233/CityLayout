@@ -11,7 +11,7 @@ params:
   condition: False
 
 analyse:
-  path: /home/admin/workspace/yuyuanhong/code/CityLayout/data/analyse/analyse_128_height/road
+  path: /home/admin/workspace/yuyuanhong/code/CityLayout/data/analyse/analyse_128_height/building
   types: ["overlap"]
   threshold: 0.9
   evaluate_data_limit: 20480
