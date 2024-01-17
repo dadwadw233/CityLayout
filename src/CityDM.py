@@ -611,69 +611,69 @@ class CityDM(object):
                     )
                 )
 
-        if cond is True:
-            all_images = all_images
-        else:
-            all_images = torch.cat(
-                all_images, dim=0
-            )
-        INFO(f"Sampling {self.num_samples} images done!")
-
-        
-
-        # save and evaluate
-
-        if self.data_type == "rgb":
-            utils.save_image(
-                all_images[:int(self.num_samples//4)],
-                os.path.join(
-                    self.sample_results_dir, f"sample-c-rgb.png"
-                ),
-                nrow=int(math.sqrt(self.num_samples)),
-            )
-            self.vis.visualize_rgb_layout(
-                all_images[:int(self.num_samples//4)],
-                os.path.join(
-                    self.sample_results_dir, f"sample-rgb.png"
+            if cond is True:
+                all_images = all_images
+            else:
+                all_images = torch.cat(
+                    all_images, dim=0
                 )
-            )
-        else:
-            self.vis.visulize_onehot_layout(
-                all_images[:int(self.num_samples//4)],
-                os.path.join(
-                    self.sample_results_dir, f"sample-onehot.png"
-                )
-            )
-            self.vis.visualize_rgb_layout(
-                all_images[:int(self.num_samples//4)],
-                os.path.join(
-                    self.sample_results_dir, f"sample-rgb.png"
-                )
-            )
+            INFO(f"Sampling {self.num_samples} images done!")
 
-        # vectorize
-        # bchw
-        self.asset_gen.set_data(all_images[:, 0:3 :, :])
-        self.asset_gen.generate_geojson()
-
-        # evaluate
-        try:
-            self.evaluation.validation(cond, os.path.join(self.sample_results_dir, "data_analyse"))
-            result = self.evaluation.get_evaluation_dict()
-            # write evaluation to file
-            path = os.path.join(self.sample_results_dir, "evaluation.json")
-            with open(path, "w") as f:
-                for key in result.keys():
-                    f.write(f"{key}: {result[key]}\n")
             
 
-        except Exception as e:
-            self.accelerator.print("evaluation failed: \n")
-            self.accelerator.print(e)
-        
+            # save and evaluate
 
-        
-        # return all_images, result
+            if self.data_type == "rgb":
+                utils.save_image(
+                    all_images[:int(self.num_samples//4)],
+                    os.path.join(
+                        self.sample_results_dir, f"sample-c-rgb.png"
+                    ),
+                    nrow=int(math.sqrt(self.num_samples)),
+                )
+                self.vis.visualize_rgb_layout(
+                    all_images[:int(self.num_samples//4)],
+                    os.path.join(
+                        self.sample_results_dir, f"sample-rgb.png"
+                    )
+                )
+            else:
+                self.vis.visulize_onehot_layout(
+                    all_images[:int(self.num_samples//4)],
+                    os.path.join(
+                        self.sample_results_dir, f"sample-onehot.png"
+                    )
+                )
+                self.vis.visualize_rgb_layout(
+                    all_images[:int(self.num_samples//4)],
+                    os.path.join(
+                        self.sample_results_dir, f"sample-rgb.png"
+                    )
+                )
+
+            # vectorize
+            # bchw
+            self.asset_gen.set_data(all_images[:, 0:3 :, :])
+            self.asset_gen.generate_geojson()
+
+            # evaluate
+            try:
+                self.evaluation.validation(cond, os.path.join(self.sample_results_dir, "data_analyse"))
+                result = self.evaluation.get_evaluation_dict()
+                # write evaluation to file
+                path = os.path.join(self.sample_results_dir, "evaluation.json")
+                with open(path, "w") as f:
+                    for key in result.keys():
+                        f.write(f"{key}: {result[key]}\n")
+                
+
+            except Exception as e:
+                self.accelerator.print("evaluation failed: \n")
+                self.accelerator.print(e)
+            
+
+            
+            return all_images, result
 
         
             
