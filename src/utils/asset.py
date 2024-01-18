@@ -66,13 +66,15 @@ class AssetGen:
         return True
 
 
-    def generate_geojson(self) -> bool:
+    def generate_geofiles(self) -> bool:
         # check data type
         if self.data is None:
             ERROR("data is None, please set data first")
             return False
 
-        self.asset["geojson"] = self.vectorizer(self.data)
+        self.asset["geojson"] = self.vectorizer(self.data) # return gdf files
+
+        self.generate_shapefile(self.asset["geojson"]) 
     
         return True
     
@@ -95,8 +97,31 @@ class AssetGen:
     def generate_osm(self):
         pass
 
-    def generate_shapefile(self):
-        pass
+    def generate_shapefile(self, gdf_list):
+        if gdf_list is None:
+            ERROR("geojson is None, please generate geojson first")
+            return None
+        else:
+            for item in tqdm(gdf_list, desc="Generate shapefile"):
+                if item['data'] is not None:
+                    shp_root = os.path.join(item['path'], "shps")
+                    # generate different shapefile for different geometry type
+                    os.makedirs(shp_root, exist_ok=True)
+                    # for each geometry type, we need to check the taret geometry type is exist or not
+                    try:
+                        # Polygon
+                        item['data'][item['data'].geometry.type == 'Polygon'].to_file(os.path.join(shp_root,"fake_Pologon.shp"))
+                        # LineString
+                        item['data'][item['data'].geometry.type == 'LineString'].to_file(os.path.join(shp_root,"fake_LineString.shp"))
+                        # Point
+                        item['data'][item['data'].geometry.type == 'Point'].to_file(os.path.join(shp_root,"fake_Point.shp"))
+                    except Exception as e:
+                        WARNING(f"generate shapefile failed, skip {item['path']}")
+                else:
+                    WARNING(f"geojson data is None, skip {item['path']}")
+
+    
+        
 
     def get_asset(self):
         return self.asset
@@ -219,7 +244,7 @@ class Vectorizer:
 
             # cv2.imwrite('./canny.png', eroded)
             lines = cv2.HoughLinesP(
-                image, 1, (np.pi / 180), 10, minLineLength=0.1, maxLineGap=10
+                image, 5, (np.pi / 180), 10, minLineLength=1, maxLineGap=10
             )
             show = np.zeros_like(image)
             if lines is not None:
