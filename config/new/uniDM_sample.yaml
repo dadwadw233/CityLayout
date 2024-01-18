@@ -90,7 +90,7 @@ Main:
   seed: 3407
   condition: False
 
-  batch_size: 8
+  batch_size: 32
   milestone: 0
   device: cuda
   lr: 5e-5
@@ -139,12 +139,12 @@ Evaluation:
   inception_block_idx: 2048
   types: ["overlap"]
   cluster_threshold: 0.9
-  evaluate_data_limit: 204800
+  evaluate_data_limit: 20480
   !!merge <<: *common
 
 
 Data:
-  batch_size: 8
+  batch_size: 32
   num_workers: 8
   # root path for city_name.h5
   path:

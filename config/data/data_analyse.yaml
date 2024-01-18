@@ -14,7 +14,7 @@ analyse:
   path: /home/admin/workspace/yuyuanhong/code/CityLayout/data/analyse/train_large/building
   types: ["overlap"]
   threshold: 0.9
-  evaluate_data_limit: 20480
+  evaluate_data_limit: 2048000
 
 data:
   normalizer: "clamp"
