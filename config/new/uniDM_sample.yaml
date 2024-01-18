@@ -139,7 +139,7 @@ Evaluation:
   inception_block_idx: 2048
   types: ["overlap"]
   cluster_threshold: 0.9
-  evaluate_data_limit: 20480
+  evaluate_data_limit: 204800
   !!merge <<: *common
 
 

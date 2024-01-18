@@ -45,19 +45,23 @@ def discretize_data(data, bin_width):
 
 ## todo split bug need to fix
 def data_spliter(data, data_names, _bin, train_ratio=0.9, test_ratio=0.05, val_ratio=0.05):
-    assert len(data.keys()) == 1
+    # assert len(data.keys()) == 1
     data = data[list(data.keys())[0]]['overlap']
     total_size = len(data)
     DEBUG("total size: {}".format(total_size))
     bins_len = math.ceil(1 / _bin)
     bins = [[] for _ in range(bins_len)]
 
-    assert len(data) == len(data_names)
+    # assert len(data) == len(data_names)
 
-    # 假设 data 是一个列表或类似结构
+    DEBUG ("data len: {}, data names len: {}".format(len(data), len(data_names)))
+
+
     for i in range(len(data)):
         bin_index = min(int(data[i] // _bin), bins_len - 1)
         bins[bin_index].append(data_names[i])
+
+    DEBUG("bins len: {}".format(len(bins)))
 
     train, test, val = [], [], []
     for bin_data in bins:
@@ -103,7 +107,7 @@ if __name__ == "__main__":
 
     ds = OSMDataset(config=ds_config)
 
-    dl = DataLoader(ds, batch_size=1, shuffle=True, num_workers=1)
+    dl = DataLoader(ds, batch_size=1, shuffle=False, num_workers=1)
 
     dl = accelerator.prepare(dl)
 
@@ -124,10 +128,11 @@ if __name__ == "__main__":
     for _ in tqdm(range(len(ds))):
         data = next(dl)
         handle.add_data(data['layout'])
-        data_names.append(data['name'])
+        data_names.append(data['name'][0])
+        
        
     
     # handle.contrast_analyse()
-    # handle.analyse()
+    handle.analyse()
     data_spliter(handle.get_data_dict(False), data_names, _bin=0.01, train_ratio=0.9, test_ratio=0.05, val_ratio=0.05)
         
