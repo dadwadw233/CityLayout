@@ -569,7 +569,7 @@ class CityDM(object):
 
         self.ema.ema_model.train()
 
-    def sample(self, cond=False):
+    def sample(self, cond=False, eval=True):
         INFO(f"Start sampling {self.num_samples} images...")
         INFO(F"Sample result save to {self.sample_results_dir}")
 
@@ -622,58 +622,67 @@ class CityDM(object):
             
 
             # save and evaluate
-
-            if self.data_type == "rgb":
-                utils.save_image(
-                    all_images[:int(self.num_samples//4)],
-                    os.path.join(
-                        self.sample_results_dir, f"sample-c-rgb.png"
-                    ),
-                    nrow=int(math.sqrt(self.num_samples)),
-                )
-                self.vis.visualize_rgb_layout(
-                    all_images[:int(self.num_samples//4)],
-                    os.path.join(
-                        self.sample_results_dir, f"sample-rgb.png"
+            for idx in tqdm(range(len(all_images)//4), desc='Saving Sampled imgs'):
+                
+                if self.data_type == "rgb":
+                    utils.save_image(
+                        all_images[idx*4:idx*4+4],
+                        os.path.join(
+                            self.sample_results_dir, f"sample-{idx}-c-rgb.png"
+                        ),
+                        nrow=2,
                     )
-                )
-            else:
-                self.vis.visulize_onehot_layout(
-                    all_images[:int(self.num_samples//4)],
-                    os.path.join(
-                        self.sample_results_dir, f"sample-onehot.png"
+                    self.vis.visualize_rgb_layout(
+                        all_images[idx*4:idx*4+4],
+                        os.path.join(
+                            self.sample_results_dir, f"sample-{idx}-rgb.png"
+                        )
                     )
-                )
-                self.vis.visualize_rgb_layout(
-                    all_images[:int(self.num_samples//4)],
-                    os.path.join(
-                        self.sample_results_dir, f"sample-rgb.png"
+                elif self.data_type == "one-hot":
+                    self.vis.visulize_onehot_layout(
+                        all_images[idx*4:idx*4+4],
+                        os.path.join(
+                            self.sample_results_dir, f"sample-{idx}-onehot.png"
+                        )
                     )
-                )
+                    self.vis.visualize_rgb_layout(
+                        all_images[idx*4:idx*4+4],
+                        os.path.join(
+                            self.sample_results_dir, f"sample-{idx}-rgb.png"
+                        )
+                    )
+                else:
+                    raise ValueError(f"data_type {self.data_type} not supported!") 
+            
 
             # vectorize
             # bchw
             self.asset_gen.set_data(all_images[:, 0:3 :, :])
-            self.asset_gen.generate_geojson()
+            self.asset_gen.generate_geofiles()
 
             # evaluate
-            try:
-                self.evaluation.validation(cond, os.path.join(self.sample_results_dir, "data_analyse"))
-                result = self.evaluation.get_evaluation_dict()
-                # write evaluation to file
-                path = os.path.join(self.sample_results_dir, "evaluation.json")
-                with open(path, "w") as f:
-                    for key in result.keys():
-                        f.write(f"{key}: {result[key]}\n")
-                
+            result = None
+            if eval:
+                try:
+                    self.evaluation.validation(cond, os.path.join(self.sample_results_dir, "data_analyse"))
+                    result = self.evaluation.get_evaluation_dict()
+                    # write evaluation to file
+                    path = os.path.join(self.sample_results_dir, "evaluation.json")
+                    with open(path, "w") as f:
+                        for key in result.keys():
+                            f.write(f"{key}: {result[key]}\n")
+                    
 
-            except Exception as e:
-                self.accelerator.print("evaluation failed: \n")
-                self.accelerator.print(e)
+                except Exception as e:
+                    self.accelerator.print("evaluation failed: \n")
+                    self.accelerator.print(e)
+
             
 
             
-            return all_images, result
+                return all_images, result
+            else:
+                return all_images, None
 
         
             
