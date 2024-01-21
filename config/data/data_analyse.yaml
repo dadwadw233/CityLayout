@@ -11,7 +11,7 @@ params:
   condition: False
 
 analyse:
-  path: /home/admin/workspace/yuyuanhong/code/CityLayout/data/analyse/train_large/building
+  path: /home/admin/workspace/yuyuanhong/code/CityLayout/data/analyse/train_large/road
   types: ["overlap"]
   threshold: 0.9
   evaluate_data_limit: 2048000
@@ -28,9 +28,8 @@ data:
   # or all the layout types will be used
   custom_dict:
     {
-      "building": [['building']],
+      "building": [],
       "landuse": [
-        
       ],
       "natural":
         [
@@ -38,8 +37,18 @@ data:
         ],
       "road":
         [
+          ['motorway'],
+          ['trunk'],
+          ['primary'],
+          ['secondary'],
+          ['tertiary'],
+          ['residential'],
+          ['service'],
+          ['living_street'],
+          ['pedestrian'],
+          ['footway'],
         ],
-        "height": [['height']],
+        "height": [],
     }
   
 

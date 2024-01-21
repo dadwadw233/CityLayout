@@ -3,7 +3,7 @@ import argparse
 import os
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--path", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/uniDM_sample.yaml")
+parser.add_argument("--path", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/uniDM_train.yaml")
 parser.add_argument("--sample", action="store_true", default=False)
 parser.add_argument("--train", action="store_true", default=False)
 parser.add_argument("--cond", action="store_true", default=False)

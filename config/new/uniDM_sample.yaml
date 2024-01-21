@@ -69,7 +69,7 @@ Model:
     attn_heads: 4
     full_attn: None
     flash_attn: False
-    resnet_block_num: 2
+    resnet_block_num: 3
     conditional: False
     conditional_dim: 2
 
@@ -87,10 +87,11 @@ Model:
 
 Main:
   mode: "test"
+  fine_tune: False
   seed: 3407
   condition: False
 
-  batch_size: 32
+  batch_size: 4
   milestone: 0
   device: cuda
   lr: 5e-5
@@ -116,14 +117,14 @@ Validation:
   # to calculate average overlap rate
   num_samples: 64
 
-  results_dir: "results/one-hot/uni-test-2500-filter"
+  results_dir: "results/one-hot/uni-test-2500-filter-large"
 
 Test:
   !!merge <<: *vis
   data_type: "one-hot" # or "rgb"
   num_samples: 64
-  results_dir: "results/one-hot/uni-test-2500-filter"
-  ckpt_results_dir: "results/one-hot/uni-test-2500-filter/2024-01-15-09-45-38/ckpt"
+  results_dir: "results/one-hot/uni-test-2500-filter-large"
+  ckpt_results_dir: "results/one-hot/uni-test-2500-filter-large/2024-01-17-16-26-45/ckpt"
   !!merge <<: *common
 
 Evaluation: 
@@ -144,7 +145,7 @@ Evaluation:
 
 
 Data:
-  batch_size: 32
+  batch_size: 4
   num_workers: 8
   # root path for city_name.h5
   path:

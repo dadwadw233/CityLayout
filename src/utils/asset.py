@@ -332,11 +332,11 @@ class Vectorizer:
                 for pt in pts:
                     if self.channel_to_geo[c_id] == "LineString":
                         self.geojson_builder_c.add_line(
-                            pt, properties={self.channel_to_key[c_id]: "fake"}
+                            pt, properties={self.channel_to_key[c_id]: "fake", 'height': np.random.randint(1, 10)}
                         )
                     elif self.channel_to_geo[c_id] == "Polygon":
                         self.geojson_builder_c.add_polygon(
-                            pt, properties={self.channel_to_key[c_id]: "fake"}
+                            pt, properties={self.channel_to_key[c_id]: "fake", 'height': np.random.randint(10, 70)}
                         )
 
                 if not self.geojson_builder_c.empty():

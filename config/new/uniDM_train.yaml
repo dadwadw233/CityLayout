@@ -87,6 +87,7 @@ Model:
 
 Main:
   mode: "train"
+  fine_tune: True
   seed: 3407
   condition: False
 
@@ -118,6 +119,8 @@ Validation:
   num_samples: 64
 
   results_dir: "results/one-hot/uni-test-2500-filter-large"
+  fine_tune_dir: "results/one-hot/uni-test-2500-filter-large/2024-01-17-16-26-45"
+  
 
 Evaluation: 
   !!merge <<: *vis

@@ -121,6 +121,7 @@ class CityDM(object):
 
         self.mode = main_config["mode"]
         self.seed = main_config["seed"]
+        self.fine_tune = main_config["fine_tune"]
         if self.seed is not None:
             torch.manual_seed(self.seed)
             if torch.cuda.is_available():
@@ -187,7 +188,10 @@ class CityDM(object):
             self.num_samples = val_config["num_samples"]
             self.results_dir = val_config["results_dir"] 
             # add time stamp to results_dir
-            self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()))
+            if not self.fine_tune:
+                self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()))
+            else:
+                self.results_dir = val_config["fine_tune_dir"]
             self.val_results_dir = os.path.join(self.results_dir, "val")
             self.ckpt_results_dir = os.path.join(self.results_dir, "ckpt")
             self.asset_results_dir = os.path.join(self.results_dir, "asset")
@@ -303,8 +307,6 @@ class CityDM(object):
         
         
 
-            
-
         # Done
         INFO(f"CityDM initialized!")
 
@@ -364,8 +366,8 @@ class CityDM(object):
         self.ema.load_state_dict(ckpt["ema"])
         self.best_evaluation_result = ckpt["best_evaluation_result"]
         self.seed = ckpt["seed"]
-        INFO(f"Ckpt loaded from {ckpt_path}")
 
+        INFO(f"Ckpt loaded from {ckpt_path}")
         self.now_epoch = ckpt["epoch"]
         self.now_step = ckpt["step"]
 
@@ -397,6 +399,15 @@ class CityDM(object):
             self.results_dir,
         )
         writer = SummaryWriter(log_dir=f"runs-DEBUG/{experiment_title}")
+
+        if self.fine_tune:
+            INFO(f"Fine tune mode, load ckpt from {self.ckpt_results_dir}")
+            ckpt_path = os.path.join(self.ckpt_results_dir, "latest_ckpt.pth")
+            self.load_ckpts(ckpt_path, mode="train")
+            INFO(f"ckpt loaded!")
+            INFO(f"ckpt step & epoch: {self.now_step}, {self.now_epoch}")
+        else:
+            INFO(f"Train from scratch!")
         
         with tqdm(
             initial=self.now_step,
