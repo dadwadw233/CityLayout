@@ -44,6 +44,7 @@ data:
             "living_street",
           ],
         ],
+        "height": [],
     }
   
 
@@ -69,6 +70,7 @@ data:
   # this mapping can easily established by preprocess.yaml's feature_list
   key_map:
     building: { "building": 0 }
+    height: { "height": 0 }
     landuse:
       {
         "commercial": 0,

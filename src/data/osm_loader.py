@@ -24,6 +24,8 @@ class OSMDataset(Dataset):
         if data_dir is None:
             if self.mode == "train":
                 self.data_dir = config["path"]["train_dir"]
+            elif self.mode == "val":
+                self.data_dir = config["path"]["val_dir"]
             else:
                 self.data_dir = config["path"]["test_dir"]
         else:
@@ -144,6 +146,12 @@ class OSMDataset(Dataset):
         natural = np.unpackbits(data["natural"], axis=-1).astype(np.float32)
         road = np.unpackbits(data["road"], axis=-1).astype(np.float32)
         node = np.unpackbits(data["node"], axis=-1).astype(np.float32)
+        if "building_height" in data.keys():
+            height = data["building_height"][:].astype(np.float32) / 255.0
+        else:
+            height = None
+        
+        
         
         data_dict = {}
         if self.key_list is None:
@@ -264,6 +272,14 @@ class OSMDataset(Dataset):
 
 
         data_dict["name"] = data_name
+
+        if height is not None and self.config["data"]["custom_dict"]["height"].__len__() != 0:
+            data_dict["height"] = torch.from_numpy(height).float().squeeze(2).permute(2, 0, 1)
+            data_dict["height"] = self.resize(data_dict["height"])
+            data_dict["height"] = self.normalize(data_dict["height"])
+            
+
+
         if self.type == "rgb":
             data_dict["layout"] = self.generate_rgb_layout(
                 torch.cat(
@@ -306,5 +322,14 @@ class OSMDataset(Dataset):
         if (data_dict["layout"].max() == 0) and (data_dict["layout"].min() == 0.0):
             # print("data error")
             return self.__getitem__(np.random.randint(0, len(self.data_list)))
+        
+        # data range:
+        '''
+        height: 0-1 (mapping to 0-255 to show real height)
+        building: 0-1 (one-hot)
+        landuse: 0-1 (one-hot)
+        natural: 0-1 (one-hot)
+        road: 0-1 (one-hot)
+        '''
 
         return data_dict

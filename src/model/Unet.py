@@ -356,29 +356,44 @@ class Unet(nn.Module):
 
         h = []
 
-        for block1, block2, attn, downsample in self.downs:
-            x = block1(x, t)
-            h.append(x)
+        for level in self.downs:
+            for idx in range(self.resnet_block_num):
+                x = level[idx](x, t)
+                
+                if idx == self.resnet_block_num - 1:
+                    x = level[-2](x) + x
+                    h.append(x)
+                else:
+                    h.append(x)
+            
 
-            x = block2(x, t)
-            x = attn(x) + x
-            h.append(x)
-
-            x = downsample(x)
+            x = level[-1](x)
 
         x = self.mid_block1(x, t)
         x = self.mid_attn(x) + x
         x = self.mid_block2(x, t)
 
-        for block1, block2, attn, upsample in self.ups:
-            x = torch.cat((x, h.pop()), dim = 1)
-            x = block1(x, t)
+        # for block1, block2, attn, upsample in self.ups:
+        #     x = torch.cat((x, h.pop()), dim = 1)
+        #     x = block1(x, t)
 
-            x = torch.cat((x, h.pop()), dim = 1)
-            x = block2(x, t)
-            x = attn(x) + x
+        #     x = torch.cat((x, h.pop()), dim = 1)
+        #     x = block2(x, t)
+        #     x = attn(x) + x
 
-            x = upsample(x)
+        #     x = upsample(x)
+
+        for level in self.ups:
+            for idx in range(self.resnet_block_num):
+                
+                x = torch.cat((x, h.pop()), dim = 1)
+                x = level[idx](x, t)
+
+                if idx == self.resnet_block_num - 1:
+                    x = level[-2](x) + x
+            
+            x = level[-1](x)
+
 
         x = torch.cat((x, r), dim = 1)
 

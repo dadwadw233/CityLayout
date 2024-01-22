@@ -1,0 +1,119 @@
+# root path for city_name.h5
+path:
+  train_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_large
+  test_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/test_128
+
+params:
+  mode: "train"
+  # define which layout type to use and modify the layout's granularity by user's choice
+  custom: True
+  device: "cuda"
+  condition: False
+
+analyse:
+  path: /home/admin/workspace/yuyuanhong/code/CityLayout/data/analyse/train_large/road
+  types: ["overlap"]
+  threshold: 0.9
+  evaluate_data_limit: 2048000
+
+data:
+  normalizer: "clamp"
+  std: [0.0, 0.0, 0.0]
+  mean: [1.0, 1.0, 1.0]
+  resize: [256, 256]
+  type: "one-hot"  # or rgb
+
+  # define the layout type and granularity
+  # if custom is True, the layout type and granularity will be defined by 'custom_dict'
+  # or all the layout types will be used
+  custom_dict:
+    {
+      "building": [],
+      "landuse": [
+      ],
+      "natural":
+        [
+          
+        ],
+      "road":
+        [
+          ['motorway'],
+          ['trunk'],
+          ['primary'],
+          ['secondary'],
+          ['tertiary'],
+          ['residential'],
+          ['service'],
+          ['living_street'],
+          ['pedestrian'],
+          ['footway'],
+        ],
+        "height": [],
+    }
+  
+
+  condition_dim: []
+
+  # will be used in creating rgb training data
+  channel_to_rgb: {
+    0: 'white',
+    1: 'blue',
+    2: 'red',
+  }
+
+  filter:
+    {
+      "building": -1, # <=
+      "landuse": -1, # <=
+      "natural": -1, # <=
+      "road": -1, # <=
+    }
+
+  # predefined mapping layout types <----> one hot feature channels
+  # mapping's number of each super class ('building', 'landuse', etc) should be the same as the number of feature channels
+  # this mapping can easily established by preprocess.yaml's feature_list
+  key_map:
+    building: { "building": 0 }
+    height: { "height": 0 }
+    landuse:
+      {
+        "commercial": 0,
+        "retail": 1,
+        "education": 2,
+        "industrial": 3,
+        "residual": 4,
+        "forest": 5,
+        "grass": 6,
+        "greenfield": 7,
+        "railway": 8,
+        "recreation_ground": 9,
+        "default": 10,
+      }
+    natural:
+      {
+        "grassland": 0,
+        "tree": 1,
+        "tree_row": 2,
+        "wood": 3,
+        "beach": 4,
+        "water": 5,
+        "wetland": 6,
+        "bare_rock": 7,
+        "hill": 8,
+        "sand": 9,
+        "valley": 10,
+        "default": 11,
+      }
+    road:
+      {
+        "motorway": 0,
+        "trunk": 1,
+        "primary": 2,
+        "secondary": 3,
+        "tertiary": 4,
+        "residential": 5,
+        "service": 6,
+        "living_street": 7,
+        "pedestrian": 8,
+        "footway": 9,
+      }

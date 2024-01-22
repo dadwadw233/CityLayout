@@ -15,10 +15,14 @@ import argparse
 from accelerate import Accelerator
 
 import matplotlib.pyplot as plt
-from utils.utils import cycle, load_config
+from utils.utils import cycle, load_config, DataAnalyser
 from torchvision import transforms as T, utils
 from tqdm import tqdm
 from scipy import stats
+import json
+from utils.log import *
+import random
+import math
 
 
 def discretize_data(data, bin_width):
@@ -38,13 +42,63 @@ def discretize_data(data, bin_width):
     
     return mode_bin, histogram[max_freq_index]
 
+
+## todo split bug need to fix
+def data_spliter(data, data_names, _bin, train_ratio=0.9, test_ratio=0.05, val_ratio=0.05):
+    # assert len(data.keys()) == 1
+    data = data[list(data.keys())[0]]['overlap']
+    total_size = len(data)
+    DEBUG("total size: {}".format(total_size))
+    bins_len = math.ceil(1 / _bin)
+    bins = [[] for _ in range(bins_len)]
+
+    # assert len(data) == len(data_names)
+
+    DEBUG ("data len: {}, data names len: {}".format(len(data), len(data_names)))
+
+
+    for i in range(len(data)):
+        bin_index = min(int(data[i] // _bin), bins_len - 1)
+        bins[bin_index].append(data_names[i])
+
+    DEBUG("bins len: {}".format(len(bins)))
+
+    train, test, val = [], [], []
+    for bin_data in bins:
+        random.shuffle(bin_data)  # 打乱每个桶中的数据
+        bin_size = len(bin_data)
+        bin_train_size = int(bin_size * train_ratio)
+        bin_test_size = int(bin_size * test_ratio)
+        bin_val_size = bin_size - bin_train_size - bin_test_size
+
+        train.extend(bin_data[:bin_train_size])
+        test.extend(bin_data[bin_train_size:bin_train_size + bin_test_size])
+        val.extend(bin_data[bin_train_size + bin_test_size:])
+
+    # 保存数据集到 JSON 文件
+    DEBUG("train size: {}, test size: {}, val size: {}".format(len(train), len(test), len(val)))
+    with open('./data/train.json', 'w') as f:
+        json.dump(train, f)
+    with open('./data/test.json', 'w') as f:
+        json.dump(test, f)
+    with open('./data/val.json', 'w') as f:
+        json.dump(val, f)
+
+    return train, test, val
+        
+        
+
+
+    
+    
+
 if __name__ == "__main__":
     device = "cpu"
 
     accelerator = Accelerator()
 
     ds_config = load_config(
-        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml"
+        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/data_analyse.yaml"
     )
     trainer_config = load_config(
         "/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml"
@@ -53,7 +107,7 @@ if __name__ == "__main__":
 
     ds = OSMDataset(config=ds_config)
 
-    dl = DataLoader(ds, batch_size=1, shuffle=True, num_workers=1)
+    dl = DataLoader(ds, batch_size=1, shuffle=False, num_workers=1)
 
     dl = accelerator.prepare(dl)
 
@@ -68,60 +122,17 @@ if __name__ == "__main__":
     road = []
     building = []
     natural = []
+    handle = DataAnalyser(config=ds_config)
+    handle.init_folder()
+    data_names = []
     for _ in tqdm(range(len(ds))):
         data = next(dl)
-        road_rate = torch.count_nonzero(data["road"]) / (data["road"].shape[2] * data["road"].shape[3])
-
-        building_rate = torch.count_nonzero(data["building"]) / (data["building"].shape[2] * data["building"].shape[3])
-
-        natural_rate = torch.count_nonzero(data["natural"]) / (data["natural"].shape[2] * data["natural"].shape[3])
-
-        road.append(road_rate.cpu())
-
-        building.append(building_rate.cpu())
-
-        natural.append(natural_rate.cpu())
-
-        cnt += 1
+        handle.add_data(data['layout'])
+        data_names.append(data['name'][0])
         
+       
+    
+    # handle.contrast_analyse()
+    handle.analyse()
+    # data_spliter(handle.get_data_dict(False), data_names, _bin=0.01, train_ratio=0.9, test_ratio=0.05, val_ratio=0.05)
         
-    # print overlap rate satistic result
-    print("road:", np.mean(road), np.std(road))
-    print("building:", np.mean(building), np.std(building))
-    print("natural:", np.mean(natural), np.std(natural))
-
-
-    # plt overlap rate satistic result separately
-
-    plt.figure()
-    plt.hist(road, bins=100, color="red", label="road")
-    plt.xlabel("overlap rate")
-    plt.ylabel("count")
-    plt.legend()
-    plt.savefig("overlap_rate_road.png")
-    plt.close()
-
-
-    plt.figure()
-    plt.hist(building, bins=100, color="blue", label="building")
-    plt.xlabel("overlap rate")
-    plt.ylabel("count")
-    plt.legend()
-    plt.savefig("overlap_rate_building.png")
-    plt.close()
-
-    plt.figure()
-    plt.hist(natural, bins=100, color="green", label="natural")
-    plt.xlabel("overlap rate")
-    plt.ylabel("count")
-    plt.legend()
-    plt.savefig("overlap_rate_natural.png")
-    plt.close()
-
-    mode_bin_building, building_freq = discretize_data(building, 0.01)
-    mode_bin_road, road_freq = discretize_data(road, 0.01)
-    mode_bin_natural, natural_freq = discretize_data(natural, 0.01)
-
-    print("building众数区间:", mode_bin_building, "频数:", building_freq)
-    print("road众数区间:", mode_bin_road, "频数:", road_freq)
-    print("natural众数区间:", mode_bin_natural, "频数:", natural_freq)

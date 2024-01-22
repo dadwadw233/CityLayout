@@ -17,6 +17,7 @@ import h5py
 from collections import OrderedDict
 import sys
 import shutil
+from scipy.ndimage import label
 sys.path.append(os.path.join(os.path.dirname(__file__), "../../"))
 from src.utils.utils import load_config
 def escape_path(path):
@@ -214,6 +215,49 @@ def data_handle(gdf, data_type, config, out_path, conbained_ax, xlim, ylim):
 
     return True
 
+def fullfill_height(building_matrix, height_data):
+    # Flatten the building_matrix and find connected components (buildings)
+    # Assuming the building_matrix is a 4D array with shape (h, w, 1, 1)
+    # where the third and fourth dimensions are singleton dimensions
+    flattened_building_matrix = building_matrix[:, :, 0, 0]
+    labeled_array, num_features = label(flattened_building_matrix)
+
+    # Initialize the height map array with zeros
+    height_map_array = np.zeros(flattened_building_matrix.shape)
+
+    # Define the minimum and maximum height for random assignment
+    min_height, max_height = 15, 255 # 5 floors to 85 floors
+
+    # Adjust min and max height if actual height data is available
+    if height_data:
+        min_height = min(height_data) if len(height_data) > 0 else min_height
+        max_height = max(height_data) if len(height_data) > 0 else max_height
+    if max_height == min_height:
+        max_height += 9
+        min_height -= 9
+
+
+    # Iterate through each feature (building) and assign height data
+    for i in range(1, num_features + 1):
+        # Find the pixels belonging to the current building
+        building_positions = labeled_array == i
+
+        # Get the height for the current building from height_data
+        # Use random height if no height data is provided, otherwise use the minimum height data available
+        if not np.any(height_data):
+            building_height = np.random.randint(min_height, max_height)
+        else:
+            building_heights = [height_data[j] for j in range(len(height_data)) if building_positions.flatten()[j]]
+            building_height = min(building_heights) if building_heights else np.random.randint(min_height, max_height)
+
+        # Assign the height to the building's position in the height map
+        height_map_array[building_positions] = building_height
+
+    # Reshape height_map_array to add the two extra singleton dimensions
+    height_map_array = height_map_array[:, :, np.newaxis, np.newaxis]
+
+    return height_map_array
+
 
 
 def plot_combined_map(
@@ -262,7 +306,8 @@ def plot_combined_map(
 
         data_handle(point_gdf, 'node', config, os.path.dirname(output_filename), ax, xlim, ylim)
 
-
+    # building data need process separately
+    # because of the lack of height data always occur and need to be fullfilled by random data based on building location
     if not buildings_gdf.empty:
         feature_img_dict = {}
         buildings_gdf.plot(
@@ -293,6 +338,7 @@ def plot_combined_map(
 
         #  绘制高度数据
         # 判断'height'字段是否存在
+        height_data = []
         if "height" in buildings_gdf.columns:
             fig_, ax_ = plt.subplots(figsize=fig_size)
             ax_.set_xlim(xlim)
@@ -310,6 +356,9 @@ def plot_combined_map(
                     pad_inches=config["plt_config"]["building"]["pad_inches"],
                 )
             plt.close(fig_)
+            for _, row in buildings_gdf.iterrows():
+                if row["height"] != None:
+                    height_data.append(int(row["height"]))
 
         buildings_gdf.plot(cmap="gray")
 
@@ -328,7 +377,7 @@ def plot_combined_map(
         image = Image.open(buf)
         image_array = np.array(image)
         data = ~image_array[:, :, 0:1]
-        data[data != 0] = 1
+        data[data != 0] = 1 # convert to binary image
         feature_img_dict['building'] = data
 
         plt.close()
@@ -344,12 +393,38 @@ def plot_combined_map(
         # plt.close(fig)
 
         building_matrix = np.stack(list(feature_img_dict.values()), axis=-1)
+        
+
+        # use random data to fullfill the height data based on building location
+        
+        height_map_array = fullfill_height(building_matrix, height_data).astype(np.uint8)
+        # print height map array data type
+        # save height data
+        np.save(
+            os.path.join(os.path.dirname(output_filename), "building_height.npy"),
+            height_map_array,
+        )
+        # visualize height data for DEBUG
+        
+        plt.figure(figsize=fig_size)
+        plt.imshow(height_map_array[:, :, 0], cmap="gray")
+        plt.axis("off")
+        if config["params"]["visualize"]:
+            plt.savefig(
+                os.path.join(os.path.dirname(output_filename), "building_height.jpg"),
+                bbox_inches=config["plt_config"]["building"]["bbox_inches"],
+                format=config["plt_config"]["building"]["format"],
+                pad_inches=config["plt_config"]["building"]["pad_inches"],
+            )
+        plt.close()
+
         building_matrix = building_matrix.astype(bool)
         building_matrix = np.packbits(building_matrix, axis=-1)
         np.save(
             os.path.join(os.path.dirname(output_filename), "building.npy"),
             building_matrix,
         ) 
+            
 
     if config["params"]["visualize"]:
         plt.savefig(
@@ -521,7 +596,7 @@ if __name__ == "__main__":
         len(os.listdir(root_path)),
     )
     
-    # city_test_name = 'Zürich-8-4'
+    # city_test_name = 'Sydney-0-1'
 
     # process_city(city_test_name, root_path, output, yaml_config)
 

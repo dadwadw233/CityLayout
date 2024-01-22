@@ -12,7 +12,7 @@ from torch.cuda.amp import autocast
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 
-from torch.optim import Adam, lr_scheduler
+from torch.optim import Adam, lr_scheduler, SGD
 
 
 from torchvision import transforms as T, utils
@@ -46,7 +46,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import time
 
-
+# will be deprecated in the future by pytorch-lightning or self-well-designed hyper module
 class Trainer(object):
     def __init__(
         self,

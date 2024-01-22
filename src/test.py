@@ -23,10 +23,10 @@ if __name__ == "__main__":
     accelerator = Accelerator()
 
     ds_config = load_config(
-        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_cond_loader.yaml"
+        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/osm_loader.yaml"
     )
     trainer_config = load_config(
-        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_cond_generator.yaml"
+        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_sample.yaml"
     )
 
 
@@ -43,21 +43,21 @@ if __name__ == "__main__":
     print("data len:", len(ds))
 
     vis = OSMVisulizer(mapping=trainer_config["vis"]["channel_to_rgb"])
-    vec = Vectorizer()
+    vec = Vectorizer(config=trainer_config["vec"])
     for i in range(10):
         data = next(dl)
-        print(data.keys())
-        print(data["building"].shape)
-        print(data["name"])
-        print(data['condition'].shape)
-        vis.visulize_onehot_layout(data['condition'], "/home/admin/workspace/yuyuanhong/code/CityLayout/test-{}.png".format(i))
-        vis.visualize_rgb_layout(data['condition'], "/home/admin/workspace/yuyuanhong/code/CityLayout/test-rgb-{}.png".format(i))
-
-        rgb_test = vis.onehot_to_rgb(data['condition'])
+        # print(data.keys())
+        # print(data["building"].shape)
+        # print(data["name"])
+        # print(data['condition'].shape)
+        vis.visulize_onehot_layout(data['layout'], "/home/admin/workspace/yuyuanhong/code/CityLayout/test-{}.png".format(i))
+        vis.visualize_rgb_layout(data['layout'], "/home/admin/workspace/yuyuanhong/code/CityLayout/test-rgb-{}.png".format(i))
+        
+        rgb_test = vis.onehot_to_rgb(data['layout'])
         rgb_test_for_show = rgb_test[0]
         print(rgb_test_for_show.max(), rgb_test_for_show.min())
         plt.imsave("/home/admin/workspace/yuyuanhong/code/CityLayout/test1-rgb-{}.png".format(i), (rgb_test_for_show.permute(1,2,0)*255).to(torch.uint8).cpu().numpy())
-        print(cal_overlapping_rate(torch.cat((data['layout'], data['condition']), dim=1)))
+        # print(cal_overlapping_rate(torch.cat((data['layout'], data['condition']), dim=1)))
         exit(0)
 
         

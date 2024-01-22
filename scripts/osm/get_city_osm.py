@@ -17,6 +17,7 @@ from requests.exceptions import RequestException
 import time
 import yaml
 import concurrent.futures
+import shutil
 
 def load_config(config_path):
     with open(config_path, "r") as file:
@@ -280,6 +281,10 @@ def data_handler(yaml_config, city, output_dir, radius, citys):
                 os.path.join(city_out_path, "getdata_error.txt"), "w"
             ) as file:
                 file.write(str(e))
+            
+            # delete the output directory
+            if os.path.exists(city_out_path):
+                shutil.rmtree(city_out_path)
             break
 
 
@@ -298,6 +303,9 @@ if __name__ == "__main__":
     input_file = yaml_config["path"]["input"]
     output_dir = yaml_config["path"]["output"]
     pop_file_path = yaml_config["path"]["pop_file_path"]
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir, exist_ok=True)
     # pop_data = gpd.read_file(pop_file_path)
     # print("Pop data loaded.")
 
@@ -320,7 +328,7 @@ if __name__ == "__main__":
 
     print(f"{len(citys)} citie's locations loaded.")
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=16) as executor:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=24) as executor:
         futures = []
         for city in citys.keys():
             futures.append(
@@ -342,6 +350,10 @@ if __name__ == "__main__":
                 future.result()
             except Exception as e:
                 print(f"Error occured when processing {city}: {e}")
+                # delete the output directory
+                city_out_path = os.path.join(output_dir, city)
+                if os.path.exists(city_out_path):
+                    shutil.rmtree(city_out_path)
 
 
     print("Done.")
