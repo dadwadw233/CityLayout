@@ -100,9 +100,6 @@ if __name__ == "__main__":
     ds_config = load_config(
         "/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/data_analyse.yaml"
     )
-    trainer_config = load_config(
-        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml"
-    )
 
 
     ds = OSMDataset(config=ds_config)
@@ -134,5 +131,5 @@ if __name__ == "__main__":
     
     # handle.contrast_analyse()
     handle.analyse()
-    # data_spliter(handle.get_data_dict(False), data_names, _bin=0.01, train_ratio=0.9, test_ratio=0.05, val_ratio=0.05)
+    data_spliter(handle.get_data_dict(False), data_names, _bin=0.01, train_ratio=0.9, test_ratio=0.05, val_ratio=0.05)
         

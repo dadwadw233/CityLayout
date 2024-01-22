@@ -62,11 +62,15 @@ class SinusoidalPosEmb(nn.Module):
     def forward(self, x):
         device = x.device
         half_dim = self.dim // 2
+        
         emb = math.log(self.theta) / (half_dim - 1)
         emb = torch.exp(torch.arange(half_dim, device=device) * -emb)
-        emb = x[:, None] * emb[None, :]
+        
+        emb = x[:, :,  None] * emb[None, :]
+        
         emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
-        return emb
+        
+        return emb.flatten(1)
 
 class RandomOrLearnedSinusoidalPosEmb(nn.Module):
     """ following @crowsonkb 's lead with random (learned optional) sinusoidal pos emb """
@@ -118,12 +122,15 @@ class ResnetBlock(nn.Module):
         self.res_conv = nn.Conv2d(dim, dim_out, 1) if dim != dim_out else nn.Identity()
 
     def forward(self, x, time_emb = None):
-
+        
         scale_shift = None
         if exists(self.mlp) and exists(time_emb):
             time_emb = self.mlp(time_emb)
-            time_emb = rearrange(time_emb, 'b c -> b c 1 1')
+            
+            time_emb = rearrange(time_emb, 'b c  -> b c 1 1')
+            
             scale_shift = time_emb.chunk(2, dim = 1)
+        
 
         h = self.block1(x, scale_shift = scale_shift)
 
@@ -271,7 +278,7 @@ class Unet(nn.Module):
 
         self.time_mlp = nn.Sequential(
             sinu_pos_emb,
-            nn.Linear(fourier_dim, time_dim),
+            nn.Linear(fourier_dim*channels, time_dim),
             nn.GELU(),
             nn.Linear(time_dim, time_dim)
         )

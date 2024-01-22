@@ -247,9 +247,20 @@ class GaussianDiffusion(nn.Module):
         )
 
     def predict_noise_from_start(self, x_t, t, x0):
-        return (
-            extract(self.sqrt_recip_alphas_cumprod, t, x_t.shape) * x_t - x0
-        ) / extract(self.sqrt_recipm1_alphas_cumprod, t, x_t.shape)
+        noise = None
+        channel_shape = (x_t.shape[0], 1, x_t.shape[2], x_t.shape[3])
+        for idx in range(self.channels):
+            channel_t = t[:, idx]
+            channel_xt = x_t[:, idx, :, :].unsqueeze(1)
+            noise_c = (
+                extract(self.sqrt_recip_alphas_cumprod, channel_t, channel_shape) * channel_xt
+                - extract(self.sqrt_recipm1_alphas_cumprod, channel_t, channel_shape) * x0[:, idx, :, :].unsqueeze(1)
+            )
+            if noise is None:
+                noise = noise_c
+            else:
+                noise = torch.cat((noise, noise_c), dim=1)
+        return noise
 
     def predict_v(self, x_start, t, noise):
         return (
@@ -274,6 +285,8 @@ class GaussianDiffusion(nn.Module):
         )
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
+
+    # todo 👇 the most difficult part 
     def model_predictions(
         self, x, t, x_self_cond=None, clip_x_start=False, rederive_pred_noise=False
     ):
@@ -348,7 +361,7 @@ class GaussianDiffusion(nn.Module):
         image[:, noise_channel_idx, :, :] = torch.randn_like(image[:, noise_channel_idx, :, :])
 
 
-        return image
+        return image, noise_channel_idx
 
 
 
@@ -396,31 +409,45 @@ class GaussianDiffusion(nn.Module):
             self.ddim_sampling_eta,
             self.objective,
         )
-
         times = torch.linspace(
-            -1, total_timesteps - 1, steps=sampling_timesteps + 1
-        )  # [-1, 0, 1, 2, ..., T-1] when sampling_timesteps == total_timesteps
+                -1, total_timesteps - 1, steps=sampling_timesteps + 1
+            )  # [-1, 0, 1, 2, ..., T-1] when sampling_timesteps == total_timesteps
         times = list(reversed(times.int().tolist()))
         time_pairs = list(
-            zip(times[:-1], times[1:])
+                zip(times[:-1], times[1:])
         )  # [(T-1, T-2), (T-2, T-3), ..., (1, 0), (0, -1)]
 
 
         if org is not None:
-            img = self.random_mask_image_backward(org) # bchw
+            img, idx = self.random_mask_image_backward(org) # bchw
             masked_org = img.clone()
         else:
             img = torch.randn(shape, device=device) # bchw
+            idx = None
             masked_org = None
+            
+            
+
         imgs = [img]
+        
 
         x_start = None
+        print(idx)
 
         for time, time_next in time_pairs:
             time_cond = torch.full((batch,), time, device=device, dtype=torch.long)
+            t_set = []
+            for cid in range (self.channels):
+                if idx is not None and cid in idx:
+                    # append zero time step
+                    t_set.append(torch.zeros((batch,), device=device, dtype=torch.long))
+                else:
+                    # append time step
+                    t_set.append(time_cond)
+            t_set = torch.stack(t_set, dim=1)
             self_cond = x_start if self.self_condition else None
             pred_noise, x_start, *_ = self.model_predictions(
-                img, time_cond, self_cond, clip_x_start=True, rederive_pred_noise=True
+                img, t_set, self_cond, clip_x_start=True, rederive_pred_noise=True
             )
 
             if time_next < 0:
@@ -494,41 +521,51 @@ class GaussianDiffusion(nn.Module):
             + extract(self.sqrt_one_minus_alphas_cumprod, t, x_start.shape) * noise
         )
 
-    def p_losses(self, x_start, t, noise=None, offset_noise_strength=None):
+    def p_losses(self, x_start, t_set, noise=None, offset_noise_strength=None):
         b, c, h, w = x_start.shape
-
+        x = None
         # noise = default(noise, lambda: torch.randn_like(x_start))
-        noise = default(noise, lambda: self.get_random_noise_forward(x_start))
+        for idx in range(c):
+            t = t_set[idx]
+            noise = default(noise, lambda: torch.randn((b, 1, h, w), device=self.device))
 
-        # offset noise - https://www.crosslabs.org/blog/diffusion-with-offset-noise
+            # offset noise - https://www.crosslabs.org/blog/diffusion-with-offset-noise
 
-        offset_noise_strength = default(
-            offset_noise_strength, self.offset_noise_strength
-        )
+            offset_noise_strength = default(
+                offset_noise_strength, self.offset_noise_strength
+            )
 
-        if offset_noise_strength > 0.0:
-            offset_noise = torch.randn(x_start.shape[:2], device=self.device)
-            noise += offset_noise_strength * rearrange(offset_noise, "b c -> b c 1 1")
+            if offset_noise_strength > 0.0:
+                offset_noise = torch.randn(x_start.shape[:2], device=self.device)
+                noise += offset_noise_strength * rearrange(offset_noise, "b c -> b c 1 1")
 
-        # noise sample
+            # noise sample
+            
+            # todo - add random mask to noise
+            x_start_c = x_start[:, idx, :, :].unsqueeze(1)
+            if x is  None:
+                x = self.q_sample(x_start=x_start_c, t=t, noise=noise)
+            else :
+                x = torch.cat((x, self.q_sample(x_start=x_start_c, t=t, noise=noise)), dim=1)
+
+
+
+            # if doing self-conditioning, 50% of the time, predict x_start from current set of times
+            # and condition with unet with that
+            # this technique will slow down training by 25%, but seems to lower FID significantly
+
+            x_self_cond = None
+            if self.self_condition and random() < 0.5:
+                with torch.inference_mode():
+                    x_self_cond = self.model_predictions(x, t).pred_x_start
+                    x_self_cond.detach_()
+
+            # predict and take gradient step
+
+        # t shape : b, 3
+        t = torch.stack(t_set, dim=1)
         
-        # todo - add random mask to noise
-        x = self.q_sample(x_start=x_start, t=t, noise=noise)
-
-
-
-        # if doing self-conditioning, 50% of the time, predict x_start from current set of times
-        # and condition with unet with that
-        # this technique will slow down training by 25%, but seems to lower FID significantly
-
-        x_self_cond = None
-        if self.self_condition and random() < 0.5:
-            with torch.inference_mode():
-                x_self_cond = self.model_predictions(x, t).pred_x_start
-                x_self_cond.detach_()
-
-        # predict and take gradient step
-
+        
         model_out = self.model(x, t, x_self_cond)
 
         
@@ -546,7 +583,8 @@ class GaussianDiffusion(nn.Module):
         loss = F.mse_loss(model_out, target, reduction="none")
         loss = reduce(loss, "b ... -> b", "mean")
 
-        loss = loss * extract(self.loss_weight, t, loss.shape)
+        # loss = loss * extract(self.loss_weight, t, loss.shape)
+        # print(loss.shape)
         return loss.mean()
 
     def forward(self, img, *args, **kwargs):
@@ -565,11 +603,12 @@ class GaussianDiffusion(nn.Module):
         assert (
             h == img_size and w == img_size
         ), f"height and width of image must be {img_size}"
-        t = torch.randint(0, self.num_timesteps, (b,), device=device).long()
+        # t = torch.randint(0, self.num_timesteps, (b,), device=device).long()
+        t_set = [torch.randint(0, self.num_timesteps, (b,), device=device).long() for _ in range(c)]
 
         img = self.normalize(img)
         
-        return self.p_losses(img, t, *args, **kwargs)
+        return self.p_losses(img, t_set, *args, **kwargs)
 
 
 
