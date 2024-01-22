@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 # visulization class
-
+BHM = "Greys"
 class OSMVisulizer:
     def __init__(self, config, path="./"):
         self.name = "OSMVisulizer"
@@ -69,15 +69,18 @@ class OSMVisulizer:
             for c in range(C):
                 if c >= self.channel_to_rgb.__len__():
                     break # 超出颜色映射表的通道不再绘制
-                color = np.array(self.hex_or_name_to_rgb(self.channel_to_rgb[c])) # haddle condition result
+                
                 if self.with_height is not None and c == self.with_height:
                     mask = data[b, c] > 0.0
-                    # 使用渐变色表示高度
-                    cmap = plt.get_cmap("Blues")
+                    if self.channel_to_rgb[c] in plt.colormaps():
+                        cmap = plt.get_cmap(self.channel_to_rgb[c])
+                    else:
+                        cmap = plt.get_cmap(BHM)
                     color = cmap(data[b, c])
                     color = color[:, :, :3]
                     combined_image[mask, :] += color[mask, :]
                 else:
+                    color = np.array(self.hex_or_name_to_rgb(self.channel_to_rgb[c])) # haddle condition result
                     mask = data[b, c] > self.threshold
                     combined_image[mask, :] += color
 
@@ -122,7 +125,10 @@ class OSMVisulizer:
                 if self.with_height is not None and c == self.with_height:
                     mask = data[b, c] > 0.0
                     # 使用渐变色表示高度
-                    cmap = plt.get_cmap("Blues")
+                    if self.channel_to_rgb[c] in plt.colormaps():
+                        cmap = plt.get_cmap(self.channel_to_rgb[c])
+                    else:
+                        cmap = plt.get_cmap(BHM)
                     color = cmap(data[b, c].cpu().numpy())
                     color = color[:, :, :3]
                     

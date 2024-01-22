@@ -297,11 +297,18 @@ class Vectorizer:
         elif data_type == "Point":
             pts = []
             image = img[:, :].astype(np.uint8)
+            # convert to gray image
             
             # 关键点检测
-            sift = cv2.SIFT_create()
-            kp = sift.detect(image, None)
-            pts = [p.pt for p in kp]
+            # adjust some parameters
+            orb = cv2.ORB_create()
+            # find the keypoints and descriptors with SIFT
+            kp = orb.detect(image, None)
+            # draw the keypoints
+            DEBUG(f"key points: {kp}")
+            pts = [kp[i].pt for i in range(len(kp))]
+
+            
 
 
             return pts
