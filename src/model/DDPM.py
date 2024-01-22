@@ -511,7 +511,8 @@ class GaussianDiffusion(nn.Module):
             noise += offset_noise_strength * rearrange(offset_noise, "b c -> b c 1 1")
 
         # noise sample
-
+        
+        # todo - add random mask to noise
         x = self.q_sample(x_start=x_start, t=t, noise=noise)
 
 
