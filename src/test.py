@@ -15,8 +15,9 @@ import argparse
 from accelerate import Accelerator
 
 import matplotlib.pyplot as plt
-from utils.utils import cycle, load_config, OSMVisulizer, cal_overlapping_rate, Vectorizer
-from torchvision import transforms as T, utils
+from utils.utils import cycle, load_config, cal_overlapping_rate
+from utils.vis import OSMVisulizer
+from utils.asset import AssetGen
 
 
 if __name__ == "__main__":
@@ -28,11 +29,14 @@ if __name__ == "__main__":
     trainer_config = load_config(
         "/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator_sample.yaml"
     )
+    uni_config = load_config(
+        "/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/uniDM_train_new.yaml"
+    )
 
 
-    ds = OSMDataset(config=ds_config)
+    ds = OSMDataset(config=uni_config['Data'])
 
-    dl = DataLoader(ds, batch_size=2, shuffle=False, num_workers=1)
+    dl = DataLoader(ds, batch_size=16, shuffle=False, num_workers=1)
 
     dl = accelerator.prepare(dl)
 
@@ -42,14 +46,16 @@ if __name__ == "__main__":
 
     print("data len:", len(ds))
 
-    vis = OSMVisulizer(mapping=trainer_config["vis"]["channel_to_rgb"])
-    vec = Vectorizer(config=trainer_config["vec"])
-    for i in range(10):
+    vis = OSMVisulizer(config=uni_config["Vis"])
+    asset = AssetGen(config=uni_config["Asset"])
+    for i in range(3):
         data = next(dl)
         # print(data.keys())
         # print(data["building"].shape)
         # print(data["name"])
         # print(data['condition'].shape)
+        print(data['layout'].shape)
+        
         vis.visulize_onehot_layout(data['layout'], "/home/admin/workspace/yuyuanhong/code/CityLayout/test-{}.png".format(i))
         vis.visualize_rgb_layout(data['layout'], "/home/admin/workspace/yuyuanhong/code/CityLayout/test-rgb-{}.png".format(i))
         
@@ -57,20 +63,10 @@ if __name__ == "__main__":
         rgb_test_for_show = rgb_test[0]
         print(rgb_test_for_show.max(), rgb_test_for_show.min())
         plt.imsave("/home/admin/workspace/yuyuanhong/code/CityLayout/test1-rgb-{}.png".format(i), (rgb_test_for_show.permute(1,2,0)*255).to(torch.uint8).cpu().numpy())
-        # print(cal_overlapping_rate(torch.cat((data['layout'], data['condition']), dim=1)))
-        exit(0)
-
         
-        
-        
-        # utils.save_image(data['layout'], './test.png', nrow = 4)
-        print(data["natural"].shape)
-        print(data["road"].shape)
+        asset.add_data(data['layout'])
+        asset.generate_geofiles()
 
-
-        f = vec.vectorize(data["building"], 'building')
-
-        vec.vectorize(data["road"], data_type='road', init_features=f, color='red')
         exit(0)
         print("-------------------")
 

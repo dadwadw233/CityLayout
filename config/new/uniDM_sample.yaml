@@ -29,6 +29,8 @@ Common: &common
 Vis: &vis
   channel_to_rgb: {0: "burlywood", 1: "lightblue", 2: "dimgray"}
   threshold: 0.7
+  with_height: 0 # if height is used in custom_dict, set this to building channel or set this to None
+  background: "linen" # background color for show
 
 Asset:
   Vec: &vec
@@ -38,7 +40,7 @@ Asset:
     crs: 3857 # web mercator
     channel_to_geo: {0: "Polygon", 1: "Polygon", 2: "LineString"}
     channel_to_key: {0: "building", 1: "natural", 2: "highway"}
-    background: "linen" # background color for show
+    # background: "linen" # background color for show
     dump_geojson: True
   
   Mesh:

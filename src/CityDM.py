@@ -211,7 +211,7 @@ class CityDM(object):
 
             # utils prepare
             self.vis_config = self.config_parser.get_config_by_name("Vis")
-            self.vis = OSMVisulizer(self.vis_config["channel_to_rgb"], self.vis_config["threshold"], self.val_results_dir)
+            self.vis = OSMVisulizer(config=self.vis_config, path=self.val_results_dir)
             self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
             INFO(f"Utils initialized!")
 
@@ -267,7 +267,7 @@ class CityDM(object):
 
             # utils prepare
             self.vis_config = self.config_parser.get_config_by_name("Vis")
-            self.vis = OSMVisulizer(self.vis_config["channel_to_rgb"], self.vis_config["threshold"], self.sample_results_dir)
+            self.vis = OSMVisulizer(config=self.vis_config, path=self.sample_results_dir)
             self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
             INFO(f"Utils initialized!")
 

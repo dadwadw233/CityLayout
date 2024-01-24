@@ -27,6 +27,7 @@ class AssetGen:
         self.config_parser = ConfigParser()
         self.config_parser.set_config(config)
         self.path=path
+
         self.vectorizer = Vectorizer(config=self.config_parser.get_config_by_name("Vec"), path=self.path)
         self.mesh_builder = MeshBuilder(config=self.config_parser.get_config_by_name("Mesh"))
 
@@ -58,11 +59,13 @@ class AssetGen:
     def add_data(self, data) -> bool:
         # check data is image or not
         assert data is not None, "data must be provided"
-        if data.shape != 4:
+        if data.shape.__len__() != 4:
             ERROR(f"data shape {data.shape} is not valid, please provide data with shape [b, c, h, w]")
             return False
-
-        self.data = torch.concat([self.data, data], dim=0)
+        if self.data is None:
+            self.data = data
+        else:
+            self.data = torch.concat([self.data, data], dim=0)
         return True
 
 
@@ -225,6 +228,7 @@ class Vectorizer:
         self.background = self.config["background"]
         self.path = path
         self.crs = self.config["crs"]
+        self.with_height = self.config["with_height"]
 
     def __call__(self, data):
         return self.vectorize(data)
@@ -286,7 +290,33 @@ class Vectorizer:
                         approx = np.concatenate((approx, approx[0:1, :]), axis=0)
                     pts.append(approx.tolist())
 
+        
+
             return pts
+        
+        elif data_type == "Point":
+            pts = []
+            image = img[:, :].astype(np.uint8)
+            # convert to gray image
+            
+            # 关键点检测
+            # adjust some parameters
+            orb = cv2.ORB_create()
+            # find the keypoints and descriptors with SIFT
+            kp = orb.detect(image, None)
+            # draw the keypoints
+            DEBUG(f"key points: {kp}")
+            pts = [kp[i].pt for i in range(len(kp))]
+
+            
+
+
+            return pts
+        
+        else :
+            ERROR(f"Unknown data type {data_type}")
+            
+            return None    
 
     def vectorize(self, img):
         b, c, h, w = img.shape
@@ -297,6 +327,8 @@ class Vectorizer:
 
         # first step: one hot data augmentation
         # set data == 1 where data > threshold
+        org = img.clone()
+        org = org.cpu().numpy()
         img[img > self.threshold] = 1
         img[img <= self.threshold] = 0
 
@@ -332,11 +364,30 @@ class Vectorizer:
                 for pt in pts:
                     if self.channel_to_geo[c_id] == "LineString":
                         self.geojson_builder_c.add_line(
-                            pt, properties={self.channel_to_key[c_id]: "fake", 'height': np.random.randint(1, 10)}
+                            pt, properties={self.channel_to_key[c_id]: "fake", 'height': 0}
                         )
                     elif self.channel_to_geo[c_id] == "Polygon":
-                        self.geojson_builder_c.add_polygon(
-                            pt, properties={self.channel_to_key[c_id]: "fake", 'height': np.random.randint(10, 70)}
+                        if self.channel_to_key[c_id] == "building":
+                            if self.with_height is not None:
+
+                                height = org[b_id, c_id][pt[0][1]][pt[0][0]] * 255.0
+                                if height <= 0:
+                                    height = 15
+                                #DEBUG(f"building height: {height}")
+                                self.geojson_builder_c.add_polygon(
+                                    pt, properties={self.channel_to_key[c_id]: "fake", 'height': height}
+                                )
+                            else:
+                                self.geojson_builder_c.add_polygon(
+                                    pt, properties={self.channel_to_key[c_id]: "fake", 'height': np.random.randint(10, 70)}
+                                )
+                        else :
+                            self.geojson_builder_c.add_polygon(
+                                pt, properties={self.channel_to_key[c_id]: "fake", 'height': 0}
+                            )
+                    elif self.channel_to_geo[c_id] == "Point":
+                        self.geojson_builder_c.add_point(
+                            pt, properties={self.channel_to_key[c_id]: "fake", 'height': 0}
                         )
 
                 if not self.geojson_builder_c.empty():

@@ -26,30 +26,33 @@ data:
   # define the layout type and granularity
   # if custom is True, the layout type and granularity will be defined by 'custom_dict'
   # or all the layout types will be used
-  custom_dict:
-    {
-      "building": [],
+  custom_dict: {
+      "building": [["building"]],
       "landuse": [
+        ["commercial", "retail"],
+        ["industrial"],
+        ["forest", "grass"],
       ],
       "natural":
         [
-          
+          ["tree", "tree_row", "wood"],
+          ["water"],
+          # ["hill", "valley", "bare_rock"],
         ],
       "road":
         [
-          ['motorway'],
-          ['trunk'],
-          ['primary'],
-          ['secondary'],
-          ['tertiary'],
-          ['residential'],
-          ['service'],
-          ['living_street'],
-          ['pedestrian'],
-          ['footway'],
+          [
+            "motorway",
+            "trunk",
+            "primary",
+            "secondary",
+            "tertiary",
+            "residential",
+            "living_street",
+          ],
         ],
         "height": [],
-    }
+  }
   
 
   condition_dim: []
