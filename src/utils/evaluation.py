@@ -23,6 +23,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import wandb
+import traceback
 
 
 def num_to_groups(num, divisor):
@@ -84,7 +85,8 @@ class Evaluation:
         # metrics for evaluate Image Similarity
         self.FID_calculator = FrechetInceptionDistance(feature=self.inception_block_idx, normalize=True).to(device)
         self.KID_calculator = KernelInceptionDistance(feature=self.inception_block_idx, normalize=True, subset_size=self.num_fid_samples//4).to(device)
-        self.MIFID_calculator = MemorizationInformedFrechetInceptionDistance(feature=self.inception_block_idx, normalize=True).to(device)
+        # TODO: check whether cosine_distance_eps is suitable
+        self.MIFID_calculator = MemorizationInformedFrechetInceptionDistance(feature=self.inception_block_idx, normalize=True, cosine_distance_eps=0.5).to(device)
 
         # metrics for evaluate Image Quality
         self.IS_caluculator = InceptionScore(normalize=True).to(device)
@@ -322,7 +324,8 @@ class Evaluation:
                     self.evaluate_dict['CLIP'][prompt_str]['real'] = np.mean(self.evaluate_dict['CLIP'][prompt_str]['real'])
             if 'data_analysis' in self.metrics_list:
                 # DEBUG(f"Start calculating data analysis")
-                self.data_analyser.contrast_analyse(path, self.condition)
+                real_vs_fake = self.data_analyser.contrast_analyse(path, self.condition)
+                self.evaluate_dict['real_vs_fake'] = real_vs_fake
             
             # reset metrics and release CUDA memory
             INFO(f"Finish evaluating images\nReset metrics and release CUDA memory")
@@ -333,6 +336,8 @@ class Evaluation:
         
         except Exception as e:
             ERROR(f"Error when calculating FID and KID: {e}")
+            # log traceback
+            ERROR(f"Traceback: {traceback.format_exc()}")
             self.evaluate_dict['FID'] = None
             self.evaluate_dict['KID'] = None
             self.evaluate_dict['MIFID'] = None
@@ -467,23 +472,26 @@ class DataAnalyser:
         """Cluster the data based on correlation."""
         clusters = {}
         corr_matrix = {}
+        real_vs_fake = {}
         for analyse_type in self.analyse_types:
             flattened_data = self._flatten_data(data_dict, analyse_type)
             corr_matrix[analyse_type] = self._calculate_correlation_matrix(data_dict, analyse_type)
             
             for i, key in enumerate(data_dict.keys()):
                 clusters[key] = {}
+                
                 for j, key2 in enumerate(data_dict.keys()):
                     if i == j:
                         continue
                     clusters[key][analyse_type] = []
                     if corr_matrix[analyse_type][i, j] > self.cluster_threshold:
                         clusters[key][analyse_type].append(key2)
-            
-
+                    if key + "_fake" == key2:
+                        real_vs_fake[key] = {}
+                        real_vs_fake[key][analyse_type] = corr_matrix[analyse_type][i, j]
         
         # DEBUG(f"clusters: {clusters}")
-        return clusters, corr_matrix
+        return clusters, corr_matrix, real_vs_fake
 
     def output_results_to_file(self, results, filename):
         """Write results to a text file."""
@@ -679,7 +687,7 @@ class DataAnalyser:
             uni_dict[key] = values
         for key, values in fake_for_analysis.items():
             uni_dict[key] = values
-        clusters, corr_matrix = self._cluster_data(uni_dict)
+        clusters, corr_matrix, real_vs_fake = self._cluster_data(uni_dict)
         
 
         self.plot_fake_and_real_hist(real_for_analysis, fake_for_analysis, title="Histogram for Each Category")  
@@ -693,12 +701,13 @@ class DataAnalyser:
         self.output_results_to_file(statistics, "real_statistics.txt")
         self.output_results_to_file(fake_statistics, "fake_statistics.txt")
         self.output_results_to_file(clusters, "uni_clusters.txt")
+        self.output_results_to_file(real_vs_fake, "real_vs_fake.txt")
 
         if flag:
             self.path = None
 
         # DEBUG(f"real statistics: {statistics}")
-
+        return real_vs_fake 
         
     # some helper functions 👇
     # some emoji for fun

@@ -581,7 +581,7 @@ class CityDM(object):
 
         self.ema.ema_model.train()
 
-    def sample(self, cond=False, eval=True):
+    def sample(self, cond=False, eval=True, best=False):
         INFO(f"Start sampling {self.num_samples} images...")
         INFO(F"Sample result save to {self.sample_results_dir}")
 
@@ -589,7 +589,10 @@ class CityDM(object):
 
         # check and load ckpt
         INFO(f"ckpt path: {self.ckpt_results_dir}")
-        ckpt_path = os.path.join(self.ckpt_results_dir, "latest_ckpt.pth")
+        if best:
+            ckpt_path = os.path.join(self.ckpt_results_dir, "best_ckpt.pth")
+        else:
+            ckpt_path = os.path.join(self.ckpt_results_dir, "latest_ckpt.pth")
 
         INFO(f"ckpt path: {ckpt_path}")
         try:

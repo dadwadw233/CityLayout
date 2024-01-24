@@ -77,7 +77,7 @@ Model:
 
   diffusion:
     timesteps: 2500
-    sampling_timesteps: 100
+    sampling_timesteps: 1000
     image_size: 256
     objective: "pred_v"
     beta_schedule: "sigmoid"
@@ -93,7 +93,7 @@ Main:
   seed: 3407
   condition: False
 
-  batch_size: 16
+  batch_size: 4
   milestone: 0
   device: cuda
   lr: 5e-5
@@ -147,7 +147,7 @@ Evaluation:
 
 
 Data:
-  batch_size: 16
+  batch_size: 4
   num_workers: 8
   # root path for city_name.h5
   path:
