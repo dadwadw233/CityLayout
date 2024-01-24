@@ -277,6 +277,7 @@ class CityDM(object):
         
         # evaluation prepare
         eval_config = self.config_parser.get_config_by_name("Evaluation")
+        
         self.evaluation = Evaluation(batch_size=self.batch_size, device=self.device,
                                         dl=self.val_dataloader if self.mode == "train" else self.test_dataloader,
                                         sampler=self.ema.ema_model,

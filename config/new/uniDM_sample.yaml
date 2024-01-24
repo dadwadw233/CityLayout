@@ -29,7 +29,7 @@ Common: &common
 Vis: &vis
   channel_to_rgb: {0: "burlywood", 1: "lightblue", 2: "dimgray"}
   threshold: 0.7
-  with_height: 0 # if height is used in custom_dict, set this to building channel or set this to None
+  with_height: None # if height is used in custom_dict, set this to building channel or set this to None
   background: "linen" # background color for show
 
 Asset:
@@ -93,7 +93,7 @@ Main:
   seed: 3407
   condition: False
 
-  batch_size: 4
+  batch_size: 16
   milestone: 0
   device: cuda
   lr: 5e-5
@@ -147,7 +147,7 @@ Evaluation:
 
 
 Data:
-  batch_size: 4
+  batch_size: 16
   num_workers: 8
   # root path for city_name.h5
   path:

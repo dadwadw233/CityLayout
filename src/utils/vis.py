@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 import numpy as np
 import torch
-
+from utils.log import *
 # visulization class
 BHM = "Greys"
 class OSMVisulizer:
@@ -84,12 +84,14 @@ class OSMVisulizer:
                     mask = data[b, c] > self.threshold
                     combined_image[mask, :] += color
 
-            combined_image = np.clip(combined_image, 0, 1)  # 确保颜色值在0-1范围内
+            
             # set background
             if self.background is not None:
                 bc = np.array(self.hex_or_name_to_rgb(self.background))
-                mask = data[b].sum(axis=0) == 0
+                mask = combined_image.sum(axis=2) == 0
                 combined_image[mask, :] = bc
+            
+            combined_image = np.clip(combined_image, 0, 1)  # 确保颜色值在0-1范围内
 
             axs[b].imshow(combined_image)
             axs[b].axis("off")  # 关闭坐标轴
@@ -141,11 +143,12 @@ class OSMVisulizer:
                     combined_image[b, mask, :] += color
             combined_image = torch.clip(combined_image, 0, 1)  # 确保颜色值在0-1范围内
             # set background
+            # set background
             if self.background is not None:
                 bc = torch.tensor(
                     self.hex_or_name_to_rgb(self.background), device=data.device
                 )
-                mask = data[b].sum(axis=0) == 0
+                mask = combined_image[b].sum(axis=2) == 0
                 combined_image[b, mask, :] = bc
 
         # combined_image = self.minmax(

@@ -71,7 +71,7 @@ class Evaluation:
 
 
 
-        self.vis = OSMVisulizer(mapping)
+        self.vis = OSMVisulizer(config=config)
         
 
 
