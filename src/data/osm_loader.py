@@ -142,6 +142,18 @@ class OSMDataset(Dataset):
         data = transforms.RandomVerticalFlip(p=0.5)(data)
         return data
         
+    def data_filter(self, data, key):
+
+        c,h,w = data.shape
+        for cid in range(c):
+            op = torch.count_nonzero(data[cid]) / (h*w)
+            if op < self.config["data"]["filter"][key][0] or op > self.config["data"]["filter"][key][1]:
+                return False
+            else:
+                continue
+        
+        return True
+            
 
 
     def __len__(self):
@@ -176,14 +188,7 @@ class OSMDataset(Dataset):
                         self.config["data"]["key_map"]["building"],
                         torch.from_numpy(np.array(building)).squeeze(2),
                     )
-                    if (
-                        torch.count_nonzero(data_dict["building"])
-                        / (
-                            data_dict["building"].shape[1]
-                            * data_dict["building"].shape[2]
-                        )
-                        <= self.config["data"]["filter"]["building"]
-                    ):
+                    if self.data_filter(data_dict["building"], "building") == False:
                         return self.__getitem__(
                             np.random.randint(0, len(self.data_list))
                         )
@@ -193,14 +198,7 @@ class OSMDataset(Dataset):
                         self.config["data"]["key_map"]["landuse"],
                         torch.from_numpy(np.array(landuse)).squeeze(2),
                     )
-                    if (
-                        torch.count_nonzero(data_dict["landuse"])
-                        / (
-                            data_dict["landuse"].shape[1]
-                            * data_dict["landuse"].shape[2]
-                        )
-                        <= self.config["data"]["filter"]["landuse"]
-                    ):
+                    if self.data_filter(data_dict["landuse"], "landuse") == False:
                         return self.__getitem__(
                             np.random.randint(0, len(self.data_list))
                         )
@@ -210,14 +208,7 @@ class OSMDataset(Dataset):
                         self.config["data"]["key_map"]["natural"],
                         torch.from_numpy(np.array(natural)).squeeze(2),
                     )
-                    if (
-                        torch.count_nonzero(data_dict["natural"])
-                        / (
-                            data_dict["natural"].shape[1]
-                            * data_dict["natural"].shape[2]
-                        )
-                        <= self.config["data"]["filter"]["natural"]
-                    ):
+                    if self.data_filter(data_dict["natural"], "natural") == False:
                         return self.__getitem__(
                             np.random.randint(0, len(self.data_list))
                         )
@@ -227,16 +218,13 @@ class OSMDataset(Dataset):
                         self.config["data"]["key_map"]["road"],
                         torch.from_numpy(np.array(road)).squeeze(2),
                     )
+                    # add node data to road data
                     data_dict["road"] = data_dict["road"] + self.custmize_layout(
                         self.config["data"]["custom_dict"]["road"],
                         self.config["data"]["key_map"]["road"],
                         torch.from_numpy(np.array(node)).squeeze(2),
                     )
-                    if (
-                        torch.count_nonzero(data_dict["road"])
-                        / (data_dict["road"].shape[1] * data_dict["road"].shape[2])
-                        <= self.config["data"]["filter"]["road"]
-                    ):
+                    if self.data_filter(data_dict["road"], "road") == False:
                         return self.__getitem__(
                             np.random.randint(0, len(self.data_list))
                         )

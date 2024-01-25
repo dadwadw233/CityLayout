@@ -71,7 +71,7 @@ Model:
     attn_heads: 4
     full_attn: None
     flash_attn: False
-    resnet_block_num: 3 # change this from 2 to 3
+    resnet_block_num: 2 # change this from 2 to 3
     conditional: False # do not change this
     conditional_dim: 2
 
@@ -94,7 +94,7 @@ Main:
   seed: 3407
   condition: False
 
-  batch_size: 2
+  batch_size: 8
   mode: "train"
   milestone: 0
   device: cuda
@@ -110,7 +110,7 @@ Main:
   scheduler: "cosine" # or "step"
   adam_betas: [0.9, 0.999]
 
-  sample_frequency: 2
+  sample_frequency: 2000
   grad_accumulate: 4
   
   max_grad_norm: 1.
@@ -119,7 +119,7 @@ Validation:
   save_best_and_latest_only: True
   # evaluate per sample_frequency epochs and sample 64 images 
   # to calculate average overlap rate
-  num_samples: 4
+  num_samples: 64
 
   results_dir: "results/one-hot/uni-test-2500-filter-large"
   fine_tune_dir: "results/one-hot/uni-test-2500-filter-large/2024-01-17-16-26-45"
@@ -143,7 +143,7 @@ Evaluation:
 
 
 Data:
-  batch_size: 2
+  batch_size: 8
   num_workers: 8
   # root path for city_name.h5
   path:
@@ -184,10 +184,10 @@ Data:
 
     filter:
       {
-        "building": 0.01, # <=
-        "landuse": -1, # <=
-        "natural": -1, # <=
-        "road": 0, # <=
+        "building": [0.01, 0.7], 
+        "landuse": [-1, 2], 
+        "natural": [-1, 0.5], 
+        "road": [0, 2], # <=, >=
       }
 
     # predefined mapping layout types <----> one hot feature channels
