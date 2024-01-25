@@ -29,6 +29,8 @@ Common: &common
 Vis: &vis
   channel_to_rgb: {0: "burlywood", 1: "lightblue", 2: "dimgray"}
   threshold: 0.7
+  with_height: None # if height is used in custom_dict, set this to building channel or set this to None
+  background: "linen" # background color for show
 
 Asset:
   Vec: &vec
@@ -38,7 +40,7 @@ Asset:
     crs: 3857 # web mercator
     channel_to_geo: {0: "Polygon", 1: "Polygon", 2: "LineString"}
     channel_to_key: {0: "building", 1: "natural", 2: "highway"}
-    background: "linen" # background color for show
+    # background: "linen" # background color for show
     dump_geojson: True
   
   Mesh:
@@ -75,7 +77,7 @@ Model:
 
   diffusion:
     timesteps: 2500
-    sampling_timesteps: 100
+    sampling_timesteps: 1000
     image_size: 256
     objective: "pred_v"
     beta_schedule: "sigmoid"
@@ -91,7 +93,7 @@ Main:
   seed: 3407
   condition: False
 
-  batch_size: 4
+  batch_size: 8
   milestone: 0
   device: cuda
   lr: 5e-5
@@ -115,7 +117,7 @@ Validation:
   save_best_and_latest_only: True
   # evaluate per sample_frequency epochs and sample 64 images 
   # to calculate average overlap rate
-  num_samples: 64
+  num_samples: 128
 
   results_dir: "results/one-hot/uni-test-2500-filter-large"
 
@@ -145,7 +147,7 @@ Evaluation:
 
 
 Data:
-  batch_size: 4
+  batch_size: 8
   num_workers: 8
   # root path for city_name.h5
   path:

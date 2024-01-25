@@ -8,6 +8,7 @@ from torchvision import transforms
 import matplotlib.colors as mcolors
 import cv2
 from torchvision.transforms.functional import InterpolationMode
+from utils.log import *
 
 
 class OSMDataset(Dataset):
@@ -129,6 +130,19 @@ class OSMDataset(Dataset):
         dilated_image = torch.from_numpy(dilated_image)
 
         return dilated_image
+    
+    def data_augment(self, data):
+        # data shape (c, h, w)
+        # random rotate the data
+        rot = [0, 90, 180, 270]
+        idx = np.random.randint(0, 4)
+        data = transforms.functional.rotate(data, rot[idx])
+        # random flip the data
+        data = transforms.RandomHorizontalFlip(p=0.5)(data)
+        data = transforms.RandomVerticalFlip(p=0.5)(data)
+        return data
+        
+
 
     def __len__(self):
         return len(self.data_list)
@@ -274,10 +288,10 @@ class OSMDataset(Dataset):
         data_dict["name"] = data_name
 
         if height is not None and self.config["data"]["custom_dict"]["height"].__len__() != 0:
-            data_dict["height"] = torch.from_numpy(height).float().squeeze(2).permute(2, 0, 1)
-            data_dict["height"] = self.resize(data_dict["height"])
-            data_dict["height"] = self.normalize(data_dict["height"])
-            
+            # replace building data with height data due to the height data also contains building location
+            data_dict["building"] = torch.from_numpy(height).float().squeeze(2).permute(2, 0, 1)
+            data_dict["building"] = self.resize(data_dict["building"])
+            data_dict["building"] = self.normalize(data_dict["building"]) # clamp data to 0-1
 
 
         if self.type == "rgb":
@@ -294,31 +308,28 @@ class OSMDataset(Dataset):
             raise ValueError("type must be rgb or one-hot")
 
 
-    
+
         data_dict["layout"][torch.isnan(data_dict["layout"])] = 0
         data_dict["layout"][torch.isinf(data_dict["layout"])] = 0
 
-        mask = data_dict["layout"] > 0
-        data_dict["layout"][mask] = 1
-        
-        if self.config["params"]["condition"]:
-            assert np.max(self.config["data"]["condition_dim"]) <= data_dict["layout"].shape[0], "condition dim must be smaller than layout dim"
-            data_dict["condition"] = torch.concat([data_dict["layout"][i].unsqueeze(0) for i in self.config["data"]["condition_dim"]], dim=0)
-            
-        
-            # delete condition data from layout (if dimmension is 1, keep it)
-            data_dict["layout"] = torch.cat([data_dict["layout"][i].unsqueeze(0) for i in range(data_dict["layout"].shape[0]) if i not in self.config["data"]["condition_dim"]], dim=0)
-            
-            mask = data_dict["condition"] > 0
-            data_dict["condition"][mask] = 1
-        else:
-            data_dict["condition"] = torch.zeros_like(data_dict["layout"])
-            
+        # data augmentation
+        if self.mode == "train":
+            data_dict["layout"] = self.data_augment(data_dict["layout"])
+            data_dict["layout"] = self.normalize(data_dict["layout"])
+            # print(data_dict["layout"].max(), data_dict["layout"].min())
 
+
+        # todo check whether this is necessary
+        # if self.type == 'one-hot':
+        #     # input data must be one-hot except height
+        #     mask = data_dict["layout"] > 0
+        #     data_dict["layout"][mask] = 1
         
 
+    
         h5py.File.close(data)
 
+        # if all channel are zero, then re-sample
         if (data_dict["layout"].max() == 0) and (data_dict["layout"].min() == 0.0):
             # print("data error")
             return self.__getitem__(np.random.randint(0, len(self.data_list)))
@@ -331,5 +342,7 @@ class OSMDataset(Dataset):
         natural: 0-1 (one-hot)
         road: 0-1 (one-hot)
         '''
+
+        
 
         return data_dict

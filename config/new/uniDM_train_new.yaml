@@ -5,11 +5,15 @@ Common: &common
     custom_dict: 
       {
         "building": [["building"]],
-        "landuse": [],
+        "landuse": [
+          ["commercial", "retail"],
+          ["industrial"],
+          ["forest", "grass"],
+        ],
         "natural":
           [
-            # ["grassland", "tree", "tree_row", "wood"],
-            ["water", "wetland", "beach", "sand"],
+            ["tree"],
+            ["water"],
             # ["hill", "valley", "bare_rock"],
           ],
         "road":
@@ -24,12 +28,12 @@ Common: &common
               "living_street",
             ],
           ],
-          "height": [],
+          "height": ["height"],
       }
 Vis: &vis
-  channel_to_rgb: {0: "burlywood", 1: "lightblue", 2: "dimgray"}
+  channel_to_rgb: {0: "burlywood", 1: "pink", 2: "gray", 3: "lightgreen", 4: "green", 5: "lightblue", 6: "dimgray"}
   threshold: 0.7
-  with_height: None # if height is used in custom_dict, set this to building channel or set this to None
+  with_height: 0 # if height is used in custom_dict, set this to building channel or set this to None
   background: "linen" # background color for show
 
 Asset:
@@ -38,9 +42,9 @@ Asset:
     origin: [39.8965148476239, 116.3820984476239] # beijing
     resolution: 1 # meters per pixel
     crs: 3857 # web mercator
-    channel_to_geo: {0: "Polygon", 1: "Polygon", 2: "LineString"}
-    channel_to_key: {0: "building", 1: "natural", 2: "highway"}
-    # background: "linen" # background color for show
+    channel_to_geo: {0: "Polygon", 1: "Polygon", 2: "Polygon", 3: "Polygon", 4: "Polygon", 5: "Polygon", 6: "LineString"}
+    channel_to_key: {0: "building", 1: "commercial", 2: "industrial", 3: "green", 4: "tree", 5: "water", 6: "highway"}
+    #background: "linen" # background color for show
     dump_geojson: True
   
   Mesh:
@@ -79,7 +83,7 @@ Model:
     timesteps: 2500
     sampling_timesteps: 20
     image_size: 256
-    objective: "pred_x0"
+    objective: "pred_v"
     beta_schedule: "sigmoid"
     ddim_sampling_eta: 0.0
     auto_normalize: True
@@ -89,7 +93,7 @@ Model:
 
 Main:
   mode: "train"
-  fine_tune: False
+  fine_tune: True
   seed: 3407
   condition: False
 
@@ -109,7 +113,7 @@ Main:
   scheduler: "cosine" # or "step"
   adam_betas: [0.9, 0.999]
 
-  sample_frequency: 2
+  sample_frequency: 2000
   grad_accumulate: 4
   
   max_grad_norm: 1.

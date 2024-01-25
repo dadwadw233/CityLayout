@@ -211,7 +211,7 @@ class CityDM(object):
 
             # utils prepare
             self.vis_config = self.config_parser.get_config_by_name("Vis")
-            self.vis = OSMVisulizer(self.vis_config["channel_to_rgb"], self.vis_config["threshold"], self.val_results_dir)
+            self.vis = OSMVisulizer(config=self.vis_config, path=self.val_results_dir)
             self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
             INFO(f"Utils initialized!")
 
@@ -267,7 +267,7 @@ class CityDM(object):
 
             # utils prepare
             self.vis_config = self.config_parser.get_config_by_name("Vis")
-            self.vis = OSMVisulizer(self.vis_config["channel_to_rgb"], self.vis_config["threshold"], self.sample_results_dir)
+            self.vis = OSMVisulizer(config=self.vis_config, path=self.sample_results_dir)
             self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
             INFO(f"Utils initialized!")
 
@@ -277,6 +277,7 @@ class CityDM(object):
         
         # evaluation prepare
         eval_config = self.config_parser.get_config_by_name("Evaluation")
+        
         self.evaluation = Evaluation(batch_size=self.batch_size, device=self.device,
                                         dl=self.val_dataloader if self.mode == "train" else self.test_dataloader,
                                         sampler=self.ema.ema_model,
@@ -580,7 +581,7 @@ class CityDM(object):
 
         self.ema.ema_model.train()
 
-    def sample(self, cond=False, eval=True):
+    def sample(self, cond=False, eval=True, best=False):
         INFO(f"Start sampling {self.num_samples} images...")
         INFO(F"Sample result save to {self.sample_results_dir}")
 
@@ -588,7 +589,10 @@ class CityDM(object):
 
         # check and load ckpt
         INFO(f"ckpt path: {self.ckpt_results_dir}")
-        ckpt_path = os.path.join(self.ckpt_results_dir, "latest_ckpt.pth")
+        if best:
+            ckpt_path = os.path.join(self.ckpt_results_dir, "best_ckpt.pth")
+        else:
+            ckpt_path = os.path.join(self.ckpt_results_dir, "latest_ckpt.pth")
 
         INFO(f"ckpt path: {ckpt_path}")
         try:
