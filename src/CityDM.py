@@ -89,6 +89,7 @@ class CityDM(object):
             diffusion_config = model_config["diffusion"].copy()
             diffusion_config['model'] = self.backbone
             self.diffusion = GaussianDiffusion(**diffusion_config)
+            self.generation_type = diffusion_config["model_type"]
         except Exception as e:
             ERROR(f"Init Model failed! {e}")
             raise e
@@ -189,7 +190,7 @@ class CityDM(object):
             self.results_dir = val_config["results_dir"] 
             # add time stamp to results_dir
             if not self.fine_tune:
-                self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime()))
+                self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-train' + f'-{self.generation_type}'
             else:
                 self.results_dir = val_config["fine_tune_dir"]
             self.val_results_dir = os.path.join(self.results_dir, "val")
@@ -455,11 +456,19 @@ class CityDM(object):
                     self.ema.update()
 
                     if self.now_step != 0 and divisible_by(self.now_step, self.sample_frequency):
-                        self.validation(writer, cond=False)
-                        INFO(f"Validation done!")
-                        
-                        self.validation(writer, cond=True)
-                        INFO(f"Validation with cond done!")                        
+                        if self.generation_type == "uniDM":
+                            self.validation(writer, cond=False)
+                            INFO(f"Validation done!")
+                            
+                            self.validation(writer, cond=True)
+                            INFO(f"Validation with cond done!")
+                        elif self.generation_type == "Outpainting":
+                            self.validation(writer, cond=True)
+                            INFO(f"Validation with cond done!")
+                        elif self.generation_type == "normal":
+                            self.validation(writer, cond=False)
+                            INFO(f"Validation done!")                            
+
 
                 pbar.update(1)
         wandb.finish()

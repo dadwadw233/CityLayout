@@ -1,7 +1,7 @@
 import math
 import copy
 from pathlib import Path
-from random import random
+import random
 from functools import partial
 from collections import namedtuple
 from multiprocessing import cpu_count
@@ -114,13 +114,14 @@ class GaussianDiffusion(nn.Module):
         offset_noise_strength=0.0,  # https://www.crosslabs.org/blog/diffusion-with-offset-noise
         min_snr_loss_weight=False,  # https://arxiv.org/abs/2303.09556
         min_snr_gamma=5,
+        model_type="uniDM", # or "Outpainting"
     ):
         super().__init__()
         assert not (type(self) == GaussianDiffusion and model.channels != model.out_dim)
         assert not model.random_or_learned_sinusoidal_cond
 
         self.model = model
-
+        self.model_type = model_type
         self.channels = self.model.channels
         self.self_condition = self.model.self_condition
 
@@ -334,6 +335,47 @@ class GaussianDiffusion(nn.Module):
         noise[:, noise_channel_idx, :, :] = torch.randn_like(image[:, noise_channel_idx, :, :])
 
         return noise
+    
+    def get_random_outpainting_noise_forward(self, image):
+        # crop some continue region from image and add noise
+        b, c, h, w = image.shape
+
+        noise = torch.zeros_like(image, device=self.device)
+
+        # Define the size of the noise region
+        # For simplicity, we will create a rectangular noise region
+        # 50 % percent , mask(noise) region's height or width is equal to image's height or width
+        if random.random() < 0.5:
+            noise_height = h
+            noise_width = random.randint(w // 8, w // 3)
+        else :
+            noise_height = random.randint(h // 8, h // 3)
+            noise_width = w
+        
+        # Define the top left corner of the noise region
+        if noise_height == h:
+            if random.random() < 0.5:
+                start_x = 0
+            else:
+                start_x = w - noise_width
+            start_y = 0
+
+        elif noise_width == w:
+            if random.random() < 0.5:
+                start_y = 0
+            else:
+                start_y = h - noise_height
+            start_x = 0
+
+        # Generate random noise
+        noise_region = torch.randn(b, c, noise_height, noise_width, device=self.device)
+
+        # Apply the noise to the corresponding region in the image
+        noise[:, :, start_y:start_y + noise_height, start_x:start_x + noise_width] = noise_region
+
+        # TODO: check whethter need to clip to [-1, 1]
+
+        return noise 
 
     @torch.inference_mode()
     def random_mask_image_backward(self, image):
@@ -349,6 +391,46 @@ class GaussianDiffusion(nn.Module):
 
 
         return image
+    
+    @torch.inference_mode()
+    def random_outpainting_noise_backward(self, image):
+        # crop some continue region from image and add noise
+        b, c, h, w = image.shape
+
+        # Define the size of the noise region
+        # For simplicity, we will create a rectangular noise region
+        # 50 % percent , mask(noise) region's height or width is equal to image's height or width
+        if random.random() < 0.5:
+            noise_height = h
+            noise_width = random.randint(w // 8, w // 3)
+        else :
+            noise_height = random.randint(h // 8, h // 3)
+            noise_width = w
+
+        if noise_height == h:
+            if random.random() < 0.5:
+                start_x = 0
+            else:
+                start_x = w - noise_width
+            start_y = 0
+
+        elif noise_width == w:
+            if random.random() < 0.5:
+                start_y = 0
+            else:
+                start_y = h - noise_height
+            start_x = 0
+
+        # Generate random noise
+        noise_region = torch.randn(b, c, noise_height, noise_width, device=self.device)
+
+        # Apply the noise to the corresponding region in the image
+        image[:, :, start_y:start_y + noise_height, start_x:start_x + noise_width] = noise_region
+        image = torch.clamp(image, -1.0, 1.0)
+
+        return image
+
+
 
 
 
@@ -407,8 +489,15 @@ class GaussianDiffusion(nn.Module):
 
 
         if org is not None:
-            img = self.random_mask_image_backward(org) # bchw
-            masked_org = img.clone()
+            if self.model_type == "uniDM":
+                img = self.random_mask_image_backward(org)
+                masked_org = img.clone()
+            elif self.model_type == "Outpainting":
+                img = self.random_outpainting_noise_backward(org)
+                masked_org = img.clone()
+            else:
+                img = torch.randn(shape, device=device)
+                masked_org = None
         else:
             img = torch.randn(shape, device=device) # bchw
             masked_org = None
@@ -498,7 +587,12 @@ class GaussianDiffusion(nn.Module):
         b, c, h, w = x_start.shape
 
         # noise = default(noise, lambda: torch.randn_like(x_start))
-        noise = default(noise, lambda: self.get_random_noise_forward(x_start))
+        if self.model_type == "uniDM":
+            noise = default(noise, lambda: self.get_random_noise_forward(x_start))
+        elif self.model_type == "Outpainting":
+            noise = default(noise, lambda: self.get_random_outpainting_noise_forward(x_start))
+        elif self.model_type == "normal":
+            noise = default(noise, lambda: torch.randn_like(x_start))
 
         # offset noise - https://www.crosslabs.org/blog/diffusion-with-offset-noise
 
