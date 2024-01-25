@@ -29,7 +29,7 @@ Common: &common
 Vis: &vis
   channel_to_rgb: {0: "burlywood", 1: "lightblue", 2: "dimgray"}
   threshold: 0.7
-  with_height: 0 # if height is used in custom_dict, set this to building channel or set this to None
+  with_height: None # if height is used in custom_dict, set this to building channel or set this to None
   background: "linen" # background color for show
 
 Asset:
