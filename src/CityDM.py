@@ -59,10 +59,11 @@ from utils.vis import OSMVisulizer
 import numpy as np
 import wandb
 import json
+import traceback
 
 class CityDM(object):
 
-    def __init__(self, config_path) -> None:
+    def __init__(self, config_path, sweep_config=None) -> None:
         super().__init__()
         os.environ["TOKENIZERS_PARALLELISM"] = "true"
         assert config_path is not None, "config path is None!"
@@ -70,7 +71,16 @@ class CityDM(object):
         self.config_path = config_path
         self.config_parser = ConfigParser(config_path=self.config_path)
         INFO(f"config file {self.config_path} loaded!")
+        if sweep_config is not None:
+            self.sweep_mode = True
+            INFO(f"Running in sweep mode!")
+            run = wandb.init()
+            self.config_parser.renew_by_sweep_config(wandb.config)
+        else:
+            self.sweep_mode = False
+            INFO(f"Running in normal mode!")
 
+    
         # Init Accelerator
         acc_config = self.config_parser.get_config_by_name("Accelerator")
         self.accelerator = Accelerator(**acc_config)
@@ -230,7 +240,7 @@ class CityDM(object):
             if self.scheduler_type == "cosine":
                 self.scheduler = lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=self.max_step)
             elif self.scheduler_type == "step":
-                self.scheduler = lr_scheduler.StepLR(self.optimizer, step_size=10, gamma=0.1)
+                self.scheduler = lr_scheduler.StepLR(self.optimizer, step_size=self.sample_frequency*3, gamma=0.9)
             else:
                 ERROR(f"Scheduler type {self.scheduler_type} not supported!")
                 raise ValueError(f"Scheduler type {self.scheduler_type} not supported!")
@@ -388,9 +398,14 @@ class CityDM(object):
     def train(self):
         if self.accelerator.is_main_process:
             # replace result_dir's "/" with "-"
+
             display_name = self.results_dir.replace("/", "-")
-            wandb.init(project="CityLayout", entity="913217005", config = self.config_parser.get_config_all(), name=display_name)
-            wandb.watch(self.diffusion, log="all")
+            if self.sweep_mode:
+                wandb.init(config = self.config_parser.get_config_all(), name=display_name, reinit=True)
+                wandb.watch(self.diffusion, log="all")
+            else:
+                wandb.init(project="CityLayout", entity="913217005", config = self.config_parser.get_config_all(), name=display_name)
+                wandb.watch(self.diffusion, log="all")
 
         
         experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}_resultfolder{}".format(
@@ -402,6 +417,9 @@ class CityDM(object):
         )
         writer = SummaryWriter(log_dir=f"runs-DEBUG/{experiment_title}")
 
+        # if isinstance(self.diffusion, nn.DataParallel):
+        #     self.diffusion = self.diffusion.module
+
         if self.fine_tune:
             INFO(f"Fine tune mode, load ckpt from {self.ckpt_results_dir}")
             ckpt_path = os.path.join(self.ckpt_results_dir, "latest_ckpt.pth")
@@ -410,70 +428,77 @@ class CityDM(object):
             INFO(f"ckpt step & epoch: {self.now_step}, {self.now_epoch}")
         else:
             INFO(f"Train from scratch!")
-        
-        with tqdm(
-            initial=self.now_step,
-            total=self.max_step,
-            disable=not self.accelerator.is_main_process,
-        ) as pbar:
-            
-            while self.now_step < self.max_step:
-                total_loss = 0.0
-
-                for _ in range(self.grad_accumulate):
-                    # data = next(self.dl)["layout"].to(device)
-                    data = next(self.train_dataloader)
-                    layout = data["layout"].to(self.device)
-                    
-                    with self.accelerator.autocast():
-                        loss = self.diffusion(layout)
-                        loss = loss / self.grad_accumulate
-                        total_loss += loss.item()
-
-                    self.accelerator.backward(loss)
-
-                writer.add_scalar("loss", float(total_loss), self.now_step)
-                writer.add_scalar("lr", self.scheduler.get_last_lr()[0], self.now_step)
-                wandb.log({"loss": float(total_loss), "lr": self.scheduler.get_last_lr()[0]})
-
-                pbar.set_description(
-                    f'loss: {total_loss:.5f}, lr: {self.optimizer.param_groups[0]["lr"]:.6f}, \
-                    epoch: {self.now_step* self.batch_size*self.grad_accumulate/len(self.train_dataset):.2f}'
-                )
-
-                self.accelerator.wait_for_everyone()
-                self.accelerator.clip_grad_norm_(self.diffusion.parameters(), self.max_grad_norm)
-
-                self.scheduler.step()
-                self.optimizer.step()
-                self.optimizer.zero_grad()
-
-                self.accelerator.wait_for_everyone()
-
-                self.now_step += 1
-                self.now_epoch = (self.now_step * self.batch_size * self.grad_accumulate) // len(self.train_dataset)
-                if self.accelerator.is_main_process:
-                    self.ema.update()
-
-                    if self.now_step != 0 and divisible_by(self.now_step, self.sample_frequency):
-                        if self.generation_type == "uniDM":
-                            self.validation(writer, cond=False)
-                            INFO(f"Validation done!")
-                            
-                            self.validation(writer, cond=True)
-                            INFO(f"Validation with cond done!")
-                        elif self.generation_type == "Outpainting":
-                            self.validation(writer, cond=True)
-                            INFO(f"Validation with cond done!")
-                        elif self.generation_type == "normal":
-                            self.validation(writer, cond=False)
-                            INFO(f"Validation done!")                            
 
 
-                pbar.update(1)
-        wandb.finish()
-        self.accelerator.print("training complete")
-        writer.close()
+        try:
+            with tqdm(
+                initial=self.now_step,
+                total=self.max_step,
+                disable=not self.accelerator.is_main_process,
+            ) as pbar:
+                
+                while self.now_step < self.max_step:
+                    total_loss = 0.0
+
+                    for _ in range(self.grad_accumulate):
+                        # data = next(self.dl)["layout"].to(device)
+                        data = next(self.train_dataloader)
+                        layout = data["layout"].to(self.device)
+                        
+                        with self.accelerator.autocast():
+                            loss = self.diffusion(layout)
+                            loss = loss / self.grad_accumulate
+                            total_loss += loss.item()
+
+                        self.accelerator.backward(loss)
+
+                    writer.add_scalar("loss", float(total_loss), self.now_step)
+                    writer.add_scalar("lr", self.scheduler.get_last_lr()[0], self.now_step)
+                    wandb.log({"loss": float(total_loss), "lr": self.scheduler.get_last_lr()[0]})
+
+                    pbar.set_description(
+                        f'loss: {total_loss:.5f}, lr: {self.optimizer.param_groups[0]["lr"]:.6f}, \
+                        epoch: {self.now_step* self.batch_size*self.grad_accumulate/len(self.train_dataset):.2f}'
+                    )
+
+                    self.accelerator.wait_for_everyone()
+                    self.accelerator.clip_grad_norm_(self.diffusion.parameters(), self.max_grad_norm)
+
+                    self.scheduler.step()
+                    self.optimizer.step()
+                    self.optimizer.zero_grad()
+
+                    self.accelerator.wait_for_everyone()
+
+                    self.now_step += 1
+                    self.now_epoch = (self.now_step * self.batch_size * self.grad_accumulate) // len(self.train_dataset)
+                    if self.accelerator.is_main_process:
+                        self.ema.update()
+
+                        if self.now_step != 0 and divisible_by(self.now_step, self.sample_frequency):
+                            if self.generation_type == "uniDM":
+                                self.validation(writer, cond=False)
+                                INFO(f"Validation done!")
+                                
+                                self.validation(writer, cond=True)
+                                INFO(f"Validation with cond done!")
+                            elif self.generation_type == "Outpainting":
+                                self.validation(writer, cond=True)
+                                INFO(f"Validation with cond done!")
+                            elif self.generation_type == "normal":
+                                self.validation(writer, cond=False)
+                                INFO(f"Validation done!")                            
+
+
+                    pbar.update(1)
+            wandb.finish()
+            self.accelerator.print("training complete")
+            writer.close()
+        except Exception as e:
+            ERROR(f"Training failed! {e}")
+            # log traceback
+            ERROR(f"Traceback: \n {traceback.format_exc()}")
+            raise e
 
     def validation(self, writer, cond=False):
         self.ema.ema_model.eval()

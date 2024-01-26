@@ -77,7 +77,7 @@ Model:
 
   diffusion:
     timesteps: 2500
-    sampling_timesteps: 10
+    sampling_timesteps: 20
     image_size: 256
     objective: "pred_v"
     beta_schedule: "sigmoid"

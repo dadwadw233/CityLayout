@@ -621,15 +621,16 @@ class GaussianDiffusion(nn.Module):
         # and condition with unet with that
         # this technique will slow down training by 25%, but seems to lower FID significantly
 
-        x_self_cond = None
-        if self.self_condition and random() < 0.5:
-            with torch.inference_mode():
+        x_self_cond_copy = None
+        if self.self_condition and random.random() < 0.5:
+            with torch.no_grad():
                 x_self_cond = self.model_predictions(x, t).pred_x_start
-                x_self_cond.detach_()
+            
+            x_self_cond_copy = x_self_cond.clone().requires_grad_()
 
         # predict and take gradient step
 
-        model_out = self.model(x, t, x_self_cond)
+        model_out = self.model(x, t, x_self_cond_copy)
 
         
 
