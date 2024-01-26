@@ -26,7 +26,7 @@ from ema_pytorch import EMA
 from accelerate import Accelerator
 
 from utils.fid_evaluation import FIDEvaluation
-
+from itertools import combinations
 from .version import __version__
 from utils.utils import (
     cycle,
@@ -237,6 +237,19 @@ class GaussianDiffusion(nn.Module):
         self.normalize = normalize_to_neg_one_to_one if auto_normalize else identity
         self.unnormalize = unnormalize_to_zero_to_one if auto_normalize else identity
 
+        self.combinations = self.generate_all_channel_combinations(self.channels)
+        # print("all channel combinations: ", self.combinations)
+        
+
+    def generate_all_channel_combinations(self, num_channels):
+        # 生成所有可能的通道组合
+        all_combinations = []
+        for r in range(num_channels + 1):
+            if r == 0:
+                continue
+            all_combinations.extend(combinations(range(num_channels), r))
+        return all_combinations
+
     @property
     def device(self):
         return self.betas.device
@@ -324,15 +337,10 @@ class GaussianDiffusion(nn.Module):
         
         noise = torch.zeros_like(image, device=self.device)
 
-        noise_channel_num = torch.randint(0, c, (1,))
-        # random select noise_channel_num channels to add noise
+        combinations_idx = torch.randint(0, len(self.combinations), (1,))
 
-        # first select noise_channel_num channels
-
-        noise_channel_idx = torch.randperm(c)[:noise_channel_num]
-
-        # then add noise to these channels
-        noise[:, noise_channel_idx, :, :] = torch.randn_like(image[:, noise_channel_idx, :, :])
+        # then replace these channels with noise
+        noise[:, self.combinations[combinations_idx], :, :] = torch.randn_like(image[:, self.combinations[combinations_idx], :, :])
 
         return noise
     
@@ -382,12 +390,10 @@ class GaussianDiffusion(nn.Module):
 
         b, c, h, w = image.shape
 
-        noise_channel_num = torch.randint(1, c, (1,))
-        # random select noise_channel_num channels to add noise
-        noise_channel_idx = torch.randperm(c)[:noise_channel_num]
+        combinations_idx = torch.randint(0, len(self.combinations), (1,))
 
         # then replace these channels with noise
-        image[:, noise_channel_idx, :, :] = torch.randn_like(image[:, noise_channel_idx, :, :])
+        image[:, self.combinations[combinations_idx], :, :] = torch.randn_like(image[:, self.combinations[combinations_idx], :, :])
 
 
         return image

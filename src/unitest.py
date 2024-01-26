@@ -9,6 +9,7 @@ parser.add_argument("--train", action="store_true", default=False)
 parser.add_argument("--cond", action="store_true", default=False)
 parser.add_argument("--eval", action="store_true", default=False)
 parser.add_argument("--best", action="store_true", default=False)
+
 path = parser.parse_args().path
 
 

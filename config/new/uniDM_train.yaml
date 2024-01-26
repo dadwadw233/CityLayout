@@ -86,7 +86,7 @@ Model:
     offset_noise_strength: 0.0
     min_snr_gamma: 5
     min_snr_loss_weight: False
-    model_type: "Outpainting" # or "uniDM"
+    model_type: "uniDM" # or "uniDM"
 
 Main:
   mode: "train"

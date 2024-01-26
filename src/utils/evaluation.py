@@ -101,9 +101,6 @@ class Evaluation:
         self.prompt_pair = (
             ("a city region", "not a city region"),
             ("a city map include buildings and roads", "a city map without buildings and roads"),
-            ("high quality city map", "low quality city map"),
-            ("the background's color is black", "the background's color is not black"),
-            ("a real city map", "a fake city map")
         )
         # MultoModal metrics
         self.CLIP_calculator = CLIPImageQualityAssessment(data_range=1.0, prompts=self.prompt_pair).to(device)
