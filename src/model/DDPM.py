@@ -355,9 +355,9 @@ class GaussianDiffusion(nn.Module):
         # 50 % percent , mask(noise) region's height or width is equal to image's height or width
         if random.random() < 0.5:
             noise_height = h
-            noise_width = random.randint(w // 8, w // 3)
+            noise_width = random.randint(w // 8, w)
         else :
-            noise_height = random.randint(h // 8, h // 3)
+            noise_height = random.randint(h // 8, h)
             noise_width = w
         
         # Define the top left corner of the noise region
@@ -382,6 +382,7 @@ class GaussianDiffusion(nn.Module):
         noise[:, :, start_y:start_y + noise_height, start_x:start_x + noise_width] = noise_region
 
         # TODO: check whethter need to clip to [-1, 1]
+        noise = torch.clamp(noise, -1.0, 1.0)
 
         return noise 
 
@@ -408,9 +409,9 @@ class GaussianDiffusion(nn.Module):
         # 50 % percent , mask(noise) region's height or width is equal to image's height or width
         if random.random() < 0.5:
             noise_height = h
-            noise_width = random.randint(w // 8, w // 3)
+            noise_width = random.randint(w // 8, w)
         else :
-            noise_height = random.randint(h // 8, h // 3)
+            noise_height = random.randint(h // 8, h)
             noise_width = w
 
         if noise_height == h:

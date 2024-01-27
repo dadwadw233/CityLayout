@@ -595,7 +595,7 @@ class CityDM(object):
         if val_result is not None:
             wandb.log({wandb_key: val_result}, commit=False)
                 
-        if self.save_best_and_latest_only and not cond:
+        if self.save_best_and_latest_only:
             if self.check_best_or_not(val_result):
                 self.save_ckpts(epoch=self.now_epoch, step=self.now_step, best=True)
             else:
