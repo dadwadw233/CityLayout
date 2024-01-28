@@ -86,7 +86,7 @@ Model:
     offset_noise_strength: 0.0
     min_snr_gamma: 5
     min_snr_loss_weight: False
-    model_type: "uniDM" # or "uniDM"
+    model_type: "Outpainting" # or "uniDM" or 'Outpainting'
 
 Main:
   mode: "train"
@@ -99,12 +99,12 @@ Main:
   milestone: 0
   device: cuda
   lr: 1e-4
-  max_epochs: 500
+  max_epochs: 20
   num_workers: 8
 
 
   ema_decay: 0.995
-  ema_update_every: 20
+  ema_update_every: 2
 
   opt: "adam" # or sgd
   scheduler: "cosine" # or "step"

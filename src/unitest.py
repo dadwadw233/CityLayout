@@ -31,17 +31,17 @@ if parser.parse_args().sweep:
                 'max': 0.0005
             },
             'objective': {
-                'values': ['pred_v', 'pred_x0', 'pred_noise']
+                'values': ['pred_v', 'pred_noise']
             },
             'beta_schedule':
             {
                 'values': ['sigmoid', 'linear', 'cosine']
             },
             'timesteps': {
-                'values': [2000, 2500, 3000, 3500, 4000, 4500, 5000]
+                'values': [2000, 2500, 3000, 3500]
             },
             'self_condition': {
-                'values': [True, False]
+                'values': [False]
             },
             'opt': {
                 'values': ['adam']

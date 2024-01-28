@@ -71,13 +71,14 @@ Model:
     attn_heads: 4
     full_attn: None
     flash_attn: False
-    resnet_block_num: 3
+    resnet_block_num: 2
     conditional: False
     conditional_dim: 2
+    
 
   diffusion:
-    timesteps: 2500
-    sampling_timesteps: 1000
+    timesteps: 3500
+    sampling_timesteps: 100
     image_size: 256
     objective: "pred_v"
     beta_schedule: "sigmoid"
@@ -86,6 +87,7 @@ Model:
     offset_noise_strength: 0.0
     min_snr_gamma: 5
     min_snr_loss_weight: False
+    model_type: "uniDM" # or "uniDM" or "Outpainting"
 
 Main:
   mode: "test"
@@ -126,7 +128,7 @@ Test:
   data_type: "one-hot" # or "rgb"
   num_samples: 64
   results_dir: "results/one-hot/uni-test-2500-filter-large"
-  ckpt_results_dir: "results/one-hot/uni-test-2500-filter-large/2024-01-17-16-26-45/ckpt"
+  ckpt_results_dir: "results/one-hot/uni-test-2500-filter-large/2024-01-26-17-58-34-train-uniDM/ckpt"
   !!merge <<: *common
 
 Evaluation: 
@@ -188,10 +190,10 @@ Data:
 
     filter:
       {
-        "building": 0.01, # <=
-        "landuse": -1, # <=
-        "natural": -1, # <=
-        "road": 0, # <=
+        "building": [0.01, 0.7], 
+        "landuse": [-1, 2], 
+        "natural": [-1, 0.5], 
+        "road": [0, 2], # <=, >=
       }
 
     # predefined mapping layout types <----> one hot feature channels
