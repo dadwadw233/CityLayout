@@ -83,13 +83,17 @@ class Evaluation:
             )
 
         # metrics for evaluate Image Similarity
-        self.FID_calculator = FrechetInceptionDistance(feature=self.inception_block_idx, normalize=True).to(device)
-        self.KID_calculator = KernelInceptionDistance(feature=self.inception_block_idx, normalize=True, subset_size=self.num_fid_samples//4).to(device)
+        if 'fid' in self.metrics_list:
+            self.FID_calculator = FrechetInceptionDistance(feature=self.inception_block_idx, normalize=True).to(device)
+        if 'kid' in self.metrics_list:
+            self.KID_calculator = KernelInceptionDistance(feature=self.inception_block_idx, normalize=True, subset_size=self.num_fid_samples//4).to(device)
         # TODO: check whether cosine_distance_eps is suitable
-        self.MIFID_calculator = MemorizationInformedFrechetInceptionDistance(feature=self.inception_block_idx, normalize=True, cosine_distance_eps=0.5).to(device)
+        if 'mifid' in self.metrics_list:
+            self.MIFID_calculator = MemorizationInformedFrechetInceptionDistance(feature=self.inception_block_idx, normalize=True, cosine_distance_eps=0.5).to(device)
 
         # metrics for evaluate Image Quality
-        self.IS_caluculator = InceptionScore(normalize=True).to(device)
+        if 'is' in self.metrics_list:
+            self.IS_caluculator = InceptionScore(normalize=True).to(device)
 
 
         
@@ -103,11 +107,14 @@ class Evaluation:
             ("a city map include buildings and roads", "a city map without buildings and roads"),
         )
         # MultoModal metrics
-        self.CLIP_calculator = CLIPImageQualityAssessment(data_range=1.0, prompts=self.prompt_pair).to(device)
+        if 'clip' in self.metrics_list:
+            self.CLIP_calculator = CLIPImageQualityAssessment(data_range=1.0, prompts=self.prompt_pair).to(device)
 
         # some matrics to evaluate conditional generation's consistency
-        self.LPIPS_calculator = LearnedPerceptualImagePatchSimilarity(net_type='squeeze', normalize=True).to(device)
-        self.SSIM_calculator = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
+        if 'lpips' in self.metrics_list:
+            self.LPIPS_calculator = LearnedPerceptualImagePatchSimilarity(net_type='squeeze', normalize=True).to(device)
+        if 'ssim' in self.metrics_list:
+            self.SSIM_calculator = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
 
         # data satistics evaluator
         self.data_analyser = DataAnalyser(config=config)
@@ -123,13 +130,21 @@ class Evaluation:
     
     @torch.inference_mode()
     def reset_metrics_stats(self):
-        self.FID_calculator.reset()
-        self.KID_calculator.reset()
-        self.MIFID_calculator.reset()
-        self.IS_caluculator.reset()
-        self.CLIP_calculator.reset()
-        self.LPIPS_calculator.reset()
-        self.SSIM_calculator.reset()
+        if 'fid' in self.metrics_list:
+            self.FID_calculator.reset()
+        if 'kid' in self.metrics_list:
+            self.KID_calculator.reset()
+        if 'mifid' in self.metrics_list:
+            self.MIFID_calculator.reset()
+        if 'is' in self.metrics_list:
+            self.IS_caluculator.reset()
+        if 'clip' in self.metrics_list:
+            self.CLIP_calculator.reset()
+        if 'lpips' in self.metrics_list:
+            self.LPIPS_calculator.reset()
+        if 'ssim' in self.metrics_list:
+            self.SSIM_calculator.reset()
+        
         self.data_analyser.release_data()
 
     
@@ -263,9 +278,12 @@ class Evaluation:
                     real_samples = self.sample_real_data()
                     
                     real_samples = real_samples.to(self.device)
-                    self.FID_calculator.update(real_samples, True)
-                    self.KID_calculator.update(real_samples, True)
-                    self.MIFID_calculator.update(real_samples, True)
+                    if 'fid' in self.metrics_list:
+                        self.FID_calculator.update(real_samples, True)
+                    if 'kid' in self.metrics_list:
+                        self.KID_calculator.update(real_samples, True)
+                    if 'mifid' in self.metrics_list:
+                        self.MIFID_calculator.update(real_samples, True)
 
                 
                 
@@ -275,10 +293,14 @@ class Evaluation:
                         cond = None
 
                     fake_samples = self.sample_fake_data(cond=cond)
-                    self.FID_calculator.update(fake_samples, False)
-                    self.KID_calculator.update(fake_samples, False)
-                    self.MIFID_calculator.update(fake_samples, False)
-                    self.IS_caluculator.update(fake_samples)
+                    if 'fid' in self.metrics_list:
+                        self.FID_calculator.update(fake_samples, False)
+                    if 'kid' in self.metrics_list:
+                        self.KID_calculator.update(fake_samples, False)
+                    if 'mifid' in self.metrics_list:
+                        self.MIFID_calculator.update(fake_samples, False)
+                    if 'is' in self.metrics_list:
+                        self.IS_caluculator.update(fake_samples)
                     if 'clip' in self.metrics_list:
                         self.multimodal_evaluation(real_samples, fake_samples)
             except Exception as e:

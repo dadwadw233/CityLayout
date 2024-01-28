@@ -60,31 +60,83 @@ import numpy as np
 import wandb
 import json
 import traceback
+import torch.distributed as dist
 
 class CityDM(object):
 
-    def __init__(self, config_path, sweep_config=None) -> None:
+    def __init__(self, config_path, sweep_config=None, accelerator=None, ddp=False) -> None:
         super().__init__()
         os.environ["TOKENIZERS_PARALLELISM"] = "true"
         assert config_path is not None, "config path is None!"
         assert os.path.exists(config_path), f"config file {config_path} does not exist!"
         self.config_path = config_path
         self.config_parser = ConfigParser(config_path=self.config_path)
+        self.all_config = self.config_parser.get_config_all()
+        self.serialized_config = None
+        self.ddp = ddp
         INFO(f"config file {self.config_path} loaded!")
-        if sweep_config is not None:
-            self.sweep_mode = True
-            INFO(f"Running in sweep mode!")
-            run = wandb.init()
-            self.config_parser.renew_by_sweep_config(wandb.config)
-        else:
-            self.sweep_mode = False
-            INFO(f"Running in normal mode!")
+        
 
     
         # Init Accelerator
-        acc_config = self.config_parser.get_config_by_name("Accelerator")
-        self.accelerator = Accelerator(**acc_config)
-        INFO(f"Accelerator initialized!")
+        if accelerator is None:
+            acc_config = self.config_parser.get_config_by_name("Accelerator")
+            self.accelerator = Accelerator(**acc_config)
+            INFO(f"Accelerator initialized!")
+        else:
+            self.accelerator = accelerator
+            INFO(f"Accelerator passed in!")
+
+        if sweep_config is not None:
+            self.sweep_mode = True
+            INFO(f"Running in sweep mode!")
+            if ddp:
+                config_size = 0
+                if self.accelerator.is_main_process:
+                    INFO(f"Running in multi-GPU mode!")
+                    run=wandb.init()
+                    self.config_parser.renew_by_sweep_config(wandb.config)
+                    self.all_config = self.config_parser.get_config_all()
+                    config_sweep_new = dict()
+                    for key in wandb.config.keys():
+                        config_sweep_new[key] = wandb.config[key]
+                    self.serialized_config = json.dumps(config_sweep_new).encode("utf-8")
+                    
+                    tensor_to_send = torch.tensor(list(self.serialized_config), dtype=torch.uint8, device=self.accelerator.device)
+                    config_size = len(tensor_to_send)
+                self.accelerator.wait_for_everyone()
+
+                config_size_tensor = torch.tensor([config_size], dtype=torch.long, device=self.accelerator.device)
+                dist.broadcast(config_size_tensor, src=0)
+                config_size = config_size_tensor.item()
+
+                self.accelerator.wait_for_everyone()
+
+                if not self.accelerator.is_main_process:
+                    tensor_to_receive = torch.zeros([config_size], dtype=torch.uint8, device=self.accelerator.device)
+                    DEBUG("OTHER PROCESS ready!")
+
+                self.accelerator.wait_for_everyone()
+                dist.broadcast(tensor_to_send if self.accelerator.is_main_process else tensor_to_receive, src=0)
+                INFO("start to decode")
+                if not self.accelerator.is_main_process:
+                    received_bytes = tensor_to_receive.cpu().numpy().tobytes()
+                    received_dict = json.loads(received_bytes.decode('utf-8'))  # 或 pickle.loads(received_bytes)
+                    DEBUG("OTHER PROCESS received!")
+                    self.config_parser.renew_by_sweep_config(received_dict)
+                    self.all_config = self.config_parser.get_config_all()
+                else: 
+                    DEBUG("MAIN PROCESS Done!")
+                
+                self.accelerator.wait_for_everyone()
+            
+            else:
+                run=wandb.init()
+                self.config_parser.renew_by_sweep_config(wandb.config)
+                self.accelerator.wait_for_everyone()
+        else:
+            self.sweep_mode = False
+            INFO(f"Running in normal mode!")
         
         self.timesteps = self.config_parser.get_config_by_name("Model")["diffusion"]["timesteps"]
         self.data_type = self.config_parser.get_config_by_name("Evaluation")["data_type"]
@@ -164,6 +216,7 @@ class CityDM(object):
                     shuffle=True,
                     num_workers=self.num_workers,
                     pin_memory=True,
+
                 )
             )
             self.val_dataloader = self.accelerator.prepare(
@@ -193,6 +246,7 @@ class CityDM(object):
         
 
         # Validation prepare
+        
         if self.mode == "train":
             val_config = self.config_parser.get_config_by_name("Validation")
             self.save_best_and_latest_only = val_config["save_best_and_latest_only"]
@@ -200,31 +254,36 @@ class CityDM(object):
             self.results_dir = val_config["results_dir"] 
             # add time stamp to results_dir
             if not self.fine_tune:
-                self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-train' + f'-{self.generation_type}'
+                if self.accelerator.is_main_process:
+                    self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-train' + f'-{self.generation_type}'
             else:
                 self.results_dir = val_config["fine_tune_dir"]
+
             self.val_results_dir = os.path.join(self.results_dir, "val")
             self.ckpt_results_dir = os.path.join(self.results_dir, "ckpt")
             self.asset_results_dir = os.path.join(self.results_dir, "asset")
             self.sample_results_dir = os.path.join(self.results_dir, "sample")
 
-            os.makedirs(self.results_dir, exist_ok=True)
-            os.makedirs(self.val_results_dir, exist_ok=True)
-            os.makedirs(self.ckpt_results_dir, exist_ok=True)
-            os.makedirs(self.asset_results_dir, exist_ok=True)
-            os.makedirs(self.sample_results_dir, exist_ok=True)
-            # log some info
-            INFO(f"Results dir: {self.results_dir}")
-            INFO(f"Vis results dir: {self.val_results_dir}")
-            INFO(f"Checkpoint results dir: {self.ckpt_results_dir}")
-            INFO(f"Asset results dir: {self.asset_results_dir}")
-            INFO(f"Sample results dir: {self.sample_results_dir}")
+            if self.accelerator.is_main_process:
+                
+                
+                os.makedirs(self.results_dir, exist_ok=True)
+                os.makedirs(self.val_results_dir, exist_ok=True)
+                os.makedirs(self.ckpt_results_dir, exist_ok=True)
+                os.makedirs(self.asset_results_dir, exist_ok=True)
+                os.makedirs(self.sample_results_dir, exist_ok=True)
+                # log some info
+                INFO(f"Results dir: {self.results_dir}")
+                INFO(f"Vis results dir: {self.val_results_dir}")
+                INFO(f"Checkpoint results dir: {self.ckpt_results_dir}")
+                INFO(f"Asset results dir: {self.asset_results_dir}")
+                INFO(f"Sample results dir: {self.sample_results_dir}")
 
-            # utils prepare
-            self.vis_config = self.config_parser.get_config_by_name("Vis")
-            self.vis = OSMVisulizer(config=self.vis_config, path=self.val_results_dir)
-            self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
-            INFO(f"Utils initialized!")
+                # utils prepare
+                self.vis_config = self.config_parser.get_config_by_name("Vis")
+                self.vis = OSMVisulizer(config=self.vis_config, path=self.val_results_dir)
+                self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
+                INFO(f"Utils initialized!")
 
             # Init Optimizer
             if self.opt_type == "adam":
@@ -288,18 +347,18 @@ class CityDM(object):
         
         # evaluation prepare
         eval_config = self.config_parser.get_config_by_name("Evaluation")
-        
-        self.evaluation = Evaluation(batch_size=self.batch_size, device=self.device,
-                                        dl=self.val_dataloader if self.mode == "train" else self.test_dataloader,
-                                        sampler=self.ema.ema_model,
-                                        accelerator=self.accelerator,
-                                        mapping=eval_config["channel_to_rgb"],
-                                        config=eval_config,
+        if self.accelerator.is_main_process:
+            self.evaluation = Evaluation(batch_size=self.batch_size // self.accelerator.num_processes, device=self.device,
+                                            dl=self.val_dataloader if self.mode == "train" else self.test_dataloader,
+                                            sampler=self.ema.ema_model,
+                                            accelerator=self.accelerator,
+                                            mapping=eval_config["channel_to_rgb"],
+                                            config=eval_config,
                         )
-        # 👆 代码evaluation初始化还可以再优化 优化成全config的形式
-        INFO(f"Evaluation initialized!")
-        # print some info
-        INFO(self.evaluation.summary())
+            # 👆 代码evaluation初始化还可以再优化 优化成全config的形式
+            INFO(f"Evaluation initialized!")
+            # print some info
+            INFO(self.evaluation.summary())
 
         self.best_evaluation_result = None
         
@@ -329,7 +388,7 @@ class CityDM(object):
         elif result is None:
             return False
         else:
-            if self.best_evaluation_result["FID"] < result["FID"]:
+            if self.best_evaluation_result["IS"] < result["IS"]:
                 self.best_evaluation_result = result
                 return True
             else:
@@ -353,12 +412,13 @@ class CityDM(object):
             ckpt = {
                 "epoch": epoch,
                 "step": step,
-                "diffusion": self.diffusion.state_dict(),
+                "diffusion": self.accelerator.get_state_dict(self.diffusion),
                 "optimizer": self.optimizer.state_dict(),
                 "scheduler": self.scheduler.state_dict(),
                 "ema": self.ema.state_dict(),
                 "best_evaluation_result": self.best_evaluation_result,
                 "seed": self.seed,
+                'scaler': self.accelerator.scaler.state_dict() if exists(self.accelerator.scaler) else None,
             }
 
             if best:
@@ -375,13 +435,18 @@ class CityDM(object):
         if mode == "train":
             self.optimizer.load_state_dict(ckpt["optimizer"])
             self.scheduler.load_state_dict(ckpt["scheduler"])
-        self.ema.load_state_dict(ckpt["ema"])
+        
+        if self.accelerator.is_main_process:
+            self.ema.load_state_dict(ckpt["ema"])
         self.best_evaluation_result = ckpt["best_evaluation_result"]
         self.seed = ckpt["seed"]
 
         INFO(f"Ckpt loaded from {ckpt_path}")
         self.now_epoch = ckpt["epoch"]
         self.now_step = ckpt["step"]
+
+        if exists(self.accelerator.scaler) and exists(data['scaler']):
+            self.accelerator.scaler.load_state_dict(data['scaler'])
 
     def config_summarize(self):
         INFO(self.config_parser.get_summary())
@@ -396,29 +461,38 @@ class CityDM(object):
         INFO("Model Summary End")
     
     def train(self):
-        if self.accelerator.is_main_process:
+        
             # replace result_dir's "/" with "-"
-
+        if self.ddp:
+            if self.accelerator.is_main_process:
+                display_name = self.results_dir.replace("/", "-")
+                if self.sweep_mode:
+                    wandb.init(config = self.config_parser.get_config_all(), name=display_name, reinit=True)
+                    # wandb.watch(self.diffusion, log="all")
+                else:
+                    wandb.init(project="CityLayout", entity="913217005", config = self.config_parser.get_config_all(), name=display_name)
+                    # wandb.watch(self.diffusion, log="all")
+        else:
             display_name = self.results_dir.replace("/", "-")
             if self.sweep_mode:
                 wandb.init(config = self.config_parser.get_config_all(), name=display_name, reinit=True)
-                wandb.watch(self.diffusion, log="all")
+                # wandb.watch(self.diffusion, log="all")
             else:
                 wandb.init(project="CityLayout", entity="913217005", config = self.config_parser.get_config_all(), name=display_name)
-                wandb.watch(self.diffusion, log="all")
+                # wandb.watch(self.diffusion, log="all")
 
-        
-        experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}_resultfolder{}".format(
-            time.strftime("%Y%m%d_%H%M%S"),
-            self.lr,
-            self.timesteps,
-            self.epochs,
-            self.results_dir,
-        )
-        writer = SummaryWriter(log_dir=f"runs-DEBUG/{experiment_title}")
+        if self.accelerator.is_main_process:
+            experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}_resultfolder{}".format(
+                time.strftime("%Y%m%d_%H%M%S"),
+                self.lr,
+                self.timesteps,
+                self.epochs,
+                self.results_dir,
+            )
+            writer = SummaryWriter(log_dir=f"runs-DEBUG/{experiment_title}")
 
-        # if isinstance(self.diffusion, nn.DataParallel):
-        #     self.diffusion = self.diffusion.module
+        if isinstance(self.diffusion, nn.DataParallel): # if model is wrapped by DataParallel, unwrap it
+            self.diffusion = self.diffusion.module
 
         if self.fine_tune:
             INFO(f"Fine tune mode, load ckpt from {self.ckpt_results_dir}")
@@ -452,9 +526,15 @@ class CityDM(object):
 
                         self.accelerator.backward(loss)
 
-                    writer.add_scalar("loss", float(total_loss), self.now_step)
-                    writer.add_scalar("lr", self.scheduler.get_last_lr()[0], self.now_step)
-                    wandb.log({"loss": float(total_loss), "lr": self.scheduler.get_last_lr()[0]})
+                    
+                    if self.accelerator.is_main_process:
+                        writer.add_scalar("loss", float(total_loss), self.now_step)
+                        writer.add_scalar("lr", self.scheduler.get_last_lr()[0], self.now_step)
+                        wandb.log({"loss": float(total_loss), "lr": self.scheduler.get_last_lr()[0]})
+                        # if loss equals to nan, then stop training
+                        if math.isnan(total_loss):
+                            ERROR(f"Loss equals to nan, stop training!")
+                            raise ValueError(f"Loss equals to nan, stop training!")
 
                     pbar.set_description(
                         f'loss: {total_loss:.5f}, lr: {self.optimizer.param_groups[0]["lr"]:.6f}, \
@@ -491,9 +571,10 @@ class CityDM(object):
 
 
                     pbar.update(1)
-            wandb.finish()
-            self.accelerator.print("training complete")
-            writer.close()
+            if self.accelerator.is_main_process:
+                wandb.finish()
+                self.accelerator.print("training complete")
+                writer.close()
         except Exception as e:
             ERROR(f"Training failed! {e}")
             # log traceback
@@ -501,6 +582,9 @@ class CityDM(object):
             raise e
 
     def validation(self, writer, cond=False):
+        if not self.accelerator.is_main_process:
+            return
+
         self.ema.ema_model.eval()
         if cond:
             wandb_key = "val_cond"
@@ -512,7 +596,10 @@ class CityDM(object):
             milestone = self.now_step // self.sample_frequency
             now_val_path = os.path.join(self.val_results_dir, f"milestone_{milestone}_val_cond_{cond}")
             os.makedirs(now_val_path, exist_ok=True)
-            batches = num_to_groups(self.num_samples, self.batch_size)
+            if self.ddp:
+                batches = num_to_groups(self.num_samples, self.batch_size // self.accelerator.num_processes)
+            else:
+                batches = num_to_groups(self.num_samples, self.batch_size)
             INFO(f"Start sampling {self.num_samples} images...")
             if cond == True:
                 # sample some real images from val_Dataloader as cond
