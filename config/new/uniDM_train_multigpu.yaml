@@ -99,7 +99,7 @@ Main:
   milestone: 0
   device: cuda
   lr: 1e-4
-  max_epochs: 50
+  max_epochs: 200
   num_workers: 16
 
 
