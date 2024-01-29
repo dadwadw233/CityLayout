@@ -24,6 +24,7 @@ import os
 import matplotlib.pyplot as plt
 import wandb
 import traceback
+import time
 
 
 def num_to_groups(num, divisor):
@@ -84,16 +85,17 @@ class Evaluation:
 
         # metrics for evaluate Image Similarity
         if 'fid' in self.metrics_list:
-            self.FID_calculator = FrechetInceptionDistance(feature=self.inception_block_idx, normalize=True).to(device)
+            self.FID_calculator = FrechetInceptionDistance(feature=self.inception_block_idx, normalize=True,  sync_on_compute=False).to(device)
         if 'kid' in self.metrics_list:
-            self.KID_calculator = KernelInceptionDistance(feature=self.inception_block_idx, normalize=True, subset_size=self.num_fid_samples//4).to(device)
+            self.KID_calculator = KernelInceptionDistance(feature=self.inception_block_idx, normalize=True, subset_size=self.num_fid_samples//4,  sync_on_compute=False).to(device)
         # TODO: check whether cosine_distance_eps is suitable
         if 'mifid' in self.metrics_list:
-            self.MIFID_calculator = MemorizationInformedFrechetInceptionDistance(feature=self.inception_block_idx, normalize=True, cosine_distance_eps=0.5).to(device)
+            self.MIFID_calculator = MemorizationInformedFrechetInceptionDistance(feature=self.inception_block_idx, normalize=True, cosine_distance_eps=0.5, sync_on_compute=False).to(device)
 
         # metrics for evaluate Image Quality
         if 'is' in self.metrics_list:
-            self.IS_caluculator = InceptionScore(normalize=True).to(device)
+            self.IS_caluculator = InceptionScore(normalize=True, sync_on_compute=False).to(device)
+            self.IS_caluculator.cuda()
 
 
         
@@ -108,13 +110,13 @@ class Evaluation:
         )
         # MultoModal metrics
         if 'clip' in self.metrics_list:
-            self.CLIP_calculator = CLIPImageQualityAssessment(data_range=1.0, prompts=self.prompt_pair).to(device)
+            self.CLIP_calculator = CLIPImageQualityAssessment(data_range=1.0, prompts=self.prompt_pair, sync_on_compute=False).to(device)
 
         # some matrics to evaluate conditional generation's consistency
         if 'lpips' in self.metrics_list:
-            self.LPIPS_calculator = LearnedPerceptualImagePatchSimilarity(net_type='squeeze', normalize=True).to(device)
+            self.LPIPS_calculator = LearnedPerceptualImagePatchSimilarity(net_type='squeeze', normalize=True,  sync_on_compute=False).to(device)
         if 'ssim' in self.metrics_list:
-            self.SSIM_calculator = StructuralSimilarityIndexMeasure(data_range=1.0).to(device)
+            self.SSIM_calculator = StructuralSimilarityIndexMeasure(data_range=1.0,  sync_on_compute=False).to(device)
 
         # data satistics evaluator
         self.data_analyser = DataAnalyser(config=config)
@@ -330,10 +332,12 @@ class Evaluation:
                 
                 self.evaluate_dict['MIFID'] = self.MIFID_calculator.compute().item()
             if 'is' in self.metrics_list:
-                
+                begin_time = time.time()
                 mean, std = self.IS_caluculator.compute()
                 self.evaluate_dict['IS'] = mean.item()
                 self.evaluate_dict['IS_std'] = std.item()
+                end_time = time.time()
+                DEBUG(f"IS time: {end_time - begin_time}")
             if 'clip' in self.metrics_list:
                 
                 # get mean score for each prompt
