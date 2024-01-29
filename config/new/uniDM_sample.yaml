@@ -77,17 +77,17 @@ Model:
     
 
   diffusion:
-    timesteps: 3500
+    timesteps: 2000
     sampling_timesteps: 100
     image_size: 256
-    objective: "pred_v"
+    objective: "pred_noise"
     beta_schedule: "sigmoid"
     ddim_sampling_eta: 0.0
     auto_normalize: True
     offset_noise_strength: 0.0
     min_snr_gamma: 5
     min_snr_loss_weight: False
-    model_type: "uniDM" # or "uniDM" or "Outpainting"
+    model_type: "Outpainting" # or "uniDM" or "Outpainting"
 
 Main:
   mode: "test"
@@ -95,7 +95,7 @@ Main:
   seed: 3407
   condition: False
 
-  batch_size: 8
+  batch_size: 2
   milestone: 0
   device: cuda
   lr: 5e-5
@@ -126,16 +126,16 @@ Validation:
 Test:
   !!merge <<: *vis
   data_type: "one-hot" # or "rgb"
-  num_samples: 64
+  num_samples: 8
   results_dir: "results/one-hot/uni-test-2500-filter-large"
-  ckpt_results_dir: "results/one-hot/uni-test-2500-filter-large/2024-01-26-17-58-34-train-uniDM/ckpt"
+  ckpt_results_dir: "results/one-hot/uni-test-2500-filter-large/2024-01-28-21-15-31-train-Outpainting/ckpt"
   !!merge <<: *common
 
 Evaluation: 
   !!merge <<: *vis
   data_type: "one-hot" # or "rgb"
 
-  metrics_list : ["fid", "mifid", "kid", "clip", "is", "data_analysis"]
+  metrics_list : ["data_analysis"]
 
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
@@ -149,7 +149,7 @@ Evaluation:
 
 
 Data:
-  batch_size: 8
+  batch_size: 2
   num_workers: 8
   # root path for city_name.h5
   path:

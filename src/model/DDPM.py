@@ -117,7 +117,7 @@ class GaussianDiffusion(nn.Module):
         model_type="uniDM", # or "Outpainting"
     ):
         super().__init__()
-        assert not (type(self) == GaussianDiffusion and model.channels != model.out_dim)
+        
         assert not model.random_or_learned_sinusoidal_cond
 
         self.model = model
@@ -289,10 +289,13 @@ class GaussianDiffusion(nn.Module):
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
     def model_predictions(
-        self, x, t, x_self_cond=None, clip_x_start=False, rederive_pred_noise=False
+        self, x, t, x_self_cond=None, op_mask=None, clip_x_start=False, rederive_pred_noise=False
     ):
-        
-        model_output = self.model(x, t, x_self_cond)
+        if op_mask is not None:
+            model_input = torch.cat((x, op_mask), dim=1)
+            model_output = self.model(model_input, t, x_self_cond)
+        else:
+            model_output = self.model(x, t, x_self_cond)
 
         maybe_clip = (
             partial(torch.clamp, min=-1.0, max=1.0) if clip_x_start else identity
@@ -384,7 +387,12 @@ class GaussianDiffusion(nn.Module):
         # TODO: check whethter need to clip to [-1, 1]
         noise = torch.clamp(noise, -1.0, 1.0)
 
-        return noise 
+        # generate binary mask for noise region (b, 1, h, w)
+        mask_shape = (b, 1, h, w)
+        mask = torch.zeros(mask_shape, device=self.device)
+        mask[:, :, start_y:start_y + noise_height, start_x:start_x + noise_width] = 1.0 # 1.0 means noise region(outpainting region)
+
+        return noise, mask
 
     @torch.inference_mode()
     def random_mask_image_backward(self, image):
@@ -435,7 +443,13 @@ class GaussianDiffusion(nn.Module):
         image[:, :, start_y:start_y + noise_height, start_x:start_x + noise_width] = noise_region
         image = torch.clamp(image, -1.0, 1.0)
 
-        return image
+        mask_shape = (b, 1, h, w)
+        mask = torch.zeros(mask_shape, device=self.device)
+        mask[:, :, start_y:start_y + noise_height, start_x:start_x + noise_width] = 1.0
+
+        
+
+        return image, mask
 
 
 
@@ -494,13 +508,13 @@ class GaussianDiffusion(nn.Module):
             zip(times[:-1], times[1:])
         )  # [(T-1, T-2), (T-2, T-3), ..., (1, 0), (0, -1)]
 
-
+        op_mask = None
         if org is not None:
             if self.model_type == "uniDM":
                 img = self.random_mask_image_backward(org)
                 masked_org = img.clone()
             elif self.model_type == "Outpainting":
-                img = self.random_outpainting_noise_backward(org)
+                img, op_mask = self.random_outpainting_noise_backward(org)
                 masked_org = img.clone()
             else:
                 img = torch.randn(shape, device=device)
@@ -515,8 +529,9 @@ class GaussianDiffusion(nn.Module):
         for time, time_next in time_pairs:
             time_cond = torch.full((batch,), time, device=device, dtype=torch.long)
             self_cond = x_start if self.self_condition else None
+            
             pred_noise, x_start, *_ = self.model_predictions(
-                img, time_cond, self_cond, clip_x_start=True, rederive_pred_noise=True
+                img, time_cond, self_cond, op_mask, clip_x_start=True, rederive_pred_noise=True
             )
 
             if time_next < 0:
@@ -543,6 +558,8 @@ class GaussianDiffusion(nn.Module):
         ret = img if not return_all_timesteps else torch.stack(imgs, dim=1)
         if not return_all_timesteps and masked_org is not None:
             ret = torch.cat((ret, masked_org), dim=1)
+            if op_mask is not None:
+                ret = torch.cat((ret, op_mask), dim=1)
         ret = self.unnormalize(ret)
         return ret
 
@@ -592,12 +609,12 @@ class GaussianDiffusion(nn.Module):
 
     def p_losses(self, x_start, t, noise=None, offset_noise_strength=None):
         b, c, h, w = x_start.shape
-
+        op_mask = None
         # noise = default(noise, lambda: torch.randn_like(x_start))
         if self.model_type == "uniDM":
             noise = default(noise, lambda: self.get_random_noise_forward(x_start))
         elif self.model_type == "Outpainting":
-            noise = default(noise, lambda: self.get_random_outpainting_noise_forward(x_start))
+            noise, op_mask = self.get_random_outpainting_noise_forward(x_start)
         elif self.model_type == "normal":
             noise = default(noise, lambda: torch.randn_like(x_start))
 
@@ -631,6 +648,8 @@ class GaussianDiffusion(nn.Module):
 
         # predict and take gradient step
 
+        if op_mask is not None:
+            x = torch.concat((x, op_mask), dim=1)
         model_out = self.model(x, t, x_self_cond_copy)
 
         

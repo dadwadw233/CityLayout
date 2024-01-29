@@ -445,8 +445,8 @@ class CityDM(object):
         self.now_epoch = ckpt["epoch"]
         self.now_step = ckpt["step"]
 
-        if exists(self.accelerator.scaler) and exists(data['scaler']):
-            self.accelerator.scaler.load_state_dict(data['scaler'])
+        if exists(self.accelerator.scaler) and exists(ckpt['scaler']):
+            self.accelerator.scaler.load_state_dict(ckpt['scaler'])
 
     def config_summarize(self):
         INFO(self.config_parser.get_summary())
@@ -628,34 +628,37 @@ class CityDM(object):
                 all_images_list, dim=0
             )  # (num_samples, channel, image_size, image_size)
 
-        image_for_show = all_images[:4] 
-        if self.data_type == "rgb":
-            utils.save_image(
-                image_for_show,
-                os.path.join(
-                    now_val_path, f"sample-{milestone}-c-rgb.png"
-                ),
-                nrow=int(math.sqrt(self.num_samples)),
-            )
-            self.vis.visualize_rgb_layout(
-                image_for_show,
-                os.path.join(
-                    now_val_path, f"sample-{milestone}-rgb.png"
-                )
-            )
-        else:
-            self.vis.visulize_onehot_layout(
-                image_for_show,
-                os.path.join(
-                    now_val_path, f"sample-{milestone}-onehot.png"
-                )
-            )
-            self.vis.visualize_rgb_layout(
-                image_for_show,
-                os.path.join(
-                    now_val_path, f"sample-{milestone}-rgb.png"
-                )
-            )
+        for idx in tqdm(range(len(all_images)//4), desc='Saving Validation imgs'):
+                
+                if self.data_type == "rgb":
+                    utils.save_image(
+                        all_images[idx*4:idx*4+4],
+                        os.path.join(
+                            now_val_path, f"sample-{idx}-c-rgb.png"
+                        ),
+                        nrow=2,
+                    )
+                    self.vis.visualize_rgb_layout(
+                        all_images[idx*4:idx*4+4],
+                        os.path.join(
+                            now_val_path, f"sample-{idx}-rgb.png"
+                        )
+                    )
+                elif self.data_type == "one-hot":
+                    self.vis.visulize_onehot_layout(
+                        all_images[idx*4:idx*4+4],
+                        os.path.join(
+                            now_val_path, f"sample-{idx}-onehot.png"
+                        )
+                    )
+                    self.vis.visualize_rgb_layout(
+                        all_images[idx*4:idx*4+4],
+                        os.path.join(
+                            now_val_path, f"sample-{idx}-rgb.png"
+                        )
+                    )
+                else:
+                    raise ValueError(f"data_type {self.data_type} not supported!")
         # whether to calculate fid
         overlapping_rate = cal_overlapping_rate(all_images)
         self.accelerator.print(
@@ -706,7 +709,7 @@ class CityDM(object):
         INFO(f"Start sampling {self.num_samples} images...")
         INFO(F"Sample result save to {self.sample_results_dir}")
 
-        INFO(f"sample mode: {'random' if not cond is None else 'conditional'}")
+        INFO(f"sample mode: {'random' if not cond else 'conditional'}")
 
         # check and load ckpt
         INFO(f"ckpt path: {self.ckpt_results_dir}")

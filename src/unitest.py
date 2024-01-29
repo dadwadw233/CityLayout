@@ -26,7 +26,8 @@ def train_accelerate():
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--path", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/uniDM_train_multigpu.yaml")
+parser.add_argument("--path", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/uniDM_train_multigpu_2.yaml")
+parser.add_argument("--path_sample", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/uniDM_sample.yaml")
 parser.add_argument("--sample", action="store_true", default=False)
 parser.add_argument("--train", action="store_true", default=False)
 parser.add_argument("--cond", action="store_true", default=False)
@@ -40,8 +41,8 @@ if parser.parse_args().sweep:
     sweep_config_train = {
         'method': 'bayes',
         'metric': {
-            'name': 'val.FID',
-            'goal': 'minimize'
+            'name': 'val_cond.IS',
+            'goal': 'maximize'
         },
         'parameters': {
             'lr': {
@@ -56,7 +57,7 @@ if parser.parse_args().sweep:
                 'values': ['sigmoid', 'linear', 'cosine']
             },
             'timesteps': {
-                'values': [2000, 2500, 3000, 3500]
+                'values': [2500]
             },
             'self_condition': {
                 'values': [False]
@@ -81,14 +82,15 @@ else:
     sweep_config_sample = None
 
 path = parser.parse_args().path
+sample_path = parser.parse_args().path_sample
 
 if not parser.parse_args().sweep:
-    citydm = CityDM(path)
-
     if parser.parse_args().sample:
+        citydm = CityDM(sample_path)
         citydm.sample(cond=parser.parse_args().cond, eval=parser.parse_args().eval, best=parser.parse_args().best)    
 
     elif parser.parse_args().train:
+        citydm = CityDM(path)
         citydm.train()
 
 else:

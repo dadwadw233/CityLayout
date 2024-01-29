@@ -86,7 +86,6 @@ class ConfigParser:
         # for example, sweep_config = {"lr": 0.001, "beta_schedule": "sigmoid"}
         # then the config will be renewed by replacing the value of key "lr" to 0.001 and the value of key "beta_schedule" to "sigmoid"
         # if the key is not in config, then this key-value pair will be added to config
-        # if the key is in config, but the value is not in the sweep_config, then the key-value pair will be deleted from config
         # if the sweep_config is None, then the config will not be changed
         
         if sweep_config is None:
