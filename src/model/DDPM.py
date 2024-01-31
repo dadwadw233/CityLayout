@@ -392,6 +392,9 @@ class GaussianDiffusion(nn.Module):
         mask = torch.zeros(mask_shape, device=self.device)
         mask[:, :, start_y:start_y + noise_height, start_x:start_x + noise_width] = 1.0 # 1.0 means noise region(outpainting region)
 
+        # normalize mask from [0, 1] to [-1, 1]
+        mask = mask * 2.0 - 1.0
+
         return noise, mask
 
     @torch.inference_mode()
@@ -447,7 +450,7 @@ class GaussianDiffusion(nn.Module):
         mask = torch.zeros(mask_shape, device=self.device)
         mask[:, :, start_y:start_y + noise_height, start_x:start_x + noise_width] = 1.0
 
-        
+        mask = mask * 2.0 - 1.0        
 
         return image, mask
 
