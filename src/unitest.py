@@ -11,6 +11,7 @@ from copy import deepcopy
 # define global variables
 accelerator = None
 sweep_id = None
+path = None
 
 def train_main(sweep_config):
     citydm = CityDM(path, sweep_config=sweep_config)
@@ -26,7 +27,7 @@ def train_accelerate():
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--path", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/uniDM_train_multigpu.yaml")
+parser.add_argument("--path", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/uniDM_train_multigpu_normal.yaml")
 parser.add_argument("--path_sample", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/uniDM_sample.yaml")
 parser.add_argument("--sample", action="store_true", default=False)
 parser.add_argument("--train", action="store_true", default=False)

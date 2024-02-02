@@ -633,8 +633,11 @@ class GaussianDiffusion(nn.Module):
 
         # noise sample
         
-        # todo - add random mask to noise
+
         x = self.q_sample(x_start=x_start, t=t, noise=noise)
+
+        # TODO: visualize for debug
+        
 
 
 
