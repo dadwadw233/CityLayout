@@ -340,10 +340,16 @@ class GaussianDiffusion(nn.Module):
         
         noise = torch.zeros_like(image, device=self.device)
 
-        combinations_idx = torch.randint(0, len(self.combinations), (1,))
+        # 👇 maybe image in the batch have different conditional channel will lead to better performance
+        # combinations_idx = torch.randint(0, len(self.combinations), (1,))
+
+        combinations_idx = torch.randint(0, len(self.combinations), (b,))
+        # combinations_idx shape : (b,)
 
         # then replace these channels with noise
-        noise[:, self.combinations[combinations_idx], :, :] = torch.randn_like(image[:, self.combinations[combinations_idx], :, :])
+        
+        for i in range(b):
+            noise[i, self.combinations[combinations_idx[i]], :, :] = torch.randn_like(image[i, self.combinations[combinations_idx[i]], :, :])
 
         return noise
     
@@ -402,11 +408,12 @@ class GaussianDiffusion(nn.Module):
 
         b, c, h, w = image.shape
 
-        combinations_idx = torch.randint(0, len(self.combinations), (1,))
-
+        # combinations_idx = torch.randint(0, len(self.combinations), (1,))
+        combinations_idx = torch.randint(0, len(self.combinations), (b,))
         # then replace these channels with noise
-        image[:, self.combinations[combinations_idx], :, :] = torch.randn_like(image[:, self.combinations[combinations_idx], :, :])
-
+        # image[:, self.combinations[combinations_idx], :, :] = torch.randn_like(image[:, self.combinations[combinations_idx], :, :])
+        for i in range(b):
+            image[i, self.combinations[combinations_idx[i]], :, :] = torch.randn_like(image[i, self.combinations[combinations_idx[i]], :, :])
 
         return image
     
