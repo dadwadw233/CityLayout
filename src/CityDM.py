@@ -461,7 +461,10 @@ class CityDM(object):
         INFO("Model Summary End")
     
     def train(self):
-        
+        # dump training configs to result root dir
+        if self.accelerator.is_main_process:
+            with open(os.path.join(self.results_dir, "config.json"), "w") as f:
+                f.write(json.dumps(self.all_config, indent=4))
             # replace result_dir's "/" with "-"
         if self.ddp:
             if self.accelerator.is_main_process:
