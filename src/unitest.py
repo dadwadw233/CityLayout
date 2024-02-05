@@ -70,12 +70,6 @@ if parser.parse_args().sweep:
                 'values': ['cosine', 'step']
             },
         },
-        'early_terminate': {
-            'type': 'hyperband',
-            's': 2,
-            'eta': 3,
-            'max_iter': 27
-        }
     }
 
 else: 

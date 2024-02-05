@@ -4,5 +4,5 @@
     "editor.codeLensFontFamily": "MesloLGS NF",
     "debug.console.fontFamily": "MesloLGS NF",
     "editor.inlayHints.fontFamily": "MesloLGS NF",
-    "terminal.integrated.fontFamily": "MesloLGS NF",
+    "terminal.integrated.fontFamily": "monospace",
 }
