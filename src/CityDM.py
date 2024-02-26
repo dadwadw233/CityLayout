@@ -64,7 +64,7 @@ import torch.distributed as dist
 
 class CityDM(object):
 
-    def __init__(self, config_path, sweep_config=None, accelerator=None, ddp=False) -> None:
+    def __init__(self, config_path, sweep_config=None, accelerator=None, ddp=False, debug=False) -> None:
         super().__init__()
         os.environ["TOKENIZERS_PARALLELISM"] = "true"
         assert config_path is not None, "config path is None!"
@@ -74,6 +74,7 @@ class CityDM(object):
         self.all_config = self.config_parser.get_config_all()
         self.serialized_config = None
         self.ddp = ddp
+        self.debug = debug
         INFO(f"config file {self.config_path} loaded!")
         
 
@@ -87,7 +88,7 @@ class CityDM(object):
             self.accelerator = accelerator
             INFO(f"Accelerator passed in!")
 
-        if sweep_config is not None:
+        if sweep_config is not None and not debug:
             self.sweep_mode = True
             INFO(f"Running in sweep mode!")
             if ddp:
@@ -191,7 +192,7 @@ class CityDM(object):
         if self.fine_tune:
             self.pretrain_model_type = main_config["pretrain_model_type"]
             self.pretrain_ckpt_type = main_config["pretrain_ckpt_type"]
-            self.fintuning_type = main_config["fintuning_type"]
+            self.finetuning_type = main_config["finetuning_type"]
             
             
         if self.seed is not None:
@@ -415,11 +416,11 @@ class CityDM(object):
     def device(self):
         return self.accelerator.device
 
-    def load_model_params(self, model_state_dict, load_type):
+    def load_model_params(self, tgt, model_state_dict, load_type):
         if load_type == "full":
-            self.diffusion.load_state_dict(model_state_dict)
+            tgt.load_state_dict(model_state_dict)
         elif load_type == "partial":
-            self.diffusion.load_state_dict(self.partly_load(model_state_dict))
+            tgt.load_state_dict(self.partly_load(model_state_dict))
         elif load_type == "LoRA":
             ERROR(f"LoRA not supported yet!")
             raise NotImplementedError(f"LoRA not supported yet!")
@@ -436,7 +437,13 @@ class CityDM(object):
             if key not in param_dict.keys():
                 padded_dict[key] = torch.zeros_like(padded_dict[key])
             else:
-                padded_dict[key] = param_dict[key]
+                # if shape of param_dict[key] is not equal to padded_dict[key], then pad it with zeros
+                if padded_dict[key].shape != param_dict[key].shape:
+                    padded_dict[key] = torch.zeros_like(padded_dict[key])
+                    # fullfill the same shape part
+                    padded_dict[key][:, 0:param_dict[key].shape[1], ...] = param_dict[key]
+                else:
+                    padded_dict[key] = param_dict[key]
         
         return padded_dict
 
@@ -483,11 +490,15 @@ class CityDM(object):
                 self.seed = ckpt["seed"]
             else:
                 INFO(f"Load ckpt from {ckpt_path} for fintunig {self.generation_type} model!")
-                INFO(f"fintuning type: {self.fintuning_type}")
-                self.load_model_params(ckpt["diffusion"], self.fintuning_type)
+                INFO(f"fintuning type: {self.finetuning_type}")
+                self.load_model_params(self.diffusion, ckpt["diffusion"], self.finetuning_type)
         
         if self.accelerator.is_main_process:
-            self.ema.load_state_dict(ckpt["ema"])
+            # reinit ema
+            self.ema = EMA(self.diffusion, beta=self.ema_decay, update_every=self.ema_update_every)
+            self.ema.to(self.device)
+            INFO(f"EMA reinitialized!")
+            
         
 
         INFO(f"Ckpt loaded from {ckpt_path}")
@@ -515,8 +526,18 @@ class CityDM(object):
             with open(os.path.join(self.results_dir, "config.json"), "w") as f:
                 f.write(json.dumps(self.all_config, indent=4))
             # replace result_dir's "/" with "-"
-        if self.ddp:
-            if self.accelerator.is_main_process:
+        
+        if not self.debug:
+            if self.ddp:
+                if self.accelerator.is_main_process:
+                    display_name = self.results_dir.replace("/", "-")
+                    if self.sweep_mode:
+                        wandb.init(config = self.config_parser.get_config_all(), name=display_name, reinit=True)
+                        # wandb.watch(self.diffusion, log="all")
+                    else:
+                        wandb.init(project="CityLayout", entity="913217005", config = self.config_parser.get_config_all(), name=display_name)
+                        # wandb.watch(self.diffusion, log="all")
+            else:
                 display_name = self.results_dir.replace("/", "-")
                 if self.sweep_mode:
                     wandb.init(config = self.config_parser.get_config_all(), name=display_name, reinit=True)
@@ -524,24 +545,16 @@ class CityDM(object):
                 else:
                     wandb.init(project="CityLayout", entity="913217005", config = self.config_parser.get_config_all(), name=display_name)
                     # wandb.watch(self.diffusion, log="all")
-        else:
-            display_name = self.results_dir.replace("/", "-")
-            if self.sweep_mode:
-                wandb.init(config = self.config_parser.get_config_all(), name=display_name, reinit=True)
-                # wandb.watch(self.diffusion, log="all")
-            else:
-                wandb.init(project="CityLayout", entity="913217005", config = self.config_parser.get_config_all(), name=display_name)
-                # wandb.watch(self.diffusion, log="all")
 
-        if self.accelerator.is_main_process:
-            experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}_resultfolder{}".format(
-                time.strftime("%Y%m%d_%H%M%S"),
-                self.lr,
-                self.timesteps,
-                self.epochs,
-                self.results_dir,
-            )
-            writer = SummaryWriter(log_dir=f"runs-DEBUG/{experiment_title}")
+            if self.accelerator.is_main_process:
+                experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}_resultfolder{}".format(
+                    time.strftime("%Y%m%d_%H%M%S"),
+                    self.lr,
+                    self.timesteps,
+                    self.epochs,
+                    self.results_dir,
+                )
+                writer = SummaryWriter(log_dir=f"runs-DEBUG/{experiment_title}")
 
         if isinstance(self.diffusion, nn.DataParallel): # if model is wrapped by DataParallel, unwrap it
             self.diffusion = self.diffusion.module
@@ -551,7 +564,7 @@ class CityDM(object):
             if self.pretrain_ckpt_type == "best":
                 ckpt_path = os.path.join(self.pretrain_ckpt_dir, "best_ckpt.pth")
             else:
-                ckpt_path = os.path.join(self.ckpt_results_dir, "latest_ckpt.pth")
+                ckpt_path = os.path.join(self.pretrain_ckpt_dir, "latest_ckpt.pth")
             self.load_ckpts(ckpt_path, mode="train")
             
             INFO(f"ckpt loaded!")
@@ -584,9 +597,11 @@ class CityDM(object):
 
                     
                     if self.accelerator.is_main_process:
-                        writer.add_scalar("loss", float(total_loss), self.now_step)
-                        writer.add_scalar("lr", self.scheduler.get_last_lr()[0], self.now_step)
-                        wandb.log({"loss": float(total_loss), "lr": self.scheduler.get_last_lr()[0]})
+                        
+                        if not self.debug:
+                            writer.add_scalar("loss", float(total_loss), self.now_step)
+                            writer.add_scalar("lr", self.scheduler.get_last_lr()[0], self.now_step)
+                            wandb.log({"loss": float(total_loss), "lr": self.scheduler.get_last_lr()[0]})
                         # if loss equals to nan, then stop training
                         if math.isnan(total_loss):
                             ERROR(f"Loss equals to nan, stop training!")
@@ -628,7 +643,9 @@ class CityDM(object):
 
                     pbar.update(1)
             if self.accelerator.is_main_process:
-                wandb.finish()
+                if not self.debug:
+                    wandb.finish()
+                    writer.close()
                 self.accelerator.print("training complete")
                 writer.close()
         except Exception as e:
@@ -720,10 +737,11 @@ class CityDM(object):
         self.accelerator.print(
             f"overlapping rate: {overlapping_rate:.5f}"
         )
-        writer.add_scalar(
-            "overlapping_rate", overlapping_rate, self.now_step
-        )
-        wandb.log({wandb_key: {"overlapping_rate": overlapping_rate}}, commit=False)
+        if not self.debug:
+            writer.add_scalar(
+                "overlapping_rate", overlapping_rate, self.now_step
+            )
+            wandb.log({wandb_key: {"overlapping_rate": overlapping_rate}}, commit=False)
 
         
         val_result = None
@@ -739,7 +757,8 @@ class CityDM(object):
             self.accelerator.print(e)
 
         if val_result is not None:
-            wandb.log({wandb_key: val_result}, commit=False)
+            if not self.debug:
+                wandb.log({wandb_key: val_result}, commit=False)
                 
         if self.save_best_and_latest_only:
             if self.check_best_or_not(val_result):

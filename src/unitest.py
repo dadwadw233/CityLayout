@@ -39,6 +39,8 @@ parser.add_argument("--sweep", action="store_true", default=False)
 parser.add_argument("--sweep_id", type=str, default=None, help="multi gpu for single task sweep training, \
                     by specifying the sweep id to record the training process in the same sweep")
 
+parser.add_argument("--debug", action="store_true", default=False)
+
 if parser.parse_args().sweep:
     sweep_config_train = {
         'method': 'bayes',
@@ -86,7 +88,7 @@ if not parser.parse_args().sweep:
         citydm.sample(cond=parser.parse_args().cond, eval=parser.parse_args().eval, best=parser.parse_args().best)    
 
     elif parser.parse_args().train:
-        citydm = CityDM(path)
+        citydm = CityDM(path, debug = parser.parse_args().debug)
         citydm.train()
 
 else:
