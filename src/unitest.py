@@ -88,7 +88,7 @@ if not parser.parse_args().sweep:
         citydm.sample(cond=parser.parse_args().cond, eval=parser.parse_args().eval, best=parser.parse_args().best)    
 
     elif parser.parse_args().train:
-        citydm = CityDM(path, debug = parser.parse_args().debug)
+        citydm = CityDM(path, debug = parser.parse_args().debug, ddp=parser.parse_args().multigpu)
         citydm.train()
 
 else:

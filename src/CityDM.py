@@ -556,8 +556,11 @@ class CityDM(object):
                 )
                 writer = SummaryWriter(log_dir=f"runs-DEBUG/{experiment_title}")
 
-        if isinstance(self.diffusion, nn.DataParallel): # if model is wrapped by DataParallel, unwrap it
+        if isinstance(self.diffusion, nn.DataParallel) or self.ddp: # if model is wrapped by DataParallel, unwrap it
+            DEBUG(f"Model is wrapped by DataParallel, unwrap it!")
             self.diffusion = self.diffusion.module
+            self.ema = EMA(self.diffusion, beta=self.ema_decay, update_every=self.ema_update_every)
+            self.ema.to(self.device)
 
         if self.fine_tune:
             INFO(f"Fine tune mode, load ckpt from {self.ckpt_results_dir}")
@@ -571,6 +574,9 @@ class CityDM(object):
             INFO(f"ckpt step & epoch: {self.now_step}, {self.now_epoch}")
         else:
             INFO(f"Train from scratch!")
+        
+
+        self.accelerator.wait_for_everyone()
 
 
         try:
@@ -590,6 +596,7 @@ class CityDM(object):
                         
                         with self.accelerator.autocast():
                             loss = self.diffusion(layout)
+                            # DEBUG(f"loss: {loss}, GPU: {self.device}")
                             loss = loss / self.grad_accumulate
                             total_loss += loss.item()
 
