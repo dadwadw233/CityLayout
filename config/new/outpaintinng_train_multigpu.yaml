@@ -91,11 +91,13 @@ Model:
 Main:
   mode: "train"
   fine_tune: False
+  finetuning_type: "partial" # or "partial/LoRA/ControlNet or just set to none for same objective finetuning"
+  pretrain_model_type: "normal" # or "uniDM" or 'Outpainting'
+  pretrain_ckpt_type: "latest" # or "best" 
   seed: 3407
   condition: False
 
   batch_size: 32
-  mode: "train"
   milestone: 0
   device: cuda
   lr: 1e-4
@@ -121,8 +123,8 @@ Validation:
   # to calculate average overlap rate
   num_samples: 64
 
-  results_dir: "results/one-hot/uni-test-2500-filter-large"
-  fine_tune_dir: "results/one-hot/uni-test-2500-filter-large/2024-01-17-16-26-45"
+  results_dir: "results/one-hot"
+  fine_tune_dir: "results/one-hot/uni-test-2500-filter-large/2024-02-07-17-06-33-train-normal"
   
 
 Evaluation: 

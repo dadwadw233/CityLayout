@@ -1,8 +1,12 @@
 {
     "VSCodeNotion.allowEmbeds": true,
-    "editor.fontFamily": "MesloLGS NF",
+    "editor.fontFamily": "Hack Nerd Font",
     "editor.codeLensFontFamily": "MesloLGS NF",
     "debug.console.fontFamily": "MesloLGS NF",
     "editor.inlayHints.fontFamily": "MesloLGS NF",
     "terminal.integrated.fontFamily": "monospace",
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "python.analysis.enablePytestExtra": false,
+    "explorer.excludeGitIgnore": false,
+    
 }

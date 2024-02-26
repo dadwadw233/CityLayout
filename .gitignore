@@ -6,7 +6,7 @@ __pycache__/
 runs-DEBUG/
 /wandb
 wandb/
-./.vscode/
+/.vscode
 .VSCodeCounter/
 /samples
 *.geojson
@@ -16,6 +16,7 @@ codeWatcher.py
 /tensorboard
 /results
 /data
+**/.vscode
 /cache
 **/cache
 **/private

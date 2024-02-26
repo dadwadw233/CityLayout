@@ -138,8 +138,10 @@ class CityDM(object):
             self.sweep_mode = False
             INFO(f"Running in normal mode!")
         
+        
         self.timesteps = self.config_parser.get_config_by_name("Model")["diffusion"]["timesteps"]
         self.data_type = self.config_parser.get_config_by_name("Evaluation")["data_type"]
+
 
         try:
             # Init Model
@@ -156,12 +158,12 @@ class CityDM(object):
             ERROR(f"Init Model failed! {e}")
             raise e
         
-        # Init Dataset
-        main_config = self.config_parser.get_config_by_name("Main")
-
-        data_config = self.config_parser.get_config_by_name("Data")
+       
+        
 
         # init some key params:
+        main_config = self.config_parser.get_config_by_name("Main")
+        data_config = self.config_parser.get_config_by_name("Data")
         
         self.batch_size = data_config["batch_size"]
         self.num_workers = data_config["num_workers"]
@@ -185,6 +187,13 @@ class CityDM(object):
         self.mode = main_config["mode"]
         self.seed = main_config["seed"]
         self.fine_tune = main_config["fine_tune"]
+        
+        if self.fine_tune:
+            self.pretrain_model_type = main_config["pretrain_model_type"]
+            self.pretrain_ckpt_type = main_config["pretrain_ckpt_type"]
+            self.fintuning_type = main_config["fintuning_type"]
+            
+            
         if self.seed is not None:
             torch.manual_seed(self.seed)
             if torch.cuda.is_available():
@@ -248,21 +257,26 @@ class CityDM(object):
         # Validation prepare
         
         if self.mode == "train":
+            
             val_config = self.config_parser.get_config_by_name("Validation")
             self.save_best_and_latest_only = val_config["save_best_and_latest_only"]
             self.num_samples = val_config["num_samples"]
             self.results_dir = val_config["results_dir"] 
             # add time stamp to results_dir
-            if not self.fine_tune:
-                if self.accelerator.is_main_process:
-                    self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-train' + f'-{self.generation_type}'
-            else:
+            # TODO: check the finetuning type
+            if self.fine_tune and self.pretrain_model_type is self.generation_type:
                 self.results_dir = val_config["fine_tune_dir"]
+            else:
+                if self.accelerator.is_main_process:
+                    self.results_dir = os.path.join(self.results_dir, self.generation_type)
+                    self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-train'
 
             self.val_results_dir = os.path.join(self.results_dir, "val")
             self.ckpt_results_dir = os.path.join(self.results_dir, "ckpt")
             self.asset_results_dir = os.path.join(self.results_dir, "asset")
             self.sample_results_dir = os.path.join(self.results_dir, "sample")
+            
+            self.pretrain_ckpt_dir = os.path.join(val_config["fine_tune_dir"], "ckpt")
 
             if self.accelerator.is_main_process:
                 
@@ -320,7 +334,9 @@ class CityDM(object):
             # add time stamp to results_dir
             # check if results_dir exists
             
+            self.results_dir = os.path.join(self.results_dir, self.generation_type) + '-sample'
             self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-test'
+            
 
 
             self.asset_results_dir = os.path.join(self.results_dir, "asset")
@@ -398,7 +414,31 @@ class CityDM(object):
     @property
     def device(self):
         return self.accelerator.device
-    
+
+    def load_model_params(self, model_state_dict, load_type):
+        if load_type == "full":
+            self.diffusion.load_state_dict(model_state_dict)
+        elif load_type == "partial":
+            self.diffusion.load_state_dict(self.partly_load(model_state_dict))
+        elif load_type == "LoRA":
+            ERROR(f"LoRA not supported yet!")
+            raise NotImplementedError(f"LoRA not supported yet!")
+        else:
+            ERROR(f"load_type {load_type} not supported!")
+            raise ValueError(f"load_type {load_type} not supported!")
+
+    def partly_load(self, param_dict):
+        # pre-train model may not suitable for current model, so we load pre-train model's params
+        # which is suitable for current model and zero init other new params
+        
+        padded_dict = self.diffusion.state_dict()
+        for key in padded_dict.keys():
+            if key not in param_dict.keys():
+                padded_dict[key] = torch.zeros_like(padded_dict[key])
+            else:
+                padded_dict[key] = param_dict[key]
+        
+        return padded_dict
 
     def save_ckpts(self, epoch, step, best=False, latest=False):
         if self.accelerator.is_main_process:
@@ -431,22 +471,31 @@ class CityDM(object):
     
     def load_ckpts(self, ckpt_path, mode="train"):
         ckpt = torch.load(ckpt_path)
-        self.diffusion.load_state_dict(ckpt["diffusion"])
-        if mode == "train":
-            self.optimizer.load_state_dict(ckpt["optimizer"])
-            self.scheduler.load_state_dict(ckpt["scheduler"])
+        # self.diffusion.load_state_dict(ckpt["diffusion"])
+        if mode == "train": 
+            if self.pretrain_model_type == self.generation_type and self.fine_tune:
+                WARNING(f"Fine tune mode and same training type, load pretrain model's params and continue training!")
+                self.optimizer.load_state_dict(ckpt["optimizer"])
+                self.scheduler.load_state_dict(ckpt["scheduler"])
+                self.now_epoch = ckpt["epoch"]
+                self.now_step = ckpt["step"]
+                self.best_evaluation_result = ckpt["best_evaluation_result"]
+                self.seed = ckpt["seed"]
+            else:
+                INFO(f"Load ckpt from {ckpt_path} for fintunig {self.generation_type} model!")
+                INFO(f"fintuning type: {self.fintuning_type}")
+                self.load_model_params(ckpt["diffusion"], self.fintuning_type)
         
         if self.accelerator.is_main_process:
             self.ema.load_state_dict(ckpt["ema"])
-        self.best_evaluation_result = ckpt["best_evaluation_result"]
-        self.seed = ckpt["seed"]
+        
 
         INFO(f"Ckpt loaded from {ckpt_path}")
-        self.now_epoch = ckpt["epoch"]
-        self.now_step = ckpt["step"]
+        
 
         if exists(self.accelerator.scaler) and exists(ckpt['scaler']):
             self.accelerator.scaler.load_state_dict(ckpt['scaler'])
+
 
     def config_summarize(self):
         INFO(self.config_parser.get_summary())
@@ -499,8 +548,12 @@ class CityDM(object):
 
         if self.fine_tune:
             INFO(f"Fine tune mode, load ckpt from {self.ckpt_results_dir}")
-            ckpt_path = os.path.join(self.ckpt_results_dir, "latest_ckpt.pth")
+            if self.pretrain_ckpt_type == "best":
+                ckpt_path = os.path.join(self.pretrain_ckpt_dir, "best_ckpt.pth")
+            else:
+                ckpt_path = os.path.join(self.ckpt_results_dir, "latest_ckpt.pth")
             self.load_ckpts(ckpt_path, mode="train")
+            
             INFO(f"ckpt loaded!")
             INFO(f"ckpt step & epoch: {self.now_step}, {self.now_epoch}")
         else:

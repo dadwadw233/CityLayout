@@ -36,7 +36,8 @@ parser.add_argument("--eval", action="store_true", default=False)
 parser.add_argument("--best", action="store_true", default=False)
 parser.add_argument("--multigpu", action="store_true", default=False)
 parser.add_argument("--sweep", action="store_true", default=False)
-parser.add_argument("--sweep_id", type=str, default=None)
+parser.add_argument("--sweep_id", type=str, default=None, help="multi gpu for single task sweep training, \
+                    by specifying the sweep id to record the training process in the same sweep")
 
 if parser.parse_args().sweep:
     sweep_config_train = {
