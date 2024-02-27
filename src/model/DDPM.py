@@ -518,8 +518,9 @@ class GaussianDiffusion(nn.Module):
             zip(times[:-1], times[1:])
         )  # [(T-1, T-2), (T-2, T-3), ..., (1, 0), (0, -1)]
 
-        op_mask = None
-        if org is not None:
+        op_mask = mask
+        
+        if org is not None and op_mask is None:
             if self.model_type == "uniDM":
                 img = self.random_mask_image_backward(org.clone())
                 masked_org = img.clone()
@@ -530,6 +531,9 @@ class GaussianDiffusion(nn.Module):
             else:
                 img = torch.randn(shape, device=device)
                 masked_org = None
+        elif org is not None and op_mask is not None:
+            img = torch.randn(shape, device=device)
+            masked_org = org.clone()
         else:
             img = torch.randn(shape, device=device) # bchw
             masked_org = None
@@ -585,16 +589,18 @@ class GaussianDiffusion(nn.Module):
         return ret
 
     @torch.inference_mode()
-    def sample(self, batch_size=16, cond=None, return_all_timesteps=False):
+    def sample(self, batch_size=16, cond=None, return_all_timesteps=False, mask=None):
         image_size, channels = self.image_size, self.channels
         sample_fn = (
             self.p_sample_loop if not self.is_ddim_sampling else self.ddim_sample
         )
         if cond is not None:
             cond = self.normalize(cond)
+        if mask is not None:
+            mask = self.normalize(mask)
         return sample_fn(
             (batch_size, channels, image_size, image_size), cond,
-            return_all_timesteps=return_all_timesteps,
+            return_all_timesteps=return_all_timesteps, mask=mask
         )
 
     @torch.inference_mode()

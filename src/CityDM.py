@@ -790,6 +790,87 @@ class CityDM(object):
             self.save_ckpts(epoch=self.now_epoch, step=self.now_step)
 
         self.ema.ema_model.train()
+        
+    def get_op_mask(self, ratio=0.5, d='right', shape=(1, 3, 256, 256)):
+        # ratio: the ratio of the mask
+        # d: direction of the mask
+        # shape: the shape of the layout patch
+        
+        # return binary mask 1 for op region, 0 for condtion region
+        
+        b, c, h, w = shape
+        
+        mask = torch.zeros((b, c, h, w), device=self.device)
+        if d == 'left':
+            mask[:, :, :, :int(w*ratio)] = 1 
+        elif d == 'right':
+            mask[:, :, :, int(w*(1-ratio)):] = 1
+        elif d == 'up':
+            mask[:, :, :int(h*ratio), :] = 1
+        elif d == 'down':
+            mask[:, :, int(h*(1-ratio)):, :] = 1
+            
+            
+        return mask
+    
+
+    def op_handle(self, org, padding=1, ratio=0.5):
+        # extend origin layout by sliding window 
+        b,c,h,w = org.shape
+        INFO(f"start extend layout with padding {padding} and ratio {ratio}...")
+        extend_h = int(h + padding * h)
+        extend_W = int(w + padding * w)
+        
+        extend_layout = torch.zeros((b, c, extend_h, extend_W), device=self.device)
+        
+        # org settle in the left top corner
+        extend_layout[:, :, :h, :w] = org
+        plane = extend_layout.clone()
+        # slide direction: left to right; up to down
+        init = False
+        with tqdm(desc="extend layout", leave=False, colour="green") as pbar:
+            for h_l_p in range(0, int(extend_h-h*ratio), int(h*ratio)):
+                for w_l_p in range(0, int(extend_W-w*ratio), int(w*ratio)):
+                    # direction: left to right
+                    if init == False:
+                        if w_l_p+int(w*ratio) + w > extend_W:
+                            break
+                        cond_region = extend_layout[:, :, h_l_p:h_l_p+h, w_l_p+int(w*ratio):w_l_p+int(w*ratio) + w]
+                        # DEBUG(f"cond_region shape: {cond_region.shape}")
+                        op_mask = self.get_op_mask(ratio=ratio, d='right', shape=(b, c, h, w))
+                        # DEBUG(f"op_mask shape: {op_mask.shape}")
+                        # DEBUG(f"hlp: {h_l_p}, wlp: {w_l_p}")
+                        # sample from model
+                        
+                        extend_region = self.ema.ema_model.sample(batch_size=b, cond=cond_region, mask=op_mask)[:, :c, ...]
+                        
+                        extend_layout[:, :, h_l_p:h_l_p+h, w_l_p+int(w*ratio):w_l_p+int(w*ratio) + w] = extend_region
+                        
+                    
+                    else:
+                        cond_region = extend_layout[:, :, h_l_p:h_l_p+h, w_l_p:w_l_p + w]
+                        
+                        op_mask = self.get_op_mask(ratio=ratio, d='down', shape=(b, c, h, w))
+                        # DEBUG(f"hlp: {h_l_p}, wlp: {w_l_p}")
+                        extend_region = self.ema.ema_model.sample(batch_size=b, cond=cond_region, mask=op_mask)[:, :c, ...]
+                        extend_layout[:, :, h_l_p:h_l_p+h, w_l_p:w_l_p + w] = extend_region
+                    
+                    pbar.update(1)
+
+            
+                init = True
+
+                
+                
+        
+        INFO(f"extend layout done!")
+    
+        return torch.cat((extend_layout, plane), dim=1)
+                
+        
+        
+        
+        
 
     def sample(self, cond=False, eval=True, best=False):
         INFO(f"Start sampling {self.num_samples} images...")
@@ -815,26 +896,43 @@ class CityDM(object):
         
         # sample
         self.ema.ema_model.eval()
+        
         with torch.inference_mode():
+            
             batches = num_to_groups(self.num_samples, self.batch_size)
-            if cond is True:
-                # sample some real images from val_Dataloader as cond
+            
+            if self.generation_type == "Outpainting":
                 all_images = None
+                padding = self.config_parser.get_config_by_name("Test")['op']["padding"]
+                ratio = self.config_parser.get_config_by_name("Test")['op']["ratio"]
                 for b in tqdm(range(len(batches)), desc="sampling", leave=False, colour="green"):
                     cond_image = next(self.test_dataloader)["layout"].to(self.device)
+                    DEBUG(f"cond_image shape: {cond_image.shape}")
                     if all_images is None:
-                        all_images = self.ema.ema_model.sample(batch_size=batches[b], cond=cond_image)
+                        all_images = self.op_handle(cond_image, padding=padding, ratio=ratio)
                     else:
                         all_images = torch.cat(
-                            (all_images, self.ema.ema_model.sample(batch_size=batches[b], cond=cond_image)), dim=0
+                            (all_images, self.op_handle(cond_image, padding=padding, ratio=ratio)), dim=0
                         )
             else:
-                all_images = list(
-                    map(
-                        lambda n: self.ema.ema_model.sample(batch_size=n, cond=None),
-                        batches,
+                if cond is True:
+                    # sample some real images from val_Dataloader as cond
+                    all_images = None
+                    for b in tqdm(range(len(batches)), desc="sampling", leave=False, colour="green"):
+                        cond_image = next(self.test_dataloader)["layout"].to(self.device)
+                        if all_images is None:
+                            all_images = self.ema.ema_model.sample(batch_size=batches[b], cond=cond_image)
+                        else:
+                            all_images = torch.cat(
+                                (all_images, self.ema.ema_model.sample(batch_size=batches[b], cond=cond_image)), dim=0
+                            )
+                else:
+                    all_images = list(
+                        map(
+                            lambda n: self.ema.ema_model.sample(batch_size=n, cond=None),
+                            batches,
+                        )
                     )
-                )
 
             if cond is True:
                 all_images = all_images

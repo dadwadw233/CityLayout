@@ -94,7 +94,7 @@ Main:
   finetuning_type: "full" # or "partial/LoRA/ControlNet or just set to none for same objective finetuning"
   pretrain_model_type: "normal" # or "uniDM" or 'Outpainting'
   pretrain_ckpt_type: "latest" # or "best" 
-  seed: 66
+  seed: "None"
   condition: False
 
   batch_size: 8
@@ -129,10 +129,14 @@ Validation:
 Test:
   !!merge <<: *vis
   data_type: "one-hot" # or "rgb"
-  num_samples: 64
+  num_samples: 32
   results_dir: "results/one-hot"
   ckpt_results_dir: "results/one-hot/uni-test-2500-filter-large/2024-02-07-17-06-33-train-normal/ckpt"
   !!merge <<: *common
+
+  op:
+    ratio: 0.5 # outpainting mask ratio
+    padding: 1 # extend padding * ratio patch to the original image eg: org (256*256) -> (256+3*256*0.5, 256+3*256*0.5)
 
 
 Evaluation: 
