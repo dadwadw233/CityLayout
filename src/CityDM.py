@@ -193,6 +193,10 @@ class CityDM(object):
             self.pretrain_model_type = main_config["pretrain_model_type"]
             self.pretrain_ckpt_type = main_config["pretrain_ckpt_type"]
             self.finetuning_type = main_config["finetuning_type"]
+        else:
+            self.pretrain_model_type = None
+            self.pretrain_ckpt_type = None
+            self.finetuning_type = None
             
             
         if self.seed is not None:
@@ -417,7 +421,7 @@ class CityDM(object):
         return self.accelerator.device
 
     def load_model_params(self, tgt, model_state_dict, load_type):
-        if load_type == "full":
+        if load_type == "full" or load_type == None:
             tgt.load_state_dict(model_state_dict)
         elif load_type == "partial":
             tgt.load_state_dict(self.partly_load(model_state_dict))
@@ -488,10 +492,10 @@ class CityDM(object):
                 self.now_step = ckpt["step"]
                 self.best_evaluation_result = ckpt["best_evaluation_result"]
                 self.seed = ckpt["seed"]
-            else:
-                INFO(f"Load ckpt from {ckpt_path} for fintunig {self.generation_type} model!")
-                INFO(f"fintuning type: {self.finetuning_type}")
-                self.load_model_params(self.diffusion, ckpt["diffusion"], self.finetuning_type)
+        if self.fine_tune:
+            INFO(f"Load ckpt from {ckpt_path} for fintunig {self.generation_type} model!")
+            INFO(f"fintuning type: {self.finetuning_type}")
+        self.load_model_params(self.diffusion, ckpt["diffusion"], self.finetuning_type)
         
         if self.accelerator.is_main_process:
             # reinit ema

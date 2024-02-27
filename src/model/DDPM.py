@@ -40,7 +40,7 @@ from utils.utils import (
     divisible_by,
     num_to_groups,
 )
-
+from utils.log import *
 # constantsF
 
 ModelPrediction = namedtuple("ModelPrediction", ["pred_noise", "pred_x_start"])
@@ -500,7 +500,7 @@ class GaussianDiffusion(nn.Module):
         return ret
 
     @torch.inference_mode()
-    def ddim_sample(self, shape, org=None, return_all_timesteps=False):
+    def ddim_sample(self, shape, org=None, return_all_timesteps=False, mask=None):
         batch, device, total_timesteps, sampling_timesteps, eta, objective = (
             shape[0],
             self.device,
@@ -521,11 +521,12 @@ class GaussianDiffusion(nn.Module):
         op_mask = None
         if org is not None:
             if self.model_type == "uniDM":
-                img = self.random_mask_image_backward(org)
+                img = self.random_mask_image_backward(org.clone())
                 masked_org = img.clone()
             elif self.model_type == "Outpainting":
-                img, op_mask = self.random_outpainting_noise_backward(org)
+                img, op_mask = self.random_outpainting_noise_backward(org.clone())
                 masked_org = img.clone()
+                img = torch.randn(shape, device=device)
             else:
                 img = torch.randn(shape, device=device)
                 masked_org = None
@@ -541,7 +542,7 @@ class GaussianDiffusion(nn.Module):
             self_cond = x_start if self.self_condition else None
             
             pred_noise, x_start, *_ = self.model_predictions(
-                img, time_cond, self_cond, op_mask, clip_x_start=True, rederive_pred_noise=True
+                img, time_cond, self_cond, None, clip_x_start=True, rederive_pred_noise=True
             )
 
             if time_next < 0:
@@ -562,6 +563,16 @@ class GaussianDiffusion(nn.Module):
             img = x_start * alpha_next.sqrt() + c * pred_noise + sigma * noise
 
             imgs.append(img)
+            
+            # conditional sample
+            if self.model_type == "Outpainting": 
+                #DEBUG(img.shape)
+                bool_mask = ((op_mask + 1) / 2).bool()
+                cond_t = self.q_sample(org, torch.full((batch,), time_next, device=device, dtype=torch.long), noise)
+                masked_cond_t = cond_t * ~bool_mask
+                img = img * bool_mask + masked_cond_t
+                #DEBUG(img.shape)
+                
             
         
 
