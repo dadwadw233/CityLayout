@@ -374,9 +374,9 @@ class GaussianDiffusion(nn.Module):
         # 50 % percent , mask(noise) region's height or width is equal to image's height or width
         if random.random() < 0.5:
             noise_height = h
-            noise_width = random.randint(w // 8, w)
+            noise_width = random.randint(w // 3, w // 2)
         else :
-            noise_height = random.randint(h // 8, h)
+            noise_height = random.randint(h // 3, h // 2)
             noise_width = w
         
         # Define the top left corner of the noise region
@@ -742,6 +742,11 @@ class GaussianDiffusion(nn.Module):
             raise ValueError(f"unknown objective {self.objective}")
 
         loss = F.mse_loss(model_out, target, reduction="none")
+        # if op_mask is not none， then only loss in the mask == 1.0 region will have more weight
+        if op_mask is not None:
+            op_mask = (op_mask + 1) / 2
+            loss = (loss * op_mask)*5 + loss * (1 - op_mask)
+        
         loss = reduce(loss, "b ... -> b", "mean")
 
         loss = loss * extract(self.loss_weight, t, loss.shape)
