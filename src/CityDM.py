@@ -187,6 +187,7 @@ class CityDM(object):
 
         self.mode = main_config["mode"]
         self.seed = main_config["seed"]
+        
         self.fine_tune = main_config["fine_tune"]
         
         if self.fine_tune:
@@ -338,8 +339,10 @@ class CityDM(object):
                 raise ValueError(f"ckpt_results_dir {self.ckpt_results_dir} does not exist!")
             # add time stamp to results_dir
             # check if results_dir exists
+            self.sample_type = test_config["sample_type"]
+            self.sample_mode = test_config["sample_mode"]
             
-            self.results_dir = os.path.join(self.results_dir, self.generation_type) + '-sample'
+            self.results_dir = os.path.join(self.results_dir, self.sample_mode) + '-sample-' + self.sample_type
             self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-test'
             
 
@@ -347,6 +350,8 @@ class CityDM(object):
             self.asset_results_dir = os.path.join(self.results_dir, "asset")
             self.sample_results_dir = os.path.join(self.results_dir, "sample")
 
+            
+            
             os.makedirs(self.results_dir, exist_ok=True)
             os.makedirs(self.asset_results_dir, exist_ok=True)
             os.makedirs(self.sample_results_dir, exist_ok=True)
@@ -361,6 +366,7 @@ class CityDM(object):
             self.vis = OSMVisulizer(config=self.vis_config, path=self.sample_results_dir)
             self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
             INFO(f"Utils initialized!")
+            
 
 
         
@@ -492,9 +498,10 @@ class CityDM(object):
                 self.now_step = ckpt["step"]
                 self.best_evaluation_result = ckpt["best_evaluation_result"]
                 self.seed = ckpt["seed"]
-        if self.fine_tune:
+        if self.fine_tune and mode == "train":
             INFO(f"Load ckpt from {ckpt_path} for fintunig {self.generation_type} model!")
             INFO(f"fintuning type: {self.finetuning_type}")
+            
         self.load_model_params(self.diffusion, ckpt["diffusion"], self.finetuning_type)
         
         if self.accelerator.is_main_process:
@@ -837,7 +844,7 @@ class CityDM(object):
                             break
                         cond_region = extend_layout[:, :, h_l_p:h_l_p+h, w_l_p+int(w*ratio):w_l_p+int(w*ratio) + w]
                         # DEBUG(f"cond_region shape: {cond_region.shape}")
-                        op_mask = self.get_op_mask(ratio=ratio, d='right', shape=(b, c, h, w))
+                        op_mask = self.get_op_mask(ratio=ratio, d='right', shape=(b, 1, h, w))
                         # DEBUG(f"op_mask shape: {op_mask.shape}")
                         # DEBUG(f"hlp: {h_l_p}, wlp: {w_l_p}")
                         # sample from model
@@ -850,7 +857,7 @@ class CityDM(object):
                     else:
                         cond_region = extend_layout[:, :, h_l_p:h_l_p+h, w_l_p:w_l_p + w]
                         
-                        op_mask = self.get_op_mask(ratio=ratio, d='down', shape=(b, c, h, w))
+                        op_mask = self.get_op_mask(ratio=ratio, d='down', shape=(b, 1, h, w))
                         # DEBUG(f"hlp: {h_l_p}, wlp: {w_l_p}")
                         extend_region = self.ema.ema_model.sample(batch_size=b, cond=cond_region, mask=op_mask)[:, :c, ...]
                         extend_layout[:, :, h_l_p:h_l_p+h, w_l_p:w_l_p + w] = extend_region
@@ -897,11 +904,14 @@ class CityDM(object):
         # sample
         self.ema.ema_model.eval()
         
+        self.ema.ema_model.set_sample_type(self.sample_type)
+        self.ema.ema_model.set_sample_mode(self.sample_mode)
+        
         with torch.inference_mode():
             
             batches = num_to_groups(self.num_samples, self.batch_size)
             
-            if self.generation_type == "Outpainting":
+            if self.sample_mode == "Outpainting":
                 all_images = None
                 padding = self.config_parser.get_config_by_name("Test")['op']["padding"]
                 ratio = self.config_parser.get_config_by_name("Test")['op']["ratio"]

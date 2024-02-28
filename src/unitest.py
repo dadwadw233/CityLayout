@@ -28,7 +28,7 @@ def train_accelerate():
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--path", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/outpaintinng_train.yaml")
-parser.add_argument("--path_sample", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/outpaintinng_sample.yaml")
+parser.add_argument("--path_sample", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/outpainting_sample.yaml")
 parser.add_argument("--sample", action="store_true", default=False)
 parser.add_argument("--train", action="store_true", default=False)
 parser.add_argument("--cond", action="store_true", default=False)
