@@ -641,6 +641,8 @@ class GaussianDiffusion(nn.Module):
         sample_fn = (
             self.p_sample_loop if not self.is_ddim_sampling else self.ddim_sample
         )
+        DEBUG(f"sample mode: {self.sample_mode}")
+        DEBUG(f"sample type: {self.sample_type}")
         if cond is not None:
             cond = self.normalize(cond)
         if mask is not None:

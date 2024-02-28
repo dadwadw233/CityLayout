@@ -268,6 +268,10 @@ class CityDM(object):
             self.save_best_and_latest_only = val_config["save_best_and_latest_only"]
             self.num_samples = val_config["num_samples"]
             self.results_dir = val_config["results_dir"] 
+            self.sample_type = val_config["sample_type"]
+            self.sample_mode = val_config["sample_mode"]
+            
+            
             # add time stamp to results_dir
             # TODO: check the finetuning type
             if self.fine_tune and self.pretrain_model_type is self.generation_type:
@@ -275,7 +279,7 @@ class CityDM(object):
             else:
                 if self.accelerator.is_main_process:
                     self.results_dir = os.path.join(self.results_dir, self.generation_type)
-                    self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-train'
+                    self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-train-' + self.sample_type
 
             self.val_results_dir = os.path.join(self.results_dir, "val")
             self.ckpt_results_dir = os.path.join(self.results_dir, "ckpt")
@@ -304,6 +308,9 @@ class CityDM(object):
                 self.vis = OSMVisulizer(config=self.vis_config, path=self.val_results_dir)
                 self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
                 INFO(f"Utils initialized!")
+                
+                self.ema.ema_model.set_sample_type(self.sample_type)
+                self.ema.ema_model.set_sample_mode(self.sample_mode)
 
             # Init Optimizer
             if self.opt_type == "adam":
@@ -341,7 +348,7 @@ class CityDM(object):
             # check if results_dir exists
             self.sample_type = test_config["sample_type"]
             self.sample_mode = test_config["sample_mode"]
-            
+
             self.results_dir = os.path.join(self.results_dir, self.sample_mode) + '-sample-' + self.sample_type
             self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-test'
             
@@ -509,7 +516,9 @@ class CityDM(object):
             self.ema = EMA(self.diffusion, beta=self.ema_decay, update_every=self.ema_update_every)
             self.ema.to(self.device)
             INFO(f"EMA reinitialized!")
-            
+        
+        self.ema.ema_model.set_sample_type(self.sample_type)
+        self.ema.ema_model.set_sample_mode(self.sample_mode)    
         
 
         INFO(f"Ckpt loaded from {ckpt_path}")
@@ -566,6 +575,8 @@ class CityDM(object):
                     self.results_dir,
                 )
                 writer = SummaryWriter(log_dir=f"runs-DEBUG/{experiment_title}")
+        else:
+            writer = None
 
         if isinstance(self.diffusion, nn.DataParallel) or self.ddp: # if model is wrapped by DataParallel, unwrap it
             DEBUG(f"Model is wrapped by DataParallel, unwrap it!")
@@ -648,7 +659,6 @@ class CityDM(object):
                             if self.generation_type == "uniDM":
                                 self.validation(writer, cond=False)
                                 INFO(f"Validation done!")
-                                
                                 self.validation(writer, cond=True)
                                 INFO(f"Validation with cond done!")
                             elif self.generation_type == "Outpainting":
@@ -665,7 +675,6 @@ class CityDM(object):
                     wandb.finish()
                     writer.close()
                 self.accelerator.print("training complete")
-                writer.close()
         except Exception as e:
             ERROR(f"Training failed! {e}")
             # log traceback
@@ -681,7 +690,6 @@ class CityDM(object):
             wandb_key = "val_cond"
         else:
             wandb_key = "val"
-
         
         with torch.inference_mode():
             milestone = self.now_step // self.sample_frequency
