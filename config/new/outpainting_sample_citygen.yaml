@@ -81,8 +81,8 @@ Model:
     timesteps: 2500
     sampling_timesteps: 50
     image_size: 256
-    objective: "pred_v"
-    beta_schedule: "cosine"
+    objective: "pred_x0"
+    beta_schedule: "sigmoid"
     ddim_sampling_eta: 0.0
     auto_normalize: True
     offset_noise_strength: 0.0
@@ -134,7 +134,7 @@ Test:
   data_type: "one-hot" # or "rgb"
   num_samples: 8
   results_dir: "results/one-hot"
-  ckpt_results_dir: "results/one-hot/Outpainting/2024-02-28-18-55-18-train-CityGen/ckpt"
+  ckpt_results_dir: "results/one-hot/Outpainting/2024-02-29-13-48-19-train-CityGen/ckpt"
   !!merge <<: *common
 
   sample_type: "CityGen" # only for outpainting mode

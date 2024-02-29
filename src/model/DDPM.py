@@ -618,7 +618,7 @@ class GaussianDiffusion(nn.Module):
             # conditional sample
             if self.sample_mode == "Outpainting" and self.sample_type == "Repaint": 
                 #DEBUG(img.shape)
-                DEBUG("Repaint sample mode")
+                # DEBUG("Repaint sample mode")
                 bool_mask = ((op_mask + 1) / 2).bool()
                 cond_t = self.q_sample(org, torch.full((batch,), time_next, device=device, dtype=torch.long), noise)
                 masked_cond_t = cond_t * ~bool_mask
