@@ -134,7 +134,7 @@ Test:
   data_type: "one-hot" # or "rgb"
   num_samples: 8
   results_dir: "results/one-hot"
-  ckpt_results_dir: "results/one-hot/Outpainting/2024-02-26-15-57-53-train/ckpt"
+  ckpt_results_dir: "results/one-hot/Outpainting/2024-02-28-18-55-18-train-CityGen/ckpt"
   !!merge <<: *common
 
   sample_type: "CityGen" # only for outpainting mode

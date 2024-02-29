@@ -79,7 +79,7 @@ Model:
     timesteps: 2500
     sampling_timesteps: 50
     image_size: 256
-    objective: "pred_v"
+    objective: "pred_x0"
     beta_schedule: "sigmoid"
     ddim_sampling_eta: 0.0
     auto_normalize: True
@@ -101,8 +101,8 @@ Main:
   batch_size: 32
   milestone: 0
   device: cuda
-  lr: 1e-4
-  max_epochs: 150
+  lr: 1e-5
+  max_epochs: 50
   num_workers: 16
 
 
