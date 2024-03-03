@@ -79,7 +79,7 @@ Model:
     timesteps: 2500
     sampling_timesteps: 50
     image_size: 256
-    objective: "pred_x0"
+    objective: "pred_noise"
     beta_schedule: "sigmoid"
     ddim_sampling_eta: 0.0
     auto_normalize: True
@@ -113,7 +113,7 @@ Main:
   scheduler: "cosine" # or "step"
   adam_betas: [0.9, 0.999]
 
-  sample_frequency: 2000
+  sample_frequency: 2
   grad_accumulate: 4
   
   max_grad_norm: 1.

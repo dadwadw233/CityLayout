@@ -210,7 +210,8 @@ class Evaluation:
         # DEBUG(f"sample real data")
         real_samples = next(self.dl)['layout']
         # DEBUG(f"real samples shape: {real_samples.shape}")
-        self.data_analyser.add_data(real_samples, fake=False)
+        if 'data_analysis' in self.metrics_list:
+            elf.data_analyser.add_data(real_samples, fake=False)
         
         if self.data_type == "one-hot":
             # DEBUG(f"real samples shape: {real_samples.shape}")
@@ -230,7 +231,8 @@ class Evaluation:
             fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=None)
 
         # DEBUG(f"fake samples shape: {fake_samples.shape}")
-        self.data_analyser.add_data(fake_samples, fake=True)
+        if 'data_analysis' in self.metrics_list:
+            self.data_analyser.add_data(fake_samples, fake=True)
         if self.data_type == "one-hot":
             fake_samples = self.vis.onehot_to_rgb(fake_samples)
         

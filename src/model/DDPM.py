@@ -576,6 +576,7 @@ class GaussianDiffusion(nn.Module):
 
         op_mask = mask
         
+        
         img, org, op_mask = self.get_sample_input(shape, org, mask)
             
         imgs = [img]
@@ -629,7 +630,7 @@ class GaussianDiffusion(nn.Module):
         
 
         ret = img if not return_all_timesteps else torch.stack(imgs, dim=1)
-        if not return_all_timesteps and org is not None:
+        if not return_all_timesteps and self.sample_mode != 'normal': 
             ret = torch.cat((ret, org), dim=1)
             if op_mask is not None:
                 ret = torch.cat((ret, op_mask), dim=1)
