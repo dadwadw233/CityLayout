@@ -585,9 +585,6 @@ class GaussianDiffusion(nn.Module):
                 bool_mask = ((op_mask + 1) / 2).bool()
                 
                 cond = torch.concat((self.normalize((self.unnormalize(org)) * ~bool_mask), op_mask), dim=1)
-                DEBUG(cond.shape)
-                DEBUG(img.shape)
-                
                 pred_noise, x_start, *_ = self.model_predictions(
                     img, time_cond, self_cond, cond, clip_x_start=True, rederive_pred_noise=True
                 )

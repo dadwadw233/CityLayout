@@ -115,7 +115,7 @@ Main:
   scheduler: "cosine" # or "step"
   adam_betas: [0.9, 0.999]
 
-  sample_frequency: 1
+  sample_frequency: 500
   grad_accumulate: 4
   
   max_grad_norm: 1.
