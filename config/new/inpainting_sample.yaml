@@ -79,7 +79,7 @@ Model:
 
   diffusion:
     timesteps: 2500
-    sampling_timesteps: 50
+    sampling_timesteps: 100
     image_size: 256
     objective: "pred_v"
     beta_schedule: "linear"
@@ -132,13 +132,13 @@ Validation:
 Test:
   !!merge <<: *vis
   data_type: "one-hot" # or "rgb"
-  num_samples: 8
+  num_samples: 64
   results_dir: "results/one-hot"
   ckpt_results_dir: "results/one-hot/uni-test-2500-filter-large/2024-02-07-17-06-33-train-normal/ckpt"
   !!merge <<: *common
 
   sample_type: "Repaint" # only for outpainting mode
-  sample_mode: "Outpainting" # "Inpainting" or "normal" or "Outpainting"
+  sample_mode: "Inpainting" # "Inpainting" or "normal" or "Outpainting"
 
   op:
     ratio: 0.5 # outpainting mask ratio

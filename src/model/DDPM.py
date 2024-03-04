@@ -528,14 +528,10 @@ class GaussianDiffusion(nn.Module):
         batch, device = shape[0], self.device
         if self.sample_mode == "uniDM":
             raise ValueError("uniDM model has been deprecated")
-        elif self.sample_mode == "Outpainting":
-            if org is None:
-                # no condition supplied, generate random noise (normal mode)
-                WARNING("no condition supplied, generate random noise")
+        elif self.sample_mode == "Outpainting" or self.sample_mode == "Inpainting":
+            if self.sample_type == "Repaint":
                 img = torch.randn(shape, device=device)
-                org = img.clone()
-            else:
-                img = org.clone()
+                
             
             if self.sample_type == "CityGen":
                 # diffusion input : masked image wioth standard gaussian noise
@@ -575,6 +571,8 @@ class GaussianDiffusion(nn.Module):
         )  # [(T-1, T-2), (T-2, T-3), ..., (1, 0), (0, -1)]
 
         op_mask = mask
+        
+        # org: conditional image
         
         
         img, org, op_mask = self.get_sample_input(shape, org, mask)
@@ -617,7 +615,7 @@ class GaussianDiffusion(nn.Module):
             imgs.append(img)
             
             # conditional sample
-            if self.sample_mode == "Outpainting" and self.sample_type == "Repaint": 
+            if (self.sample_mode == "Outpainting" or self.sample_mode == "Inpainting") and self.sample_type == "Repaint": 
                 #DEBUG(img.shape)
                 # DEBUG("Repaint sample mode")
                 bool_mask = ((op_mask + 1) / 2).bool()
@@ -631,9 +629,14 @@ class GaussianDiffusion(nn.Module):
 
         ret = img if not return_all_timesteps else torch.stack(imgs, dim=1)
         if not return_all_timesteps and self.sample_mode != 'normal': 
-            ret = torch.cat((ret, org), dim=1)
+            
             if op_mask is not None:
-                ret = torch.cat((ret, op_mask), dim=1)
+                bool_mask = ((op_mask + 1) / 2).bool()
+                ret = torch.cat((ret, (self.unnormalize(org) * ~bool_mask)), dim=1)
+                # ret = torch.cat((ret, op_mask), dim=1)
+                # ret = torch.cat((ret, imgs[imgs.__len__() // 2]), dim=1)
+            else:
+                ret = torch.cat((ret, org), dim=1)
         ret = self.unnormalize(ret)
         return ret
 

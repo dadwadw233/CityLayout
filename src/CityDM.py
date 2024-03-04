@@ -881,7 +881,60 @@ class CityDM(object):
         INFO(f"extend layout done!")
     
         return torch.cat((extend_layout, plane), dim=1)
+    
+    def get_inpaint_mask(self, shape=(1, 3, 256, 256), bbox=None):
+        # shape: the shape of the layout patch
+        # bbox: the bbox of the inp region : shape (b, 4) (x1, y1, x2, y2)
+        
+        # return binary mask 1 for inp region, 0 for condtion region
+        
+        # if bbox is None, then random generate a bbox
+        
+        b, c, h, w = shape
+        
+        if bbox is None:
+            bbox = torch.zeros((b, 4), device=self.device)
+            
+            # use same bbox for all batch
+            x1 = torch.randint(0, w//2, (1,)).item()
+            y1 = torch.randint(0, h//2, (1,)).item()
+            x2 = torch.randint(w//2, w, (1,)).item()
+            y2 = torch.randint(h//2, h, (1,)).item()
+            
+            bbox[:, 0] = x1
+            bbox[:, 1] = y1
+            bbox[:, 2] = x2
+            bbox[:, 3] = y2
+            
+        else:
+            # check the bbox region range 
+            if (bbox[:, 0] < 0).any() or (bbox[:, 1] < 0).any() or (bbox[:, 2] > w).any() or (bbox[:, 3] > h).any():
+                WARNING(f"bbox region out of range, reset bbox to None!")
+                # clip the bbox region
+                bbox[:, 0] = torch.clip(bbox[:, 0], 0, w)
+                bbox[:, 1] = torch.clip(bbox[:, 1], 0, h)
+                bbox[:, 2] = torch.clip(bbox[:, 2], 0, w)
+                bbox[:, 3] = torch.clip(bbox[:, 3], 0, h)
                 
+        
+            
+        mask = torch.ones((b, c, h, w), device=self.device)
+        for i in range(b):
+            mask[i, :, bbox[i, 1].int():bbox[i, 3].int(), bbox[i, 0].int():bbox[i, 2].int()] = 0 # condition region
+            
+            
+        return mask    
+
+    def inp_handle(self, org, bbox=None):
+        # handle inpainting situation
+        # org: the original layout
+        # bbox: the bbox of the inp region : shape (b, 4) (x1, y1, x2, y2)
+        
+        mask = self.get_inpaint_mask(shape=org.shape, bbox=bbox)
+        
+        return self.ema.ema_model.sample(batch_size=org.shape[0], cond=org, mask=mask)
+        
+
         
         
         
@@ -923,15 +976,28 @@ class CityDM(object):
                 all_images = None
                 padding = self.config_parser.get_config_by_name("Test")['op']["padding"]
                 ratio = self.config_parser.get_config_by_name("Test")['op']["ratio"]
-                for b in tqdm(range(len(batches)), desc="sampling", leave=False, colour="green"):
+                for b in tqdm(range(len(batches)), desc="outpainting sampling", leave=False, colour="green"):
                     cond_image = next(self.test_dataloader)["layout"].to(self.device)
-                    DEBUG(f"cond_image shape: {cond_image.shape}")
+                    # DEBUG(f"cond_image shape: {cond_image.shape}")
                     if all_images is None:
                         all_images = self.op_handle(cond_image, padding=padding, ratio=ratio)
                     else:
                         all_images = torch.cat(
                             (all_images, self.op_handle(cond_image, padding=padding, ratio=ratio)), dim=0
                         )
+                        
+            elif self.sample_mode == "Inpainting":
+                all_images = None
+                for b in tqdm(range(len(batches)), desc="inpaiting sampling", leave=False, colour="green"):
+                    cond_image = next(self.test_dataloader)["layout"].to(self.device)
+                    # DEBUG(f"cond_image shape: {cond_image.shape}")
+                    if all_images is None:
+                        all_images = self.inp_handle(cond_image)
+                    else:
+                        all_images = torch.cat(
+                            (all_images, self.inp_handle(cond_image)), dim=0
+                        )
+                
             else:
                 if cond is True:
                     # sample some real images from val_Dataloader as cond
