@@ -88,7 +88,7 @@ Model:
     offset_noise_strength: 0.0
     min_snr_gamma: 5
     min_snr_loss_weight: False
-    model_type: "Outpainting" # or "uniDM" or 'Outpainting'
+    model_type: "Inpainting" # or "uniDM" or 'Outpainting'
 
 Main:
   mode: "test"
@@ -138,7 +138,7 @@ Test:
   !!merge <<: *common
 
   sample_type: "CityGen" # only for outpainting mode
-  sample_mode: "Outpainting" # "Inpainting" or "normal" or "Outpainting"
+  sample_mode: "Inpainting" # "Inpainting" or "normal" or "Outpainting"
 
   op:
     ratio: 0.5 # outpainting mask ratio

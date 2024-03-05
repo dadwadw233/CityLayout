@@ -137,7 +137,7 @@ class CityDM(object):
                 self.accelerator.wait_for_everyone()
         else:
             self.sweep_mode = False
-            INFO(f"Running in normal mode!")
+            INFO(f"Running in normal mode without sweep!")
         
         
         self.timesteps = self.config_parser.get_config_by_name("Model")["diffusion"]["timesteps"]
@@ -918,7 +918,7 @@ class CityDM(object):
                 
         
             
-        mask = torch.ones((b, c, h, w), device=self.device)
+        mask = torch.ones((b, 1, h, w), device=self.device)
         for i in range(b):
             mask[i, :, bbox[i, 1].int():bbox[i, 3].int(), bbox[i, 0].int():bbox[i, 2].int()] = 0 # condition region
             
