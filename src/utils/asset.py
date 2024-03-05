@@ -13,6 +13,7 @@ from utils.log import *
 from utils.config import ConfigParser
 import torch
 from tqdm import tqdm
+from utils.log import *
 
 
 class AssetGen:
@@ -233,6 +234,58 @@ class Vectorizer:
     def __call__(self, data):
         return self.vectorize(data)
 
+    def merge_lines(self, lines, threshold_rho=5, threshold_theta=np.pi / 36):
+        """
+        合并相似的直线。
+        :param lines: 检测到的线段数组，形式为 (x1, y1, x2, y2)。
+        :param threshold_rho: 合并线段时的 rho 阈值。
+        :param threshold_theta: 合并线段时的 theta 阈值。
+        :return: 合并后的线段列表。
+        """
+        if lines is None:
+            return []
+
+        # 将直线端点转换为 (rho, theta)
+        lines_polar = []
+        for line in lines:
+            x1, y1, x2, y2 = line[0]
+            theta = np.arctan2(y2 - y1, x2 - x1)
+            rho = x1 * np.cos(theta) + y1 * np.sin(theta)
+            lines_polar.append((rho, theta))
+
+        # 合并相似的线段
+        merged_lines = []
+        for rho, theta in lines_polar:
+            # 查找一个已经存在的线段组，这个线段可以合并进去
+            found = False
+            for group in merged_lines:
+                rho_m, theta_m, count = group
+                if abs(rho - rho_m) < threshold_rho and abs(theta - theta_m) < threshold_theta:
+                    # 更新组的平均值
+                    rho_m = (rho_m * count + rho) / (count + 1)
+                    theta_m = (theta_m * count + theta) / (count + 1)
+                    group = (rho_m, theta_m, count + 1)
+                    found = True
+                    break
+            if not found:
+                # 如果没有找到相似的线段，创建一个新的组
+                merged_lines.append((rho, theta, 1))
+
+        # 转换回 (x1, y1, x2, y2) 形式的直线
+        merged_lines_cartesian = []
+        for rho, theta, _ in merged_lines:
+            a = np.cos(theta)
+            b = np.sin(theta)
+            x0 = a * rho
+            y0 = b * rho
+            x1 = int(x0 + 1000 * (-b))
+            y1 = int(y0 + 1000 * (a))
+            x2 = int(x0 - 1000 * (-b))
+            y2 = int(y0 - 1000 * (a))
+            merged_lines_cartesian.append([x1, y1, x2, y2])
+
+        return merged_lines_cartesian
+
     def get_points_set(self, img, data_type):
         h, w = img.shape
 
@@ -246,19 +299,20 @@ class Vectorizer:
             # dilated = cv2.dilate(edges, None, iterations=1)
             # eroded = cv2.erode(dilated, None, iterations=1)
 
-            # cv2.imwrite('./canny.png', eroded)
-            lines = cv2.HoughLinesP(
-                image, 5, (np.pi / 180), 10, minLineLength=1, maxLineGap=10
+            # 轮廓检测
+            contours, _ = cv2.findContours(
+                image, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
             )
-            show = np.zeros_like(image)
-            if lines is not None:
-                for line in lines:
-                    x1, y1, x2, y2 = line[0]
-                    start = (x1, y1)
-                    end = (x2, y2)
-                    # cv2.line(show, (x1, y1), (x2, y2), (255, 0, 0), 1)
-                    pts.append([start, end])
 
+            # 每个轮廓都是一个线段
+            for contour in contours:
+                if contour.shape[0] < 2:
+                    continue
+                else:
+                    line = []
+                for c_pts in contour:
+                    line.append((c_pts[0][0], c_pts[0][1]))
+                pts.append(line)
             return pts
 
         elif data_type == "Polygon":
@@ -289,8 +343,6 @@ class Vectorizer:
                     if approx[-1][0] != approx[0][0] or approx[-1][1] != approx[0][1]:
                         approx = np.concatenate((approx, approx[0:1, :]), axis=0)
                     pts.append(approx.tolist())
-
-        
 
             return pts
         
@@ -361,6 +413,8 @@ class Vectorizer:
                 pts = self.get_points_set(
                     img[b_id, c_id, :, :], self.channel_to_geo[c_id]
                 )
+                if pts is None:
+                    continue
                 for pt in pts:
                     if self.channel_to_geo[c_id] == "LineString":
                         self.geojson_builder_c.add_line(
