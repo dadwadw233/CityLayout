@@ -530,8 +530,9 @@ class GaussianDiffusion(nn.Module):
             if self.sample_type == "CityGen":
                 # diffusion input : masked image wioth standard gaussian noise
                 #DEBUG(self.sample_type)
-                if self.sample_mode == "Outpainting":
+                if self.sample_mode == "Outpainting" or self.sample_mode == "Inpainting":
                     img, mask = self.random_outpainting_noise_backward(org.clone(), mask)
+                
                 
                 img = torch.randn(org.shape, device=device)
             else:
@@ -571,8 +572,11 @@ class GaussianDiffusion(nn.Module):
         
         # org: conditional image
         
-        
+        # DEBUG(f"sample mode: {self.sample_mode}")
+        # DEBUG(f"sample type: {self.sample_type}")
+        # DEBUG(f"mask: {mask}")
         img, org, op_mask = self.get_sample_input(shape, org, mask)
+        # DEBUG(f"mask: {mask}")
             
         imgs = [img]
 

@@ -1071,6 +1071,7 @@ class CityDM(object):
             result = None
             if eval:
                 try:
+                    self.evaluation.reset_sampler(self.ema.ema_model)
                     self.evaluation.validation(cond, os.path.join(self.sample_results_dir, "data_analyse"))
                     result = self.evaluation.get_evaluation_dict()
                     # write evaluation to file

@@ -124,6 +124,10 @@ class Evaluation:
         self.evaluate_dict = {}
 
         self.condition = False
+        
+    def reset_sampler(self, sampler):
+        INFO(f"Reset sampler")
+        self.sampler = sampler
 
 
     @torch.inference_mode()
@@ -211,7 +215,7 @@ class Evaluation:
         real_samples = next(self.dl)['layout']
         # DEBUG(f"real samples shape: {real_samples.shape}")
         if 'data_analysis' in self.metrics_list:
-            elf.data_analyser.add_data(real_samples, fake=False)
+            self.data_analyser.add_data(real_samples, fake=False)
         
         if self.data_type == "one-hot":
             # DEBUG(f"real samples shape: {real_samples.shape}")

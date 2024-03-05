@@ -142,7 +142,7 @@ Test:
 
   op:
     ratio: 0.5 # outpainting mask ratio
-    padding: 3 # extend padding * ratio patch to the original image eg: org (256*256) -> (256+3*256*0.5, 256+3*256*0.5)
+    padding: 1 # extend padding * ratio patch to the original image eg: org (256*256) -> (256+3*256*0.5, 256+3*256*0.5)
 
 Evaluation: 
   !!merge <<: *vis
@@ -155,7 +155,7 @@ Evaluation:
   num_fid_samples: 64
   # [64, 128, 768, 2048] can be used, but 2048 is FID calculation's standard value which is recommended
   inception_block_idx: 64
-  types: ["overlap"]
+  types: ["overlap", "fid", "is", "kid"]
   cluster_threshold: 0.9
   evaluate_data_limit: 20480
   !!merge <<: *common
