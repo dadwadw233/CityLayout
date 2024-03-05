@@ -153,7 +153,6 @@ class Evaluation:
         
         self.data_analyser.release_data()
 
-    
     @torch.inference_mode()
     def set_condtion(self, condition):
         self.condition = condition
@@ -311,6 +310,14 @@ class Evaluation:
                         self.IS_caluculator.update(fake_samples)
                     if 'clip' in self.metrics_list:
                         self.multimodal_evaluation(real_samples, fake_samples)
+
+                    if self.condition:
+                        condition_sample = self.vis.onehot_to_rgb(cond)
+                        if 'lpips' in self.metrics_list:
+                            self.LPIPS_calculator.update(fake_samples, condition_sample)
+                        if 'ssim' in self.metrics_list:
+                            self.SSIM_calculator.update(fake_samples, condition_sample)
+
             except Exception as e:
                 ERROR(f"Error when evaluating images: {e}")
                 raise e
@@ -355,6 +362,14 @@ class Evaluation:
                 # DEBUG(f"Start calculating data analysis")
                 real_vs_fake = self.data_analyser.contrast_analyse(path, self.condition)
                 self.evaluate_dict['real_vs_fake'] = real_vs_fake
+
+            if 'lpips' in self.metrics_list:
+                self.evaluate_dict['LPIPS'] = self.LPIPS_calculator.compute().item()
+
+            if 'ssim' in self.metrics_list:
+                self.evaluate_dict["SSIM"] = self.SSIM_calculator.compute().item()
+
+
             
             # reset metrics and release CUDA memory
             INFO(f"Finish evaluating images\nReset metrics and release CUDA memory")

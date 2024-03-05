@@ -29,17 +29,17 @@ def discretize_data(data, bin_width):
     # 确定数据的最小值和最大值
     min_val = min(data)
     max_val = max(data)
-    
+
     # 根据步长创建区间边界
     bins = np.arange(min_val, max_val + bin_width, bin_width)
-    
+
     # 使用histogram函数离散化数据
     histogram, bin_edges = np.histogram(data, bins=bins)
-    
+
     # 找出频率最高的区间
     max_freq_index = np.argmax(histogram)
     mode_bin = bin_edges[max_freq_index], bin_edges[max_freq_index + 1]
-    
+
     return mode_bin, histogram[max_freq_index]
 
 
@@ -54,8 +54,7 @@ def data_spliter(data, data_names, _bin, train_ratio=0.9, test_ratio=0.05, val_r
 
     # assert len(data) == len(data_names)
 
-    DEBUG ("data len: {}, data names len: {}".format(len(data), len(data_names)))
-
+    DEBUG("data len: {}, data names len: {}".format(len(data), len(data_names)))
 
     for i in range(len(data)):
         bin_index = min(int(data[i] // _bin), bins_len - 1)
@@ -85,12 +84,7 @@ def data_spliter(data, data_names, _bin, train_ratio=0.9, test_ratio=0.05, val_r
         json.dump(val, f)
 
     return train, test, val
-        
-        
 
-
-    
-    
 
 if __name__ == "__main__":
     device = "cpu"
@@ -103,7 +97,6 @@ if __name__ == "__main__":
     trainer_config = load_config(
         "/home/admin/workspace/yuyuanhong/code/CityLayout/config/train/osm_generator.yaml"
     )
-
 
     ds = OSMDataset(config=ds_config)
 
@@ -129,10 +122,7 @@ if __name__ == "__main__":
         data = next(dl)
         handle.add_data(data['layout'])
         data_names.append(data['name'][0])
-        
-       
-    
+
     # handle.contrast_analyse()
     handle.analyse()
     # data_spliter(handle.get_data_dict(False), data_names, _bin=0.01, train_ratio=0.9, test_ratio=0.05, val_ratio=0.05)
-        
