@@ -16,6 +16,7 @@ codeWatcher.py
 /tensorboard
 /results
 /data
+**/.idea
 **/.vscode
 /cache
 **/cache
