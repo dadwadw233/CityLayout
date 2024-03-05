@@ -725,8 +725,6 @@ class GaussianDiffusion(nn.Module):
         # TODO: visualize for debug
         
 
-
-
         # if doing self-conditioning, 50% of the time, predict x_start from current set of times
         # and condition with unet with that
         # this technique will slow down training by 25%, but seems to lower FID significantly
