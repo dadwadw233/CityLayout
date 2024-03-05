@@ -7,7 +7,7 @@ import torch
 import torch.distributed as dist
 from utils.log import *
 from copy import deepcopy
-
+from utils.config import ConfigParser
 # define global variables
 accelerator = None
 sweep_id = None
@@ -29,6 +29,8 @@ def train_accelerate():
 parser = argparse.ArgumentParser()
 parser.add_argument("--path", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/outpainting_train.yaml")
 parser.add_argument("--path_sample", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/inpainting_sample_citygen.yaml")
+parser.add_argument("--config_manager", type=str, default="./config/config_manage.yaml")
+parser.add_argument("--config_prefix", type=str, default="op_sample")
 parser.add_argument("--sample", action="store_true", default=False)
 parser.add_argument("--train", action="store_true", default=False)
 parser.add_argument("--cond", action="store_true", default=False)
@@ -81,6 +83,15 @@ else:
 
 path = parser.parse_args().path
 sample_path = parser.parse_args().path_sample
+
+if parser.parse_args().config_manager is not None:
+    config_manager = ConfigParser(parser.parse_args().config_manager)
+
+    if parser.parse_args().config_prefix is not None:
+        if parser.parse_args().sample:
+            sample_path = config_manager.get_config_by_name("sample")[parser.parse_args().config_prefix]
+        else:
+            path = config_manager.get_config_by_name("train")[parser.parse_args().config_prefix]
 
 if not parser.parse_args().sweep:
     if parser.parse_args().sample:
