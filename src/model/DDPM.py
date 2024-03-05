@@ -1,7 +1,7 @@
 import math
 import copy
 from pathlib import Path
-from random import random
+import random
 from functools import partial
 from collections import namedtuple
 from multiprocessing import cpu_count
@@ -26,7 +26,7 @@ from ema_pytorch import EMA
 from accelerate import Accelerator
 
 from utils.fid_evaluation import FIDEvaluation
-
+from itertools import combinations
 from .version import __version__
 from utils.utils import (
     cycle,
@@ -40,7 +40,7 @@ from utils.utils import (
     divisible_by,
     num_to_groups,
 )
-
+from utils.log import *
 # constantsF
 
 ModelPrediction = namedtuple("ModelPrediction", ["pred_noise", "pred_x_start"])
@@ -114,13 +114,15 @@ class GaussianDiffusion(nn.Module):
         offset_noise_strength=0.0,  # https://www.crosslabs.org/blog/diffusion-with-offset-noise
         min_snr_loss_weight=False,  # https://arxiv.org/abs/2303.09556
         min_snr_gamma=5,
+        model_type="uniDM", # or "Outpainting"
     ):
         super().__init__()
-        assert not (type(self) == GaussianDiffusion and model.channels != model.out_dim)
+        
         assert not model.random_or_learned_sinusoidal_cond
-
+        self.sample_mode = "normal"
+        self.sample_type = "CityGen"
         self.model = model
-
+        self.model_type = model_type
         self.channels = self.model.channels
         self.self_condition = self.model.self_condition
 
@@ -236,6 +238,28 @@ class GaussianDiffusion(nn.Module):
         self.normalize = normalize_to_neg_one_to_one if auto_normalize else identity
         self.unnormalize = unnormalize_to_zero_to_one if auto_normalize else identity
 
+        self.combinations = self.generate_all_channel_combinations(self.channels)
+        # print("all channel combinations: ", self.combinations)
+        
+        
+        
+    def set_sample_type(self, sample_type):
+        self.sample_type = sample_type
+        INFO(f"set sample type to {self.sample_type}")
+    
+    def set_sample_mode(self, sample_mode):
+        self.sample_mode = sample_mode
+        INFO(f"set sample mode to {self.sample_mode}")
+
+    def generate_all_channel_combinations(self, num_channels):
+        # 生成所有可能的通道组合
+        all_combinations = []
+        for r in range(num_channels + 1):
+            if r == 0:
+                continue
+            all_combinations.extend(combinations(range(num_channels), r))
+        return all_combinations
+
     @property
     def device(self):
         return self.betas.device
@@ -275,10 +299,13 @@ class GaussianDiffusion(nn.Module):
         return posterior_mean, posterior_variance, posterior_log_variance_clipped
 
     def model_predictions(
-        self, x, t, x_self_cond=None, clip_x_start=False, rederive_pred_noise=False
+        self, x, t, x_self_cond=None, op_mask=None, clip_x_start=False, rederive_pred_noise=False
     ):
-        
-        model_output = self.model(x, t, x_self_cond)
+        if op_mask is not None:
+            model_input = torch.cat((x, op_mask), dim=1)
+            model_output = self.model(model_input, t, x_self_cond)
+        else:
+            model_output = self.model(x, t, x_self_cond)
 
         maybe_clip = (
             partial(torch.clamp, min=-1.0, max=1.0) if clip_x_start else identity
@@ -323,32 +350,136 @@ class GaussianDiffusion(nn.Module):
         
         noise = torch.zeros_like(image, device=self.device)
 
-        noise_channel_num = torch.randint(0, c, (1,))
-        # random select noise_channel_num channels to add noise
+        # 👇 maybe image in the batch have different conditional channel will lead to better performance
+        # combinations_idx = torch.randint(0, len(self.combinations), (1,))
 
-        # first select noise_channel_num channels
+        combinations_idx = torch.randint(0, len(self.combinations), (b,))
+        # combinations_idx shape : (b,)
 
-        noise_channel_idx = torch.randperm(c)[:noise_channel_num]
-
-        # then add noise to these channels
-        noise[:, noise_channel_idx, :, :] = torch.randn_like(image[:, noise_channel_idx, :, :])
+        # then replace these channels with noise
+        
+        for i in range(b):
+            noise[i, self.combinations[combinations_idx[i]], :, :] = torch.randn_like(image[i, self.combinations[combinations_idx[i]], :, :])
 
         return noise
+    
+    def get_random_outpainting_mask_forward(self, image):
+        # crop some continue region from image and add noise
+        b, c, h, w = image.shape
+
+        # Define the size of the noise region
+        # For simplicity, we will create a rectangular noise region
+        # 50 % percent , mask(noise) region's height or width is equal to image's height or width
+        if random.random() < 0.5:
+            noise_height = h
+            noise_width = random.randint(w // 3, w // 2)
+        else :
+            noise_height = random.randint(h // 3, h // 2)
+            noise_width = w
+        
+        # Define the top left corner of the noise region
+        if noise_height == h:
+            if random.random() < 0.5:
+                start_x = 0
+            else:
+                start_x = w - noise_width
+            start_y = 0
+
+        elif noise_width == w:
+            if random.random() < 0.5:
+                start_y = 0
+            else:
+                start_y = h - noise_height
+            start_x = 0
+
+        # Generate random noise
+        noise_region = torch.randn(b, c, noise_height, noise_width, device=self.device)
+
+        # generate binary mask for noise region (b, 1, h, w)
+        mask_shape = (b, 1, h, w)
+        mask = torch.zeros(mask_shape, device=self.device)
+        mask[:, :, start_y:start_y + noise_height, start_x:start_x + noise_width] = 1.0 # 1.0 means noise region(outpainting region)
+
+        # normalize mask from [0, 1] to [-1, 1]
+        mask = mask * 2.0 - 1.0
+        
+        bool_mask = ((mask + 1) / 2).bool()
+        
+        image = self.unnormalize(image) * bool_mask
+        image = self.normalize(image)
+
+        return image, mask
 
     @torch.inference_mode()
     def random_mask_image_backward(self, image):
 
         b, c, h, w = image.shape
 
-        noise_channel_num = torch.randint(1, c, (1,))
-        # random select noise_channel_num channels to add noise
-        noise_channel_idx = torch.randperm(c)[:noise_channel_num]
-
+        # combinations_idx = torch.randint(0, len(self.combinations), (1,))
+        combinations_idx = torch.randint(0, len(self.combinations), (b,))
         # then replace these channels with noise
-        image[:, noise_channel_idx, :, :] = torch.randn_like(image[:, noise_channel_idx, :, :])
-
+        # image[:, self.combinations[combinations_idx], :, :] = torch.randn_like(image[:, self.combinations[combinations_idx], :, :])
+        for i in range(b):
+            image[i, self.combinations[combinations_idx[i]], :, :] = torch.randn_like(image[i, self.combinations[combinations_idx[i]], :, :])
 
         return image
+    
+    @torch.inference_mode()
+    def random_outpainting_noise_backward(self, image, mask=None):
+        # crop some continue region from image and add noise
+        b, c, h, w = image.shape
+
+        # Define the size of the noise region
+        # For simplicity, we will create a rectangular noise region
+        # 50 % percent , mask(noise) region's height or width is equal to image's height or width
+        if mask is None:
+            
+            if random.random() < 0.5:
+                noise_height = h
+                noise_width = random.randint(w // 8, w)
+            else :
+                noise_height = random.randint(h // 8, h)
+                noise_width = w
+
+            if noise_height == h:
+                if random.random() < 0.5:
+                    start_x = 0
+                else:
+                    start_x = w - noise_width
+                start_y = 0
+
+            elif noise_width == w:
+                if random.random() < 0.5:
+                    start_y = 0
+                else:
+                    start_y = h - noise_height
+                start_x = 0
+
+
+
+            mask_shape = (b, 1, h, w)
+            mask = torch.zeros(mask_shape, device=self.device)
+            mask[:, :, start_y:start_y + noise_height, start_x:start_x + noise_width] = 1.0
+
+            mask = mask * 2.0 - 1.0        
+            
+            bool_mask = ((mask + 1) / 2).bool()
+            image = self.unnormalize(image) * bool_mask
+            image = self.normalize(image)
+        
+        else:
+            # if mask is not None, then we use the given mask to generate noise
+            # mask = torch.randn(b, 1, h, w, device=self.device)
+            # mask = torch.clamp(mask, -1.0, 1.0)
+            # mask = (mask + 1) / 2
+            # mask = mask.bool()
+            bool_mask = ((mask + 1) / 2).bool()
+            image = self.unnormalize(image) * bool_mask
+            image = self.normalize(image)
+
+        return image, mask
+
+
 
 
 
@@ -385,9 +516,37 @@ class GaussianDiffusion(nn.Module):
 
         ret = self.unnormalize(ret)
         return ret
+    
+    @torch.inference_mode()
+    def get_sample_input(self, shape, org=None, mask=None):
+        batch, device = shape[0], self.device
+        if self.sample_mode == "uniDM":
+            raise ValueError("uniDM model has been deprecated")
+        elif self.sample_mode == "Outpainting" or self.sample_mode == "Inpainting":
+            if self.sample_type == "Repaint":
+                img = torch.randn(shape, device=device)
+                
+            
+            if self.sample_type == "CityGen":
+                # diffusion input : masked image wioth standard gaussian noise
+                #DEBUG(self.sample_type)
+                img, mask = self.random_outpainting_noise_backward(org.clone(), mask)
+                img = torch.randn(img.shape, device=device)
+            else:
+                # diffusion input : standard gaussian noise
+                img = torch.randn(shape, device=device) 
+        elif self.sample_mode == "normal":
+            img = torch.randn(shape, device=device)
+            org = img.clone()
+        
+        else:
+            raise ValueError(f"unknown model type{self.model_type}")
+            
+        return img, org, mask
+            
 
     @torch.inference_mode()
-    def ddim_sample(self, shape, org=None, return_all_timesteps=False):
+    def ddim_sample(self, shape, org=None, return_all_timesteps=False, mask=None):
         batch, device, total_timesteps, sampling_timesteps, eta, objective = (
             shape[0],
             self.device,
@@ -396,6 +555,7 @@ class GaussianDiffusion(nn.Module):
             self.ddim_sampling_eta,
             self.objective,
         )
+        
 
         times = torch.linspace(
             -1, total_timesteps - 1, steps=sampling_timesteps + 1
@@ -405,13 +565,13 @@ class GaussianDiffusion(nn.Module):
             zip(times[:-1], times[1:])
         )  # [(T-1, T-2), (T-2, T-3), ..., (1, 0), (0, -1)]
 
-
-        if org is not None:
-            img = self.random_mask_image_backward(org) # bchw
-            masked_org = img.clone()
-        else:
-            img = torch.randn(shape, device=device) # bchw
-            masked_org = None
+        op_mask = mask
+        
+        # org: conditional image
+        
+        
+        img, org, op_mask = self.get_sample_input(shape, org, mask)
+            
         imgs = [img]
 
         x_start = None
@@ -419,9 +579,19 @@ class GaussianDiffusion(nn.Module):
         for time, time_next in time_pairs:
             time_cond = torch.full((batch,), time, device=device, dtype=torch.long)
             self_cond = x_start if self.self_condition else None
-            pred_noise, x_start, *_ = self.model_predictions(
-                img, time_cond, self_cond, clip_x_start=True, rederive_pred_noise=True
-            )
+            # DEBUG(self.sample_type)
+            # DEBUG(f"mask shape : {op_mask.shape}")
+            if self.sample_type == "CityGen":
+                bool_mask = ((op_mask + 1) / 2).bool()
+                
+                cond = torch.concat((self.normalize((self.unnormalize(org)) * ~bool_mask), op_mask), dim=1)
+                pred_noise, x_start, *_ = self.model_predictions(
+                    img, time_cond, self_cond, cond, clip_x_start=True, rederive_pred_noise=True
+                )
+            else:
+                pred_noise, x_start, *_ = self.model_predictions(
+                    img, time_cond, self_cond, clip_x_start=True, rederive_pred_noise=True
+                )
 
             if time_next < 0:
                 img = x_start
@@ -442,25 +612,55 @@ class GaussianDiffusion(nn.Module):
 
             imgs.append(img)
             
+            # conditional sample
+            if (self.sample_mode == "Outpainting" or self.sample_mode == "Inpainting") and self.sample_type == "Repaint": 
+                #DEBUG(img.shape)
+                # DEBUG("Repaint sample mode")
+                bool_mask = ((op_mask + 1) / 2).bool()
+                cond_t = self.q_sample(org, torch.full((batch,), time_next, device=device, dtype=torch.long), noise)
+                masked_cond_t = self.unnormalize(cond_t) * ~bool_mask
+                # masked_cond_t = self.normalize(masked_cond_t)
+                
+                img = self.unnormalize(img) * bool_mask
+                # img = self.normalize(img)
+
+                img = img + masked_cond_t
+                img = self.normalize(img)
+                
+                #  👆 normalization is important for model generation
+                #DEBUG(img.shape)
+                
+            
         
 
         ret = img if not return_all_timesteps else torch.stack(imgs, dim=1)
-        if not return_all_timesteps and masked_org is not None:
-            ret = torch.cat((ret, masked_org), dim=1)
+        if not return_all_timesteps and self.sample_mode != 'normal': 
+            
+            if op_mask is not None:
+                bool_mask = ((op_mask + 1) / 2).bool()
+                ret = torch.cat((ret, self.normalize(self.unnormalize(org) * ~bool_mask)), dim=1)
+                # ret = torch.cat((ret, op_mask), dim=1)
+                # ret = torch.cat((ret, imgs[imgs.__len__() // 2]), dim=1)
+            else:
+                ret = torch.cat((ret, org), dim=1)
         ret = self.unnormalize(ret)
         return ret
 
     @torch.inference_mode()
-    def sample(self, batch_size=16, cond=None, return_all_timesteps=False):
+    def sample(self, batch_size=16, cond=None, return_all_timesteps=False, mask=None):
         image_size, channels = self.image_size, self.channels
         sample_fn = (
             self.p_sample_loop if not self.is_ddim_sampling else self.ddim_sample
         )
+        # DEBUG(f"sample mode: {self.sample_mode}")
+        # DEBUG(f"sample type: {self.sample_type}")
         if cond is not None:
             cond = self.normalize(cond)
+        if mask is not None:
+            mask = self.normalize(mask)
         return sample_fn(
             (batch_size, channels, image_size, image_size), cond,
-            return_all_timesteps=return_all_timesteps,
+            return_all_timesteps=return_all_timesteps, mask=mask
         )
 
     @torch.inference_mode()
@@ -496,9 +696,16 @@ class GaussianDiffusion(nn.Module):
 
     def p_losses(self, x_start, t, noise=None, offset_noise_strength=None):
         b, c, h, w = x_start.shape
-
+        op_mask = None
+        org = x_start.clone()
         # noise = default(noise, lambda: torch.randn_like(x_start))
-        noise = default(noise, lambda: self.get_random_noise_forward(x_start))
+        if self.model_type == "uniDM":
+            raise NotImplementedError("uniDM model has been deprecated")
+        elif self.model_type == "Outpainting":
+            x_start, op_mask = self.get_random_outpainting_mask_forward(x_start.clone())
+            noise = default(noise, lambda: torch.randn_like(x_start))
+        elif self.model_type == "normal":
+            noise = default(noise, lambda: torch.randn_like(x_start))
 
         # offset noise - https://www.crosslabs.org/blog/diffusion-with-offset-noise
 
@@ -512,38 +719,48 @@ class GaussianDiffusion(nn.Module):
 
         # noise sample
         
-        # todo - add random mask to noise
+
         x = self.q_sample(x_start=x_start, t=t, noise=noise)
 
-
+        # TODO: visualize for debug
+        
 
         # if doing self-conditioning, 50% of the time, predict x_start from current set of times
         # and condition with unet with that
         # this technique will slow down training by 25%, but seems to lower FID significantly
 
-        x_self_cond = None
-        if self.self_condition and random() < 0.5:
-            with torch.inference_mode():
+        x_self_cond_copy = None
+        if self.self_condition and random.random() < 0.5:
+            with torch.no_grad():
                 x_self_cond = self.model_predictions(x, t).pred_x_start
-                x_self_cond.detach_()
+            
+            x_self_cond_copy = x_self_cond.clone().requires_grad_()
 
         # predict and take gradient step
 
-        model_out = self.model(x, t, x_self_cond)
+        if op_mask is not None:
+            bool_mask = ((op_mask + 1) / 2).bool()
+            x = torch.concat((x, self.normalize((self.unnormalize(org)) * ~bool_mask), op_mask), dim=1)
+        model_out = self.model(x, t, x_self_cond_copy)
 
         
 
         if self.objective == "pred_noise":
             target = noise
         elif self.objective == "pred_x0":
-            target = x_start
+            target = org
         elif self.objective == "pred_v":
-            v = self.predict_v(x_start, t, noise)
+            v = self.predict_v(org, t, noise)
             target = v
         else:
             raise ValueError(f"unknown objective {self.objective}")
 
         loss = F.mse_loss(model_out, target, reduction="none")
+        # if op_mask is not none， then only loss in the mask == 1.0 region will have more weight
+        if op_mask is not None:
+            op_mask = (op_mask + 1) / 2
+            loss = (loss * op_mask)*5 + loss * (1 - op_mask)
+        
         loss = reduce(loss, "b ... -> b", "mean")
 
         loss = loss * extract(self.loss_weight, t, loss.shape)

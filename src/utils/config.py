@@ -70,6 +70,29 @@ class ConfigParser:
         return summary_str_table_like
         
     
+    def recursive_replace_by_key(self, d, key, value):
+        # help replace_by_key function to replace value by key recursively
+        for k, v in d.items():
+            if isinstance(v, dict):
+                self.recursive_replace_by_key(v, key, value)
+            else:
+                if k == key:
+                    d[k] = value
+        return d
+    
+    def renew_by_sweep_config(self, sweep_config):
+        # renew config by sweep_config
+        # sweep_config is a dict, which contain the key-value pairs that need to be replaced
+        # for example, sweep_config = {"lr": 0.001, "beta_schedule": "sigmoid"}
+        # then the config will be renewed by replacing the value of key "lr" to 0.001 and the value of key "beta_schedule" to "sigmoid"
+        # if the key is not in config, then this key-value pair will be added to config
+        # if the sweep_config is None, then the config will not be changed
+        
+        if sweep_config is None:
+            return
+        for k, v in sweep_config.items():
+            INFO(f"renew config by sweep config: {k}: {v}")
+            self.config = self.recursive_replace_by_key(self.config, k, v)
         
         
 

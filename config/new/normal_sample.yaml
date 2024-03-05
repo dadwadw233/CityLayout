@@ -1,0 +1,263 @@
+Common: &common
+    # define the layout type and granularity
+    # if custom is True, the layout type and granularity will be defined by 'custom_dict'
+    # or all the layout types will be used
+    custom_dict: 
+      {
+        "building": [["building"]],
+        "landuse": [],
+        "natural":
+          [
+            # ["grassland", "tree", "tree_row", "wood"],
+            ["water", "wetland", "beach", "sand"],
+            # ["hill", "valley", "bare_rock"],
+          ],
+        "road":
+          [
+            [
+              "motorway",
+              "trunk",
+              "primary",
+              "secondary",
+              "tertiary",
+              "residential",
+              "living_street",
+            ],
+          ],
+          "height": [],
+      }
+  
+
+Vis: &vis
+  channel_to_rgb: {0: "burlywood", 1: "lightblue", 2: "dimgray"}
+  threshold: 0.7
+  with_height: None # if height is used in custom_dict, set this to building channel or set this to None
+  background: "linen" # background color for show
+
+Asset:
+  Vec: &vec
+    !!merge <<: *vis
+    origin: [39.8965148476239, 116.3820984476239] # beijing
+    resolution: 1 # meters per pixel
+    crs: 3857 # web mercator
+    channel_to_geo: {0: "Polygon", 1: "Polygon", 2: "LineString"}
+    channel_to_key: {0: "building", 1: "natural", 2: "highway"}
+    # background: "linen" # background color for show
+    dump_geojson: True
+  
+  Mesh:
+    !!merge <<: *vec
+
+
+Accelerator:
+  split_batches: True
+  mixed_precision: "fp16"
+  cpu: False
+  # amp: True
+
+Model:
+  backbone: 
+    dim: 64
+    init_dim: None
+    out_dim: 3 # if in_channel != out_channel, out_dim should be set 
+    dim_mults: [1, 2, 4, 8]
+    channels: 3 # if model_type is Outpainting, channel equals data channel + 1 due to the outpainting mask channel
+    self_condition: False
+    resnet_block_groups: 8
+    learned_variance: False
+    learned_sinusoidal_cond: False
+    random_fourier_features: False
+    learned_sinusoidal_dim: 16
+    sinusoidal_pos_emb_theta: 10000
+    attn_dim_head: 32
+    attn_heads: 4
+    full_attn: None
+    flash_attn: False
+    resnet_block_num: 2 # change this from 2 to 3
+    conditional: False # do not change this
+    conditional_dim: 2
+
+  diffusion:
+    timesteps: 2500
+    sampling_timesteps: 50
+    image_size: 256
+    objective: "pred_v"
+    beta_schedule: "linear"
+    ddim_sampling_eta: 0.0
+    auto_normalize: True
+    offset_noise_strength: 0.0
+    min_snr_gamma: 5
+    min_snr_loss_weight: False
+    model_type: "normal" # or "uniDM" or 'Outpainting'
+
+Main:
+  mode: "test"
+  fine_tune: False
+  finetuning_type: "full" # or "partial/LoRA/ControlNet or just set to none for same objective finetuning"
+  pretrain_model_type: "normal" # or "uniDM" or 'Outpainting'
+  pretrain_ckpt_type: "latest" # or "best" 
+  seed: "None"
+  condition: False
+
+  batch_size: 8
+  milestone: 0
+  device: cuda
+  lr: 1e-4
+  max_epochs: 200
+  num_workers: 16
+
+
+  ema_decay: 0.995
+  ema_update_every: 20 # per steps
+
+  opt: "adam" # or sgd
+  scheduler: "cosine" # or "step"
+  adam_betas: [0.9, 0.999]
+
+  sample_frequency: 2000
+  grad_accumulate: 4
+  
+  max_grad_norm: 1.
+
+Validation:
+  save_best_and_latest_only: True
+  # evaluate per sample_frequency epochs and sample 64 images 
+  # to calculate average overlap rate
+  num_samples: 64
+
+  results_dir: "results/one-hot"
+  fine_tune_dir: "results/one-hot/uni-test-2500-filter-large/2024-02-07-17-06-33-train-normal"
+  
+# 👇 only nedded for sample config
+Test:
+  !!merge <<: *vis
+  data_type: "one-hot" # or "rgb"
+  num_samples: 64
+  results_dir: "results/one-hot"
+  ckpt_results_dir: "results/one-hot/uni-test-2500-filter-large/2024-02-07-17-06-33-train-normal/ckpt"
+  !!merge <<: *common
+
+  sample_type: "normal" # only for outpainting mode
+  sample_mode: "normal" # "Inpainting" or "normal" or "Outpainting"
+
+  op:
+    ratio: 0.5 # outpainting mask ratio
+    padding: 1 # extend padding * ratio patch to the original image eg: org (256*256) -> (256+3*256*0.5, 256+3*256*0.5)
+
+Evaluation: 
+  !!merge <<: *vis
+  data_type: "one-hot" # or "rgb"
+
+  metrics_list : ["is"]
+
+  # at least 2048 samples for FID or the "nan" or "complex number" error will occur
+  # 30000-50000 samples are recommended
+  num_fid_samples: 64
+  # [64, 128, 768, 2048] can be used, but 2048 is FID calculation's standard value which is recommended
+  inception_block_idx: 64
+  types: ["overlap"]
+  cluster_threshold: 0.9
+  evaluate_data_limit: 20480
+  !!merge <<: *common
+
+
+Data:
+  batch_size: 8
+  num_workers: 16
+  # root path for city_name.h5
+  path:
+    train_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_large
+    test_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
+    val_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
+
+  params:
+    mode: "test"
+    # define which layout type to use and modify the layout's granularity by user's choice
+    custom: True
+    device: "cuda"
+    condition: False
+
+
+
+  data:
+    normalizer: "clamp"
+    std: [0.0, 0.0, 0.0]
+    mean: [1.0, 1.0, 1.0]
+    resize: [256, 256]
+    type: "one-hot"  # or rgb
+
+    # define the layout type and granularity
+    # if custom is True, the layout type and granularity will be defined by 'custom_dict'
+    # or all the layout types will be used
+    !!merge <<: *common
+    
+
+    condition_dim: []
+
+    # will be used in creating rgb training data
+    channel_to_rgb: {
+      0: 'white',
+      1: 'blue',
+      2: 'red',
+    }
+
+    filter:
+      {
+        "building": [0.01, 0.7], 
+        "landuse": [-1, 2], 
+        "natural": [-1, 0.5], 
+        "road": [0, 2], # <=, >=
+      }
+
+    # predefined mapping layout types <----> one hot feature channels
+    # mapping's number of each super class ('building', 'landuse', etc) should be the same as the number of feature channels
+    # this mapping can easily established by preprocess.yaml's feature_list
+    key_map:
+      building: { "building": 0 }
+      height: { "height": 0 }
+      landuse:
+        {
+          "commercial": 0,
+          "retail": 1,
+          "education": 2,
+          "industrial": 3,
+          "residual": 4,
+          "forest": 5,
+          "grass": 6,
+          "greenfield": 7,
+          "railway": 8,
+          "recreation_ground": 9,
+          "default": 10,
+        }
+      natural:
+        {
+          "grassland": 0,
+          "tree": 1,
+          "tree_row": 2,
+          "wood": 3,
+          "beach": 4,
+          "water": 5,
+          "wetland": 6,
+          "bare_rock": 7,
+          "hill": 8,
+          "sand": 9,
+          "valley": 10,
+          "default": 11,
+        }
+      road:
+        {
+          "motorway": 0,
+          "trunk": 1,
+          "primary": 2,
+          "secondary": 3,
+          "tertiary": 4,
+          "residential": 5,
+          "service": 6,
+          "living_street": 7,
+          "pedestrian": 8,
+          "footway": 9,
+        }
+
+
+
+  
