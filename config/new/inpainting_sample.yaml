@@ -132,7 +132,7 @@ Validation:
 Test:
   !!merge <<: *vis
   data_type: "one-hot" # or "rgb"
-  num_samples: 64
+  num_samples: 8
   results_dir: "results/one-hot"
   ckpt_results_dir: "results/one-hot/uni-test-2500-filter-large/2024-02-07-17-06-33-train-normal/ckpt"
   !!merge <<: *common

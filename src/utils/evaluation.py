@@ -232,7 +232,7 @@ class Evaluation:
             fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=cond)
             fake_samples = fake_samples[:, :self.channels, :, :]
         else:
-            fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=None)
+            fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=None)[:, :self.channels, :, :]
 
         # DEBUG(f"fake samples shape: {fake_samples.shape}")
         if 'data_analysis' in self.metrics_list:

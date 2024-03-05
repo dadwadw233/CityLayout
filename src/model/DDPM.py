@@ -523,21 +523,9 @@ class GaussianDiffusion(nn.Module):
         if self.sample_mode == "uniDM":
             raise ValueError("uniDM model has been deprecated")
         elif self.sample_mode == "Outpainting" or self.sample_mode == "Inpainting":
-            if self.sample_type == "Repaint":
-                img = torch.randn(shape, device=device)
-                
+            img, mask = self.random_outpainting_noise_backward(org.clone(), mask)    
+            img = torch.randn(org.shape, device=device)
             
-            if self.sample_type == "CityGen":
-                # diffusion input : masked image wioth standard gaussian noise
-                #DEBUG(self.sample_type)
-                if self.sample_mode == "Outpainting" or self.sample_mode == "Inpainting":
-                    img, mask = self.random_outpainting_noise_backward(org.clone(), mask)
-                
-                
-                img = torch.randn(org.shape, device=device)
-            else:
-                # diffusion input : standard gaussian noise
-                img = torch.randn(shape, device=device) 
         elif self.sample_mode == "normal":
             img = torch.randn(shape, device=device)
             org = img.clone()
