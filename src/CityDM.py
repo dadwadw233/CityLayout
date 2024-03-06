@@ -897,7 +897,7 @@ class CityDM(object):
 
         return self.ema.ema_model.sample(batch_size=org.shape[0], cond=org, mask=mask)
 
-    def sample(self, cond=False, eval=True, best=False):
+    def sample(self, cond=False, eval=True, best=False, use_wandb=False):
         INFO(f"Start sampling {self.num_samples} images...")
         INFO(F"Sample result save to {self.sample_results_dir}")
 
@@ -924,6 +924,17 @@ class CityDM(object):
 
         self.ema.ema_model.set_sample_type(self.sample_type)
         self.ema.ema_model.set_sample_mode(self.sample_mode)
+        
+        try:
+            if use_wandb:
+                if not self.debug:
+                    DISPLAY_NAME = self.sample_results_dir.replace("/", "-")
+                    wandb.init(project="CityLayout", entity="913217005", config=self.config_parser.get_config_all(),
+                               name=DISPLAY_NAME, group="sample")
+                # wandb.watch(self.diffusion, log="all")
+        except Exception as e:
+            ERROR(f"wandb init failed! {e}")
+            use_wandb = False
 
         with torch.inference_mode():
 
@@ -1020,6 +1031,15 @@ class CityDM(object):
             # bchw
             self.asset_gen.set_data(all_images[:, 0:3:, :])
             self.asset_gen.generate_geofiles()
+            
+            
+            try:
+                overlapping_rate = cal_overlapping_rate(all_images[:, 0:3:, :])
+                if use_wandb:
+                    wandb.log({"overlapping_rate": overlapping_rate})
+            except Exception as e:
+                ERROR(f"overlapping_rate calculation failed! {e}")
+            
 
             # evaluate
             result = None
@@ -1028,6 +1048,12 @@ class CityDM(object):
                     self.evaluation.reset_sampler(self.ema.ema_model)
                     self.evaluation.validation(cond, os.path.join(self.sample_results_dir, "data_analyse"))
                     result = self.evaluation.get_evaluation_dict()
+                    try:
+                        if use_wandb:
+                            wandb.log({"sample": result})
+                    except Exception as e:
+                        ERROR(f"wandb log failed! {e}")
+                    
                     # write evaluation to file
                     path = os.path.join(self.sample_results_dir, "evaluation.json")
                     with open(path, "w") as f:

@@ -17,6 +17,12 @@ def train_main(sweep_config):
     citydm = CityDM(path, sweep_config=sweep_config)
     citydm.train()
 
+def sample_main(sweep_config, parser):
+    config_manager = ConfigParser(parser.parse_args().config_manager)
+    sample_path = config_manager.get_config_by_name("sample")[sweep_config["config_prefix"]]
+    citydm = CityDM(sample_path, sweep_config=sweep_config)
+    citydm.sample(cond=parser.parse_args().cond, eval=parser.parse_args().eval, best=parser.parse_args().best)
+
 def train_accelerate():
     cmd = "accelerate launch src/accelerate_handle.py --path {} --sweep_id {}".format(path, sweep_id)
     # launch the subprocess and wait for it to finish
@@ -32,6 +38,7 @@ parser.add_argument("--path_sample", type=str, default="/home/admin/workspace/yu
 parser.add_argument("--config_manager", type=str, default="./config/config_manage.yaml")
 parser.add_argument("--config_prefix", type=str, default="op_sample")
 parser.add_argument("--sample", action="store_true", default=False)
+parser.add_argument("--sample_all", action="store_true", default=False)
 parser.add_argument("--train", action="store_true", default=False)
 parser.add_argument("--cond", action="store_true", default=False)
 parser.add_argument("--eval", action="store_true", default=False)
@@ -42,6 +49,8 @@ parser.add_argument("--sweep_id", type=str, default=None, help="multi gpu for si
                     by specifying the sweep id to record the training process in the same sweep")
 
 parser.add_argument("--debug", action="store_true", default=False)
+parser.add_argument("--wandb", action="store_true", default=False)
+
 
 if parser.parse_args().sweep:
     sweep_config_train = {
@@ -95,8 +104,16 @@ if parser.parse_args().config_manager is not None:
 
 if not parser.parse_args().sweep:
     if parser.parse_args().sample:
-        citydm = CityDM(sample_path)
-        citydm.sample(cond=parser.parse_args().cond, eval=parser.parse_args().eval, best=parser.parse_args().best)    
+        if parser.parse_args().sample_all:
+            INFO("sample all")
+            for config_prefix in config_manager.get_config_by_name("sample"):
+                INFO("sample {}".format(config_prefix))
+                sample_path = config_manager.get_config_by_name("sample")[config_prefix]
+                citydm = CityDM(sample_path)
+                citydm.sample(cond=parser.parse_args().cond, eval=parser.parse_args().eval, best=parser.parse_args().best, use_wandb=parser.parse_args().wandb)
+        else:
+            citydm = CityDM(sample_path)
+            citydm.sample(cond=parser.parse_args().cond, eval=parser.parse_args().eval, best=parser.parse_args().best)    
 
     elif parser.parse_args().train:
         citydm = CityDM(path, debug = parser.parse_args().debug, ddp=parser.parse_args().multigpu)
@@ -120,11 +137,7 @@ else:
             wandb.agent(sweep_id, function=lambda: train_main(sweep_config_train))
 
     elif parser.parse_args().sample:
-        if parser.parse_args().sweep_id is None:
-            sweep_id = wandb.sweep(sweep_config_sample, project="CityLayout", entity="913217005")
-        else:
-            sweep_id = parser.parse_args().sweep_id
-        wandb.agent(sweep_id, function=lambda: train_main(sweep_config_sample))
+        raise NotImplementedError("sample with sweep is not implemented yet")
 
 
         
