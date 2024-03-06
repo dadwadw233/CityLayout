@@ -437,6 +437,21 @@ class CityDM(object):
                     padded_dict[key] = param_dict[key]
 
         return padded_dict
+    
+    def registra_LoRAlayer(self, model, param_dict):
+        # register LoRA layer in model
+        # model: model to be registered
+        # param_dict: param dict of pretrain model
+        # return: model with LoRA layer registered
+        for name, param in model.named_parameters():
+            if name in param_dict.keys():
+                param.requires_grad = False
+        return model
+    
+    def LoRA_load(self, param_dict):
+        
+        # freeze param dict. (besides conv_in and feed forward layer in transformer)
+        pass
 
     def save_ckpts(self, epoch, step, best=False, latest=False):
         if self.accelerator.is_main_process:

@@ -3,6 +3,8 @@ train:
   op_train_multigpu: "./config/new/outpainting_train_multigpu.yaml"
   normal_train: "./config/new/normal_train.yaml"
   inp_train: "./config/new/inpainting_train.yaml"
+  uniDM_train_multigpu: "./config/new/uniDM_train_multigpu.yaml"
+  uniDM_train: "./config/new/uniDM_train.yaml"
 
 sample:
   op_sample: "./config/new/outpainting_sample.yaml"
