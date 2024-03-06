@@ -1,4 +1,4 @@
-trian:
+train:
   op_train: "./config/new/outpainting_train.yaml"
   op_train_multigpu: "./config/new/outpainting_train_multigpu.yaml"
   normal_train: "./config/new/normal_train.yaml"

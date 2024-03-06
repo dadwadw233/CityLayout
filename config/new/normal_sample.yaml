@@ -148,7 +148,7 @@ Evaluation:
   !!merge <<: *vis
   data_type: "one-hot" # or "rgb"
 
-  metrics_list : ["is"]
+  metrics_list : ["fid", "mifid", "kid", "clip", "is", "data_analysis"]
 
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
