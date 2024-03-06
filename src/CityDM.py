@@ -1051,6 +1051,7 @@ class CityDM(object):
                     try:
                         if use_wandb:
                             wandb.log({"sample": result})
+                            wandb.finish()
                     except Exception as e:
                         ERROR(f"wandb log failed! {e}")
                     
@@ -1068,3 +1069,5 @@ class CityDM(object):
                 return all_images, result
             else:
                 return all_images, None
+            
+            
