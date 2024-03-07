@@ -114,7 +114,7 @@ class GaussianDiffusion(nn.Module):
         offset_noise_strength=0.0,  # https://www.crosslabs.org/blog/diffusion-with-offset-noise
         min_snr_loss_weight=False,  # https://arxiv.org/abs/2303.09556
         min_snr_gamma=5,
-        model_type="uniDM", # or "Outpainting"
+        model_type="completion", # or "Outpainting"
     ):
         super().__init__()
         
@@ -410,7 +410,7 @@ class GaussianDiffusion(nn.Module):
 
         return image, mask
 
-    def get_uniDM_mask_forward(self, image):
+    def get_completion_mask_forward(self, image):
         # select random channel to add standard gaussian noise
         b, c, h, w = image.shape
         
@@ -437,7 +437,7 @@ class GaussianDiffusion(nn.Module):
         return image, mask
     
     @torch.inference_mode()
-    def get_uniDM_mask_backward(self, image, mask=None):
+    def get_completion_mask_backward(self, image, mask=None):
         if mask is not None:
             return mask
         # select random channel to add standard gaussian noise
@@ -572,9 +572,9 @@ class GaussianDiffusion(nn.Module):
     @torch.inference_mode()
     def get_sample_input(self, shape, org=None, mask=None):
         batch, device = shape[0], self.device
-        if self.sample_type == "uniDM":
+        if self.sample_type == "completion":
             if org is not None:
-                mask = self.get_uniDM_mask_backward(org.clone(), mask=mask)
+                mask = self.get_completion_mask_backward(org.clone(), mask=mask)
             img = torch.randn((shape[0], shape[1]//2, shape[2], shape[3]), device=device)
             
         elif self.sample_mode == "Outpainting" or self.sample_mode == "Inpainting":
@@ -637,7 +637,7 @@ class GaussianDiffusion(nn.Module):
                 pred_noise, x_start, *_ = self.model_predictions(
                     img, time_cond, self_cond, cond, clip_x_start=True, rederive_pred_noise=True
                 )
-            elif self.sample_type == "uniDM":
+            elif self.sample_type == "completion":
                 if org is None:
                     org = self.normalize(torch.zeros_like(img, device=device))
                     op_mask = self.normalize(torch.zeros_like(img, device=device))
@@ -759,8 +759,8 @@ class GaussianDiffusion(nn.Module):
         unimask = None
         org = x_start.clone()
         # noise = default(noise, lambda: torch.randn_like(x_start))
-        if self.model_type == "uniDM":
-            x_start, unimask = self.get_uniDM_mask_forward(x_start.clone())
+        if self.model_type == "completion":
+            x_start, unimask = self.get_completion_mask_forward(x_start.clone())
             noise = default(noise, lambda: torch.randn_like(x_start))
         elif self.model_type == "Outpainting":
             x_start, op_mask = self.get_random_outpainting_mask_forward(x_start.clone())

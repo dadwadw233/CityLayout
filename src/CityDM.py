@@ -399,7 +399,13 @@ class CityDM(object):
         elif result is None:
             return False
         else:
-            if self.best_evaluation_result["IS"] < result["IS"]:
+            if "SSIM" in result.keys():
+                if self.best_evaluation_result["SSIM"] < result["SSIM"]:
+                    self.best_evaluation_result = result
+                    return True
+                else:
+                    return False
+            elif self.best_evaluation_result["IS"] < result["IS"]:
                 self.best_evaluation_result = result
                 return True
             else:
@@ -643,9 +649,9 @@ class CityDM(object):
                         self.ema.update()
 
                         if self.now_step != 0 and divisible_by(self.now_step, self.sample_frequency):
-                            if self.generation_type == "uniDM":
-                                self.validation(writer, cond=False)
-                                INFO(f"Validation done!")
+                            if self.generation_type == "completion":
+                                # self.validation(writer, cond=False)
+                                # INFO(f"Validation done!")
                                 self.validation(writer, cond=True)
                                 INFO(f"Validation with cond done!")
                             elif self.generation_type == "Outpainting":

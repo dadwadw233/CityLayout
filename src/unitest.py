@@ -32,6 +32,7 @@ def train_accelerate():
 
 
 
+
 parser = argparse.ArgumentParser()
 parser.add_argument("--path", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/outpainting_train.yaml")
 parser.add_argument("--path_sample", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/inpainting_sample_citygen.yaml")
@@ -56,7 +57,7 @@ if parser.parse_args().sweep:
     sweep_config_train = {
         'method': 'bayes',
         'metric': {
-            'name': 'val_cond.IS',
+            'name': 'val.IS',
             'goal': 'maximize'
         },
         'parameters': {
@@ -65,11 +66,11 @@ if parser.parse_args().sweep:
                 'max': 0.0001
             },
             'objective': {
-                'values': ['pred_v', 'pred_noise']
+                'values': ['pred_v']
             },
             'beta_schedule':
             {
-                'values': ['sigmoid', 'cosine']
+                'values': ['sigmoid', 'cosine', 'linear']
             },
             'timesteps': {
                 'values': [2500]
