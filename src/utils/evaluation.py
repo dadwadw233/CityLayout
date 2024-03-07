@@ -501,9 +501,14 @@ class DataAnalyser:
                     clusters[key][analyse_type] = []
                     if corr_matrix[analyse_type][i, j] > self.cluster_threshold:
                         clusters[key][analyse_type].append(key2)
-                    if key + "_fake" == key2:
-                        real_vs_fake[key] = {}
-                        real_vs_fake[key][analyse_type] = corr_matrix[analyse_type][i, j]
+                    #if key + "_fake" == key2:
+                    #    real_vs_fake[key] = {}
+                    #    real_vs_fake[key][analyse_type] = corr_matrix[analyse_type][i, j]
+            real_correlation = corr_matrix[analyse_type][:len(data_dict) // 2, :len(data_dict) // 2]
+            fake_correlation = corr_matrix[analyse_type][len(data_dict) // 2:, len(data_dict) // 2:]
+            
+            # real_vs_fake: l2 norm of the difference between real and fake correlation matrix
+            real_vs_fake[analyse_type] = np.linalg.norm(real_correlation - fake_correlation, ord=2)
 
         # DEBUG(f"clusters: {clusters}")
         return clusters, corr_matrix, real_vs_fake
@@ -513,11 +518,17 @@ class DataAnalyser:
         with open(os.path.join(self.path, filename), "w") as file:
             for analyse_type in self.analyse_types:
                 file.write(f"{analyse_type.upper()}\n")
-                for key, values in results.items():
-                    # check key is none
-                    if key is None:
-                        continue
-                    file.write(f"{key}: {values[analyse_type]}\n")
+                # check whether the result is a dictionary
+                if not isinstance(results, dict):
+                    continue
+                elif analyse_type in results.keys():
+                    file.write(f"{analyse_type}: {results[analyse_type]}\n")
+                else:
+                    for key, values in results.items():
+                        # check key is none
+                        if key is None:
+                            continue
+                        file.write(f"{key}: {values[analyse_type]}\n")
                 file.write("\n")
 
     def plot_std_mean_all(self, data_dict, title="Mean and Standard Deviation for Each Category"):
