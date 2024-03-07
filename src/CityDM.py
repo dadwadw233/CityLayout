@@ -230,6 +230,7 @@ class CityDM(object):
                     batch_size=self.batch_size,
                     shuffle=True,
                     num_workers=self.num_workers,
+                    drop_last=True,
                 )
             )
             self.train_dataloader = cycle(self.train_dataloader)
@@ -243,6 +244,7 @@ class CityDM(object):
                     batch_size=self.batch_size,
                     shuffle=True,
                     num_workers=self.num_workers,
+                    drop_last=True,
                 )
             )
             self.test_dataloader = cycle(self.test_dataloader)

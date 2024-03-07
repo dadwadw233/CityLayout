@@ -415,12 +415,18 @@ class GaussianDiffusion(nn.Module):
         b, c, h, w = image.shape
         
         # for each channel, create mask dependently
-        # for each pixel in the mask, the value have 50% chance to be 1.0 and 50% chance to be 0.0
         # 1 means the pixel need to be repaint, 0 means the pixel need to be kept
         
         mask = torch.zeros_like(image, device=self.device)
-        for i in range(c):
-            mask[:, i, :, :] = torch.bernoulli(0.5 * torch.ones((b, h, w), device=self.device))
+        for ba in range(b):
+            for i in range(c):
+                x1, y1 = random.randint(0, w-1), random.randint(0, h-1)
+                x2, y2 = random.randint(0, w-1), random.randint(0, h-1)
+                # check x1<x2 and y1<y2
+                x1, x2 = min(x1, x2), max(x1, x2)
+                y1, y2 = min(y1, y2), max(y1, y2)
+                mask[ba, i, y1:y2, x1:x2] = 1.0
+           
             
         mask = mask * 2.0 - 1.0
         bool_mask = ((mask + 1) / 2).bool()
@@ -438,8 +444,15 @@ class GaussianDiffusion(nn.Module):
         b, c, h, w = image.shape
         
         mask = torch.zeros_like(image, device=self.device)
-        for i in range(c):
-            mask[:, i, :, :] = torch.bernoulli(0.5 * torch.ones((b, h, w), device=self.device))
+        for ba in range(b):
+            for i in range(c):
+                x1, y1 = random.randint(0, w-1), random.randint(0, h-1)
+                x2, y2 = random.randint(0, w-1), random.randint(0, h-1)
+                # check x1<x2 and y1<y2
+                x1, x2 = min(x1, x2), max(x1, x2)
+                y1, y2 = min(y1, y2), max(y1, y2)
+                
+                mask[ba, i, y1:y2, x1:x2] = 1.0
             
         mask = mask * 2.0 - 1.0
         # bool_mask = ((mask + 1) / 2).bool()
@@ -685,7 +698,7 @@ class GaussianDiffusion(nn.Module):
             if op_mask is not None:
                 bool_mask = ((op_mask + 1) / 2).bool()
                 ret = torch.cat((ret, self.normalize(self.unnormalize(org) * ~bool_mask)), dim=1)
-                # ret = torch.cat((ret, op_mask), dim=1)
+                ret = torch.cat((ret, op_mask), dim=1)
                 # ret = torch.cat((ret, imgs[imgs.__len__() // 2]), dim=1)
             else:
                 ret = torch.cat((ret, org), dim=1)
@@ -812,6 +825,9 @@ class GaussianDiffusion(nn.Module):
         if op_mask is not None:
             op_mask = (op_mask + 1) / 2
             loss = (loss * op_mask)*5 + loss * (1 - op_mask)
+        elif unimask is not None:
+            unimask = (unimask + 1) / 2
+            loss = (loss * unimask)*5 + loss * (1 - unimask)
         
         loss = reduce(loss, "b ... -> b", "mean")
 

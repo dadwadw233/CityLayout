@@ -113,7 +113,7 @@ Main:
   scheduler: "cosine" # or "step"
   adam_betas: [0.9, 0.999]
 
-  sample_frequency: 500
+  sample_frequency: 1
   grad_accumulate: 4
   
   max_grad_norm: 1.
@@ -122,7 +122,7 @@ Validation:
   save_best_and_latest_only: True
   # evaluate per sample_frequency epochs and sample 64 images 
   # to calculate average overlap rate
-  num_samples: 64
+  num_samples: 8
 
   results_dir: "results/one-hot"
   fine_tune_dir: "results/one-hot/uni-test-2500-filter-large/2024-02-07-17-06-33-train-normal"

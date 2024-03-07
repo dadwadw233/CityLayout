@@ -7,8 +7,8 @@ train:
   uniDM_train: "./config/new/uniDM_train.yaml"
 
 sample:
+  normal_sample: "./config/new/normal_sample.yaml"
   op_sample: "./config/new/outpainting_sample.yaml"
   op_sample_citygen: "./config/new/outpainting_sample_citygen.yaml"
-  normal_sample: "./config/new/normal_sample.yaml"
   inp_sample: "./config/new/inpainting_sample.yaml"
   inp_sample_citygen: "./config/new/inpainting_sample_citygen.yaml"
