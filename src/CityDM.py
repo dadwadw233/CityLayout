@@ -683,6 +683,10 @@ class CityDM(object):
         else:
             wandb_key = "val"
 
+        # reset sample type and mode
+        self.ema.ema_model.set_sample_type(self.sample_type)
+        self.ema.ema_model.set_sample_mode(self.sample_mode)
+        
         with torch.inference_mode():
             milestone = self.now_step // self.sample_frequency
             now_val_path = os.path.join(self.val_results_dir, f"milestone_{milestone}_val_cond_{cond}")
