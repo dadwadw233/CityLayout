@@ -132,7 +132,7 @@ Validation:
 Test:
   !!merge <<: *vis
   data_type: "one-hot" # or "rgb"
-  num_samples: 64
+  num_samples: 8
   results_dir: "results/one-hot"
   ckpt_results_dir: "results/one-hot/uni-test-2500-filter-large/2024-02-07-17-06-33-train-normal/ckpt"
   !!merge <<: *common
@@ -148,7 +148,7 @@ Evaluation:
   !!merge <<: *vis
   data_type: "one-hot" # or "rgb"
 
-  metrics_list : ["fid", "mifid", "kid", "clip", "is", "data_analysis", "lpips", "ssim"]
+  metrics_list : ["fid", "mifid", "kid", "clip", "is", "data_analysis", "lpips", "ssim", "psnr"]
 
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
