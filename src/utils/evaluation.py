@@ -14,6 +14,8 @@ from torchmetrics.image.mifid import MemorizationInformedFrechetInceptionDistanc
 from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 from torchmetrics.multimodal import CLIPImageQualityAssessment
 from torchmetrics.image import StructuralSimilarityIndexMeasure
+from torchmetrics.image import PeakSignalNoiseRatio
+from torchmetrics.multimodal.clip_score import CLIPScore
 
 import torch
 import numpy as np
@@ -96,11 +98,25 @@ class Evaluation:
         self.prompt_pair = (
             ("a city region", "not a city region"),
             ("a city map include buildings and roads", "a city map without buildings and roads"),
+            ("a city region with buildings, roads and water", "a city region without buildings, roads and water"),
         )
+        
+        self.clip_descs = [
+            "a city region",
+            "a city map include buildings and roads",
+            "a city region with buildings, roads and water",
+            "An abstract representation of a city layout with broad, unmarked streets and undefined building structures, predominantly in beige and white colors.",
+            "A stylized city map segment featuring blue water bodies, such as rivers or lakes, with surrounding beige areas representing buildings or open spaces.",
+            "A detailed section of a city map including blue water features, intricate beige building shapes, and a clear delineation of roads and pathways.",
+            "A minimalistic urban map fragment showing a section of a road or highway without any adjacent buildings, with a focus on the transportation network.",
+        ]
+        
         # MultoModal metrics
         if 'clip' in self.metrics_list:
             self.CLIP_calculator = CLIPImageQualityAssessment(data_range=1.0, prompts=self.prompt_pair,
                                                               sync_on_compute=False).to(device)
+            self.CLIP_score_calculator_real = CLIPScore(model_name_or_path="openai/clip-vit-base-patch16", sync_on_compute=False).to(device)
+            self.CLIP_score_calculator_fake = CLIPScore(model_name_or_path="openai/clip-vit-base-patch16", sync_on_compute=False).to(device)
 
         # some matrics to evaluate conditional generation's consistency
         if 'lpips' in self.metrics_list:
@@ -108,6 +124,8 @@ class Evaluation:
                                                                           sync_on_compute=False).to(device)
         if 'ssim' in self.metrics_list:
             self.SSIM_calculator = StructuralSimilarityIndexMeasure(data_range=1.0, sync_on_compute=False).to(device)
+        if 'psnr' in self.metrics_list:
+            self.PSNR_calculator = PeakSignalNoiseRatio(data_range=1.0, sync_on_compute=False).to(device)
 
         # data satistics evaluator
         self.data_analyser = DataAnalyser(config=config)
@@ -136,10 +154,14 @@ class Evaluation:
             self.IS_caluculator.reset()
         if 'clip' in self.metrics_list:
             self.CLIP_calculator.reset()
+            self.CLIP_score_calculator_real.reset()
+            self.CLIP_score_calculator_fake.reset()
         if 'lpips' in self.metrics_list:
             self.LPIPS_calculator.reset()
         if 'ssim' in self.metrics_list:
             self.SSIM_calculator.reset()
+        if 'psnr' in self.metrics_list:
+            self.PSNR_calculator.reset()
 
         self.data_analyser.release_data()
 
@@ -186,6 +208,11 @@ class Evaluation:
         for prompt in self.prompt_pair:
             prompt_str = prompt[0] + " vs " + prompt[1]
             self.evaluate_dict['CLIP'][prompt_str] = {'fake': [], 'real': []}
+        
+        self.evaluate_dict['CLIP_score'] = {}
+        for prompt in self.clip_descs:
+            self.evaluate_dict['CLIP_score'][prompt] = {'fake': [], 'real': []}
+            
 
         self.set_condtion(condition)
 
@@ -243,6 +270,16 @@ class Evaluation:
                 prompt_key = pk[0] + " vs " + pk[1]
                 self.evaluate_dict['CLIP'][prompt_key]['fake'].append(fake_score[clip_k].mean().item())
                 self.evaluate_dict['CLIP'][prompt_key]['real'].append(real_score[clip_k].mean().item())
+                
+            for desc in self.clip_descs:
+                
+                batch_desc = [desc] * real.shape[0]
+                
+                real_clip_score = self.CLIP_score_calculator_real(real, batch_desc)
+                fake_clip_score = self.CLIP_score_calculator_fake(fake, batch_desc)
+                self.evaluate_dict['CLIP_score'][desc]['fake'].append(fake_clip_score.mean().item())
+                self.evaluate_dict['CLIP_score'][desc]['real'].append(real_clip_score.mean().item())
+                
 
             return True
         except Exception as e:
@@ -296,6 +333,8 @@ class Evaluation:
                             self.LPIPS_calculator.update(fake_samples, condition_sample)
                         if 'ssim' in self.metrics_list:
                             self.SSIM_calculator.update(fake_samples, condition_sample)
+                        if 'psnr' in self.metrics_list:
+                            self.PSNR_calculator.update(fake_samples, condition_sample)
 
             except Exception as e:
                 ERROR(f"Error when evaluating images: {e}")
@@ -334,6 +373,12 @@ class Evaluation:
                         self.evaluate_dict['CLIP'][prompt_str]['fake'])
                     self.evaluate_dict['CLIP'][prompt_str]['real'] = np.mean(
                         self.evaluate_dict['CLIP'][prompt_str]['real'])
+                    
+                for desc in self.clip_descs:
+                    self.evaluate_dict['CLIP_score'][desc]['fake'] = np.mean(
+                        self.evaluate_dict['CLIP_score'][desc]['fake'])
+                    self.evaluate_dict['CLIP_score'][desc]['real'] = np.mean(
+                        self.evaluate_dict['CLIP_score'][desc]['real'])
             if 'data_analysis' in self.metrics_list:
                 # DEBUG(f"Start calculating data analysis")
                 real_vs_fake = self.data_analyser.contrast_analyse(path, self.condition)
@@ -344,6 +389,9 @@ class Evaluation:
 
             if 'ssim' in self.metrics_list:
                 self.evaluate_dict["SSIM"] = self.SSIM_calculator.compute().item()
+            
+            if 'psnr' in self.metrics_list:
+                self.evaluate_dict["PSNR"] = self.PSNR_calculator.compute().item()
 
             # reset metrics and release CUDA memory
             INFO(f"Finish evaluating images\nReset metrics and release CUDA memory")
