@@ -1082,11 +1082,10 @@ class CityDM(object):
                     except Exception as e:
                         ERROR(f"wandb log failed! {e}")
                     
-                    # write evaluation to file
-                    path = os.path.join(self.sample_results_dir, "evaluation.json")
-                    with open(path, "w") as f:
-                        for key in result.keys():
-                            f.write(f"{key}: {result[key]}\n")
+                    # dump result into json
+                    with open(os.path.join(self.sample_results_dir, "result.json"), "w") as f:
+                        f.write(json.dumps(result, indent=4))
+                        
 
 
                 except Exception as e:
