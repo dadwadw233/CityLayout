@@ -550,7 +550,7 @@ class CityDM(object):
                         # wandb.watch(self.diffusion, log="all")
                     else:
                         wandb.init(project="CityLayout", entity="913217005", config=self.config_parser.get_config_all(),
-                                   name=display_name)
+                                   name=display_name, group=self.generation_type)
                         # wandb.watch(self.diffusion, log="all")
             else:
                 display_name = self.results_dir.replace("/", "-")
@@ -559,7 +559,7 @@ class CityDM(object):
                     # wandb.watch(self.diffusion, log="all")
                 else:
                     wandb.init(project="CityLayout", entity="913217005", config=self.config_parser.get_config_all(),
-                               name=display_name)
+                               name=display_name, group=self.generation_type)
                     # wandb.watch(self.diffusion, log="all")
 
             if self.accelerator.is_main_process:

@@ -827,7 +827,7 @@ class GaussianDiffusion(nn.Module):
             loss = (loss * op_mask)*5 + loss * (1 - op_mask)
         elif unimask is not None:
             unimask = (unimask + 1) / 2
-            loss = (loss * unimask)*10 + loss * (1 - unimask)
+            loss = (loss * unimask)*5 + loss * (1 - unimask)
         
         loss = reduce(loss, "b ... -> b", "mean")
 
