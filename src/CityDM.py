@@ -513,9 +513,12 @@ class CityDM(object):
             self.ema = EMA(self.diffusion, beta=self.ema_decay, update_every=self.ema_update_every)
             self.ema.to(self.device)
             INFO(f"EMA reinitialized!")
+            # Evaluator reinit
+            
 
-        self.ema.ema_model.set_sample_type(self.sample_type)
-        self.ema.ema_model.set_sample_mode(self.sample_mode)
+            self.ema.ema_model.set_sample_type(self.sample_type)
+            self.ema.ema_model.set_sample_mode(self.sample_mode)
+            self.evaluation.reset_sampler(self.ema.ema_model)
 
         INFO(f"Ckpt loaded from {ckpt_path}")
 

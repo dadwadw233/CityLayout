@@ -80,7 +80,7 @@ Model:
     sampling_timesteps: 50
     image_size: 256
     objective: "pred_v"
-    beta_schedule: "linear"
+    beta_schedule: "sigmoid"
     ddim_sampling_eta: 0.0
     auto_normalize: True
     offset_noise_strength: 0.0
@@ -125,7 +125,7 @@ Validation:
   num_samples: 64
 
   results_dir: "results/one-hot"
-  fine_tune_dir: "results/one-hot/normal/2024-03-09-11-57-14-train-normal"
+  fine_tune_dir: "results/one-hot/normal/2024-03-11-01-48-56-train-normal"
   sample_type: "completion" # only for outpainting mode
   sample_mode: "Inpainting" # "Inpainting" or "normal" or "Outpainting"
   
@@ -140,7 +140,7 @@ Evaluation:
   # 30000-50000 samples are recommended
   num_fid_samples: 128
   # [64, 128, 768, 2048] can be used, but 2048 is FID calculation's standard value which is recommended
-  inception_block_idx: 64
+  inception_block_idx: 2048
   types: ["overlap"]
   cluster_threshold: 0.9
   evaluate_data_limit: 20480
