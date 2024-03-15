@@ -14,4 +14,5 @@ sample:
   op_sample_citygen: "./config/new/outpainting_sample_citygen.yaml"
   inp_sample: "./config/new/inpainting_sample.yaml"
   inp_sample_citygen: "./config/new/inpainting_sample_citygen.yaml"
+  refactoring: "./config/new/refactoring.yaml"
 

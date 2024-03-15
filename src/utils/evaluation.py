@@ -103,8 +103,11 @@ class Evaluation:
         
         self.clip_descs = [
             "a city region",
+            "An abstract representation of a city layout",
+            "An abstract representation of a city layout, which may include buildings and roads",
             "a city map include buildings and roads",
             "a city region with buildings, roads and water",
+            "a map with lines and shapes representing a city layout",
             "An abstract representation of a city layout with broad, unmarked streets and undefined building structures, predominantly in beige and white colors.",
             "A stylized city map segment featuring blue water bodies, such as rivers or lakes, with surrounding beige areas representing buildings or open spaces.",
             "A detailed section of a city map including blue water features, intricate beige building shapes, and a clear delineation of roads and pathways.",
