@@ -549,6 +549,7 @@ class CityDM(object):
                 if self.accelerator.is_main_process:
                     display_name = self.results_dir.replace("/", "-")
                     if self.sweep_mode:
+                        # wandb.config.update(self.config_parser.get_config_all())
                         wandb.init(config=self.config_parser.get_config_all(), name=display_name, reinit=True)
                         # wandb.watch(self.diffusion, log="all")
                     else:
@@ -559,6 +560,7 @@ class CityDM(object):
                 display_name = self.results_dir.replace("/", "-")
                 if self.sweep_mode:
                     wandb.init(config=self.config_parser.get_config_all(), name=display_name, reinit=True)
+                    # wandb.config.update(self.config_parser.get_config_all())
                     # wandb.watch(self.diffusion, log="all")
                 else:
                     wandb.init(project="CityLayout", entity="913217005", config=self.config_parser.get_config_all(),
@@ -580,8 +582,10 @@ class CityDM(object):
         if isinstance(self.diffusion, nn.DataParallel) or self.ddp:  # if model is wrapped by DataParallel, unwrap it
             DEBUG(f"Model is wrapped by DataParallel, unwrap it!")
             self.diffusion = self.diffusion.module
-            self.ema = EMA(self.diffusion, beta=self.ema_decay, update_every=self.ema_update_every)
-            self.ema.to(self.device)
+            if self.accelerator.is_main_process:
+                self.ema = EMA(self.diffusion, beta=self.ema_decay, update_every=self.ema_update_every)
+                self.ema.to(self.device)
+                self.evaluation.reset_sampler(self.ema.ema_model)
 
         if self.fine_tune:
             INFO(f"Fine tune mode, load ckpt from {self.ckpt_results_dir}")

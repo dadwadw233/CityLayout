@@ -134,7 +134,7 @@ Test:
   data_type: "one-hot" # or "rgb"
   num_samples: 8
   results_dir: "results/one-hot"
-  ckpt_results_dir: "results/one-hot/uni-test-2500-filter-large/2024-02-07-17-06-33-train-normal/ckpt"
+  ckpt_results_dir: "results/one-hot/normal/2024-03-09-11-57-14-train-normal/ckpt"
   !!merge <<: *common
 
   sample_type: "normal" # only for outpainting mode
@@ -152,7 +152,7 @@ Evaluation:
 
   # at least 2048 samples for FID or the "nan" or "complex number" error will occur
   # 30000-50000 samples are recommended
-  num_fid_samples: 10000
+  num_fid_samples: 2048
   # [64, 128, 768, 2048] can be used, but 2048 is FID calculation's standard value which is recommended
   inception_block_idx: 2048
   types: ["overlap"]

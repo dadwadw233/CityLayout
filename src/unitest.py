@@ -66,7 +66,7 @@ if parser.parse_args().sweep:
                 'max': 0.0001
             },
             'objective': {
-                'values': ['pred_v']
+                'values': ['pred_v', 'pred_noise', 'pred_x0']
             },
             'beta_schedule':
             {
