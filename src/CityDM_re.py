@@ -49,7 +49,7 @@ from utils.log import *
 
 from utils.config import ConfigParser
 from model.Unet import Unet
-from model.DDPM import GaussianDiffusion
+from model.DDPM_re import GaussianDiffusion
 import os
 import inspect
 from utils.evaluation import Evaluation
@@ -301,7 +301,6 @@ class CityDM(object):
         self.results_dir = val_config["results_dir"]
         
         self.sample_type = val_config["sample_type"]
-        self.sample_mode = val_config["sample_mode"]
 
         
         if self.accelerator.is_main_process:
@@ -342,10 +341,9 @@ class CityDM(object):
         # add time stamp to results_dir
         # check if results_dir exists
         self.sample_type = test_config["sample_type"]
-        self.sample_mode = test_config["sample_mode"]
 
 
-        self.results_dir = os.path.join(self.results_dir, self.sample_mode) + '-sample-' + self.sample_type
+        self.results_dir = os.path.join(self.results_dir, self.model_type) + '-sample-' + self.sample_type
         self.results_dir = os.path.join(self.results_dir,
                                         time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-test'
 
@@ -444,7 +442,6 @@ class CityDM(object):
             
         # confirm sample type
         self.generator.set_sample_type(self.sample_type)
-        self.generator.set_sample_mode(self.sample_mode)
 
         # Init EMA
         # todo: check correct init logic for ema
@@ -982,7 +979,7 @@ class CityDM(object):
 
             batches = num_to_groups(self.num_samples, self.batch_size)
 
-            if self.sample_mode == "Outpainting":
+            if self.sample_type == "Outpainting":
                 all_images = None
                 padding = self.config_parser.get_config_by_name("Test")['op']["padding"]
                 ratio = self.config_parser.get_config_by_name("Test")['op']["ratio"]
@@ -996,7 +993,7 @@ class CityDM(object):
                             (all_images, self.op_handle(cond_image, padding=padding, ratio=ratio)), dim=0
                         )
 
-            elif self.sample_mode == "Inpainting":
+            elif self.sample_type == "Inpainting":
                 all_images = None
                 for b in tqdm(range(len(batches)), desc="inpaiting sampling", leave=False, colour="green"):
                     cond_image = next(self.test_dataloader)["layout"].to(self.device)
