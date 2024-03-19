@@ -79,8 +79,8 @@ Model:
     timesteps: 2500
     sampling_timesteps: 50
     image_size: 256
-    objective: "pred_v"
-    beta_schedule: "linear"
+    objective: "pred_x0"
+    beta_schedule: "sigmoid"
     ddim_sampling_eta: 0.0
     auto_normalize: True
     offset_noise_strength: 0.0
@@ -125,7 +125,7 @@ Validation:
   num_samples: 64
 
   results_dir: "results/one-hot"
-  fine_tune_dir: "results/one-hot/normal/2024-03-09-11-57-14-train-normal"
+  fine_tune_dir: "results/one-hot/normal/2024-02-29-20-24-01-train-normal"
   sample_type: "completion" # only for outpainting mode
   sample_mode: "Inpainting" # "Inpainting" or "normal" or "Outpainting"
   

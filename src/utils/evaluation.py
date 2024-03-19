@@ -54,6 +54,7 @@ class Evaluation:
 
         self.dl = dl
         self.sampler = sampler
+        self.refiner = None
 
         self.num_fid_samples = config['num_fid_samples']
         self.inception_block_idx = config['inception_block_idx']
@@ -137,6 +138,10 @@ class Evaluation:
 
         self.condition = False
 
+    def set_refiner(self, refiner):
+        self.refiner = refiner
+
+    
     def reset_sampler(self, sampler):
         INFO(f"Reset sampler")
         self.sampler = sampler
@@ -248,8 +253,12 @@ class Evaluation:
             cond = cond.to(self.device)
             fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=cond)
             fake_samples = fake_samples[:, :self.channels, :, :]
+            if self.refiner is not None:
+                fake_samples = self.refiner.sample(batch_size=self.batch_size, cond=fake_samples)[:, :self.channels, :, :]
         else:
             fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=None)[:, :self.channels, :, :]
+            if self.refiner is not None:
+                fake_samples = self.refiner.sample(batch_size=self.batch_size, cond=fake_samples)[:, :self.channels, :, :]
 
         # DEBUG(f"fake samples shape: {fake_samples.shape}")
         if 'data_analysis' in self.metrics_list:

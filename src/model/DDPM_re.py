@@ -345,24 +345,6 @@ class GaussianDiffusion(nn.Module):
         )
         return model_mean, posterior_variance, posterior_log_variance, x_start
     
-    def get_random_noise_forward(self, image):
-        # select random channel to add standard gaussian noise
-        b, c, h, w = image.shape
-        
-        noise = torch.zeros_like(image, device=self.device)
-
-        # 👇 maybe image in the batch have different conditional channel will lead to better performance
-        # combinations_idx = torch.randint(0, len(self.combinations), (1,))
-
-        combinations_idx = torch.randint(0, len(self.combinations), (b,))
-        # combinations_idx shape : (b,)
-
-        # then replace these channels with noise
-        
-        for i in range(b):
-            noise[i, self.combinations[combinations_idx[i]], :, :] = torch.randn_like(image[i, self.combinations[combinations_idx[i]], :, :])
-
-        return noise
     
     def get_random_outpainting_mask_forward(self, image):
         # crop some continue region from image and add noise
@@ -463,19 +445,6 @@ class GaussianDiffusion(nn.Module):
         
         return mask
     
-    @torch.inference_mode()
-    def random_mask_image_backward(self, image):
-
-        b, c, h, w = image.shape
-
-        # combinations_idx = torch.randint(0, len(self.combinations), (1,))
-        combinations_idx = torch.randint(0, len(self.combinations), (b,))
-        # then replace these channels with noise
-        # image[:, self.combinations[combinations_idx], :, :] = torch.randn_like(image[:, self.combinations[combinations_idx], :, :])
-        for i in range(b):
-            image[i, self.combinations[combinations_idx[i]], :, :] = torch.randn_like(image[i, self.combinations[combinations_idx[i]], :, :])
-
-        return image
     
     @torch.inference_mode()
     def random_outpainting_noise_backward(self, image, mask=None):
@@ -578,7 +547,7 @@ class GaussianDiffusion(nn.Module):
                 mask = self.get_completion_mask_backward(org.clone(), mask=mask)
             img = torch.randn((shape[0], shape[1]//2, shape[2], shape[3]), device=device)
             
-        elif self.model_type == "CityGen" or (self.model_type=="normal" and self.sample_type=="Repaint"):
+        elif self.model_type == "CityGen" or (self.model_type=="normal" and (self.sample_type=="Inpainting" or self.sample_type=="Outpainting")):
             img, mask = self.random_outpainting_noise_backward(org.clone(), mask)    
             img = torch.randn(org.shape, device=device)
             
@@ -673,7 +642,7 @@ class GaussianDiffusion(nn.Module):
             imgs.append(img)
             
             # conditional sample
-            if self.model_type == "normal" and self.sample_type == "Repaint": 
+            if self.model_type == "normal" and (self.sample_type == "Inpainting" or self.sample_type == "Outpainting"): 
                 #DEBUG(img.shape)
                 # DEBUG("Repaint sample mode")
                 bool_mask = ((op_mask + 1) / 2).bool()
@@ -763,7 +732,7 @@ class GaussianDiffusion(nn.Module):
         if self.model_type == "completion":
             x_start, unimask = self.get_completion_mask_forward(x_start.clone())
             noise = default(noise, lambda: torch.randn_like(x_start))
-        elif self.model_type == "Outpainting":
+        elif self.model_type == "CityGen":
             x_start, op_mask = self.get_random_outpainting_mask_forward(x_start.clone())
             noise = default(noise, lambda: torch.randn_like(x_start))
         elif self.model_type == "normal":

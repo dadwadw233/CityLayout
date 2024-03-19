@@ -139,9 +139,8 @@ class CityDM(object):
             
         self.init_main()
         
-    def init_backbone(self):
-        model_config = self.config_parser.get_config_by_name("Model")
-        backbone = Unet(**model_config['backbone'])
+    def init_backbone(self, cfg=None):
+        backbone = Unet(**cfg)
         INFO(f"Backbone initialized!")
         return backbone
         
@@ -357,6 +356,28 @@ class CityDM(object):
             # utils prepare
             self.utils_init()
             
+        if test_config["use_completion"]:
+            self.completion = True
+            # LOAD COMPLETION MODEL
+            backbone_config = self.config_parser.get_config_by_name("Model")["backbone"]
+            backbone_config["channels"] = 6
+            
+            self.completion_backbone = self.init_backbone(backbone_config)
+            self.refiner = self.init_diffuser(self.completion_backbone, self.config_parser.get_config_by_name("Model")["completion"])
+            
+            
+            INFO(f"Completion model initialized!")
+            self.refiner_ckpt = test_config["refiner_ckpt"]
+            self.refiner_ckpt_type = test_config["refiner_ckpt_type"]
+            
+        else:
+            self.completion = False
+            self.refiner = None
+        
+        self.generator_ckpt_type = test_config["generator_ckpt_type"]
+        
+            
+            
     def get_evaluator(self, sampler):
         eval_config = self.config_parser.get_config_by_name("Evaluation")
         if self.accelerator.is_main_process:
@@ -381,14 +402,16 @@ class CityDM(object):
 
         try:
             # Init Model
-            self.backbone = self.init_backbone()
+            model_config = self.config_parser.get_config_by_name("Model")
+            backbone_config = model_config["backbone"]
+            self.backbone = self.init_backbone(backbone_config)
 
-            # Init Diffusion
+            # Init Diffusion generator (aka. diffuser)
             diffusion_config = self.config_parser.get_config_by_name("Model")["diffusion"]
             self.generator = self.init_diffuser(self.backbone, diffusion_config)
             self.model_type = diffusion_config["model_type"]
+            self.generator_ckpt_type = None
             
-            # TODO: add refiner
             
         except Exception as e:
             ERROR(f"Init Model failed! {e}")
@@ -428,7 +451,7 @@ class CityDM(object):
         # step2: if finetuning or sampling, load ckpt
         if self.fine_tune or self.mode == "test":
             INFO(f"Fine tune mode or test mode, load ckpt from {self.ckpt_results_dir}")
-            if self.pretrain_ckpt_type == "best":
+            if self.pretrain_ckpt_type == "best" and self.generator_ckpt_type == "best":
                 ckpt_path = os.path.join(self.ckpt_results_dir, "best_ckpt.pth")
             else:
                 ckpt_path = os.path.join(self.ckpt_results_dir, "latest_ckpt.pth")
@@ -437,20 +460,35 @@ class CityDM(object):
             INFO(f"ckpt loaded!")
             INFO(f"ckpt step & epoch: {self.now_step}, {self.now_epoch}")
             
+            if self.mode == "test" and self.refiner is not None:
+                if self.refiner_ckpt_type == "best":
+                    ckpt_path = os.path.join(self.refiner_ckpt, "best_ckpt.pth")
+                else:
+                    ckpt_path = os.path.join(self.refiner_ckpt, "latest_ckpt.pth")
+                self.load_ckpts(self.refiner, ckpt_path, mode=self.mode)
+                INFO(f"Refiner ckpt loaded!")
         else:
             INFO(f"Train from scratch!")
             
         # confirm sample type
         self.generator.set_sample_type(self.sample_type)
+        if self.refiner is not None:
+            self.refiner.set_sample_type("normal")
 
         # Init EMA
-        # todo: check correct init logic for ema
+        
 
         # evaluation prepare
         if self.accelerator.is_main_process:
             self.generator_ema = self.get_ema(self.generator)
             INFO(f"EMA initialized!")
             self.evaluator = self.get_evaluator(self.generator_ema.ema_model)
+            
+            if self.refiner is not None:
+                self.refiner_ema = self.get_ema(self.refiner)
+                INFO(f"Refiner EMA initialized!")
+                self.evaluator.set_refiner(self.refiner_ema.ema_model)
+                
         INFO(f"Evaluation initialized!")
         
         # print some info
@@ -886,6 +924,11 @@ class CityDM(object):
 
                         extend_region = self.generator_ema.ema_model.sample(batch_size=b, cond=cond_region, mask=op_mask)[:, :c,
                                         ...]
+                        
+                        if self.refiner is not None:
+                            zero_mask = torch.zeros((b, 1, 256, 256), device=self.device)
+                            refine = self.refiner_ema.ema_model.sample(batch_size=b, cond=extend_region, mask=zero_mask)[:, :3, ...]
+                            extend_region = refine
 
                         extend_layout[:, :, h_l_p:h_l_p + h,
                         w_l_p + int(w * ratio):w_l_p + int(w * ratio) + w] = extend_region
@@ -898,6 +941,10 @@ class CityDM(object):
                         # DEBUG(f"hlp: {h_l_p}, wlp: {w_l_p}")
                         extend_region = self.generator_ema.ema_model.sample(batch_size=b, cond=cond_region, mask=op_mask)[:, :c,
                                         ...]
+                        if self.refiner is not None:
+                            zero_mask = torch.zeros((b, 1, 256, 256), device=self.device)
+                            refine = self.refiner_ema.ema_model.sample(batch_size=b, cond=extend_region, mask=zero_mask)[:, :3, ...]
+                            extend_region = refine
                         extend_layout[:, :, h_l_p:h_l_p + h, w_l_p:w_l_p + w] = extend_region
 
                     pbar.update(1)
@@ -954,7 +1001,12 @@ class CityDM(object):
         # bbox: the bbox of the inp region : shape (b, 4) (x1, y1, x2, y2)
 
         mask = self.get_inpaint_mask(shape=org.shape, bbox=bbox)
-
+        if self.refiner is not None:
+            sample = self.generator_ema.ema_model.sample(batch_size=org.shape[0], cond=org, mask=mask)
+            zero_mask = torch.zeros((org.shape[0], 1, 256, 256), device=self.device)
+            refine = self.refiner_ema.ema_model.sample(batch_size=org.shape[0], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
+            sample = torch.cat((refine, sample), dim=1)
+            return sample
         return self.generator_ema.ema_model.sample(batch_size=org.shape[0], cond=org, mask=mask)
 
     def sample(self, cond=False, eval=True, use_wandb=False):
@@ -1011,26 +1063,46 @@ class CityDM(object):
                     all_images = None
                     for b in tqdm(range(len(batches)), desc="sampling", leave=False, colour="green"):
                         cond_image = next(self.test_dataloader)["layout"].to(self.device)
+                        sample = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=cond_image)[:, :3, ...]
+                        
+                        if self.refiner is not None:
+                            zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
+                            refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
+                            sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
+                        
                         if all_images is None:
-                            all_images = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=cond_image)
+                            all_images = sample
+                        
                         else:
                             all_images = torch.cat(
-                                (all_images, self.generator_ema.ema_model.sample(batch_size=batches[b], cond=cond_image)), dim=0
+                                (all_images, sample), dim=0
                             )
+                        
                 else:
-                    all_images = list(
-                        map(
-                            lambda n: self.generator_ema.ema_model.sample(batch_size=n, cond=None),
-                            batches,
+                    if self.refiner is not None:
+                        all_images = None
+                        for b in tqdm(range(len(batches)), desc="sampling", leave=False, colour="green"):
+                            sample = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=None)
+                            zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
+                            refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
+                            sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
+                            if all_images is None:
+                                all_images = sample
+                            else:
+                                all_images = torch.cat(
+                                    (all_images, sample), dim=0
+                                )
+                    else:
+                        all_images = list(
+                            map(
+                                lambda n: self.generator_ema.ema_model.sample(batch_size=n, cond=None),
+                                batches,
+                            )
                         )
-                    )
+                        all_images = torch.cat(
+                            all_images, dim=0
+                        )
 
-            if cond is True:
-                all_images = all_images
-            else:
-                all_images = torch.cat(
-                    all_images, dim=0
-                )
             INFO(f"Sampling {self.num_samples} images done!")
 
             # save and evaluate
