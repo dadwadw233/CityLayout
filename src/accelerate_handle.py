@@ -9,7 +9,7 @@ from utils.log import *
 from copy import deepcopy
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--path", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/uniDM_train_multigpu.yaml")
+parser.add_argument("--path", type=str, default="/home/admin/workspace/yuyuanhong/code/CityLayout/config/new/normal_train_multigpu.yaml")
 parser.add_argument("--sweep_id", type=str, default=None)
 
 # main function

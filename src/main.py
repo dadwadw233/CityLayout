@@ -1,4 +1,4 @@
-from CityDM import CityDM
+from CityDM_re import CityDM
 import argparse
 import os
 import wandb
@@ -111,10 +111,10 @@ if not parser.parse_args().sweep:
                 INFO("sample {}".format(config_prefix))
                 sample_path = config_manager.get_config_by_name("sample")[config_prefix]
                 citydm = CityDM(sample_path)
-                citydm.sample(cond=parser.parse_args().cond, eval=parser.parse_args().eval, best=parser.parse_args().best, use_wandb=parser.parse_args().wandb)
+                citydm.sample(cond=parser.parse_args().cond, eval=parser.parse_args().eval, use_wandb=parser.parse_args().wandb)
         else:
             citydm = CityDM(sample_path)
-            citydm.sample(cond=parser.parse_args().cond, eval=parser.parse_args().eval, best=parser.parse_args().best)    
+            citydm.sample(cond=parser.parse_args().cond, eval=parser.parse_args().eval)    
 
     elif parser.parse_args().train:
         citydm = CityDM(path, debug = parser.parse_args().debug, ddp=parser.parse_args().multigpu)

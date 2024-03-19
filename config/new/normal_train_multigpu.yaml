@@ -79,7 +79,7 @@ Model:
     timesteps: 2500
     sampling_timesteps: 50
     image_size: 256
-    objective: "pred_noise"
+    objective: "pred_v"
     beta_schedule: "sigmoid"
     ddim_sampling_eta: 0.0
     auto_normalize: True

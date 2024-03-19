@@ -1,0 +1,18 @@
+train:
+  op_train: "./config/new/outpainting_train.yaml"
+  op_train_multigpu: "./config/new/outpainting_train_multigpu.yaml"
+  normal_train: "./config/new/normal_train.yaml"
+  normal_train_multigpu: "./config/new/normal_train_multigpu.yaml"
+  inp_train: "./config/new/inpainting_train.yaml"
+  uniDM_train_multigpu: "./config/new/uniDM_train_multigpu.yaml"
+  uniDM_train: "./config/new/uniDM_train.yaml"
+  completion_train_multigpu: "./config/new/completion_train_multigpu.yaml"
+
+sample:
+  normal_sample: "./config/new/normal_sample.yaml"
+  op_sample: "./config/new/outpainting_sample.yaml"
+  op_sample_citygen: "./config/new/outpainting_sample_citygen.yaml"
+  inp_sample: "./config/new/inpainting_sample.yaml"
+  inp_sample_citygen: "./config/new/inpainting_sample_citygen.yaml"
+  refactoring: "./config/new/refactoring.yaml"
+
