@@ -743,7 +743,7 @@ class CityDM(object):
                             if self.model_type == "completion":
                                 self.validation(writer, cond=True)
                                 INFO(f"Validation with cond done!")
-                            elif self.model_type == "Outpainting":
+                            elif self.model_type == "CityGen":
                                 self.validation(writer, cond=True)
                                 INFO(f"Validation with cond done!")
                             elif self.model_type == "normal":
