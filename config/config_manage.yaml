@@ -7,6 +7,8 @@ train:
   uniDM_train_multigpu: "./config/new/uniDM_train_multigpu.yaml"
   uniDM_train: "./config/new/uniDM_train.yaml"
   completion_train_multigpu: "./config/new/completion_train_multigpu.yaml"
+  refactoring_train: "./config/new/refactoring_train.yaml"
+
 
 sample:
   normal_sample: "./config/new/normal_sample.yaml"
@@ -15,4 +17,4 @@ sample:
   inp_sample: "./config/new/inpainting_sample.yaml"
   inp_sample_citygen: "./config/new/inpainting_sample_citygen.yaml"
   refactoring: "./config/new/refactoring.yaml"
-
+  
