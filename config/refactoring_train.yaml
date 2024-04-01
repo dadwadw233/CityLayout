@@ -1,4 +1,4 @@
-default:
+defaults:
   - private: log
 
 
@@ -120,7 +120,7 @@ all:
     seed: null
     condition: False
 
-    batch_size: 32
+    batch_size: 8
     milestone: 0
     device: cuda
     lr: 1e-5
@@ -135,10 +135,13 @@ all:
     scheduler: "cosine" # or "step"
     adam_betas: [0.9, 0.999]
 
-    sample_frequency: 500
+    sample_frequency: 100
     grad_accumulate: 4
     
     max_grad_norm: 1.
+
+    gpus: [0]
+    precision: 16
 
   Validation:
     save_best_and_latest_only: True
@@ -188,7 +191,7 @@ all:
 
 
   Data:
-    batch_size: 32
+    batch_size: 8
     num_workers: 16
     # root path for city_name.h5
     path:

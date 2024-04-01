@@ -109,9 +109,6 @@ class PL_CityDM(pl.LightningModule):
         self.batch_size = data_config["batch_size"]
         self.num_workers = data_config["num_workers"]
         # Init Dataloader
-        self.train_dataloader = None
-        self.val_dataloader = None
-        self.test_dataloader = None
         if self.mode == "train":
             self.train_dataset = OSMDataset(config=data_config, mode="train")
             self.val_dataset = OSMDataset(config=data_config, mode="val")
@@ -120,15 +117,14 @@ class PL_CityDM(pl.LightningModule):
                     self.train_dataset,
                     batch_size=self.batch_size,
                     shuffle=True,
-                    num_workers=self.num_workers,
                     pin_memory=True,
+                    drop_last=True,
                 )
             
             self.val_dl = DataLoader(
                     self.val_dataset,
                     batch_size=self.batch_size,
-                    shuffle=True,
-                    num_workers=self.num_workers,
+                    shuffle=False,
                     drop_last=True,
                 )
             
@@ -138,8 +134,7 @@ class PL_CityDM(pl.LightningModule):
             self.test_dl = DataLoader(
                 self.test_dataset,
                 batch_size=self.batch_size,
-                shuffle=True,
-                num_workers=self.num_workers,
+                shuffle=False,
                 drop_last=True,
             )
             
@@ -339,7 +334,6 @@ class PL_CityDM(pl.LightningModule):
             self.load_ckpts(self.generator, ckpt_path, mode=self.mode)
             
             INFO(f"ckpt loaded!")
-            INFO(f"ckpt step & epoch: {self.now_step}, {self.now_epoch}")
             
             if self.mode == "test" and self.refiner is not None:
                 if self.refiner_ckpt_type == "best":
@@ -352,8 +346,8 @@ class PL_CityDM(pl.LightningModule):
             INFO(f"Train from scratch!")
             
         
-        INFO("Done!")
-        exit(0)
+        INFO("CityDM init done!")
+        
         
     def on_trian_start(self):
         # confirm sample type
@@ -374,7 +368,7 @@ class PL_CityDM(pl.LightningModule):
         self.folder_init = False
     
     def configure_optimizers(self):
-        return self.optimizer, self.scheduler
+        return [self.optimizer], [self.scheduler]
     
     def train_dataloader(self):
         return self.train_dl
@@ -399,7 +393,7 @@ class PL_CityDM(pl.LightningModule):
         layout = batch["layout"]
         with amp.autocast():
             loss = self.generator(layout)
-            self.log("loss", loss)
+            # self.log("loss", loss)
         
         
         return loss
@@ -424,7 +418,7 @@ class PL_CityDM(pl.LightningModule):
         
         return {"sample": sample}
 
-    def validation_epoch_end(self, outputs):
+    def on_validation_epoch_end(self, outputs):
         val_cond = False
         if self.model_type == "completion" or self.model_type == "CityGen":
             val_cond = True
@@ -466,8 +460,8 @@ class PL_CityDM(pl.LightningModule):
                 raise ValueError(f"data_type {self.data_type} not supported!")
             
         overlapping_rate = cal_overlapping_rate(all_images)
-        if not self.debug:
-            self.log("overlapping_rate", overlapping_rate)
+        #if not self.debug:
+            # self.log("overlapping_rate", overlapping_rate)
         
         val_result = None
         try:
@@ -479,9 +473,9 @@ class PL_CityDM(pl.LightningModule):
             ERROR(f"Traceback: \n {traceback.format_exc()}")
             raise e
         
-        if val_result is not None:
-            if not self.debug:
-                self.log_dict(val_result)
+        #if val_result is not None:
+         #   if not self.debug:
+                # self.log_dict(val_result)
         if self.save_best_and_latest_only:
             if self.check_best_or_not(val_result):
                 self.save_ckpts(epoch=self.current_epoch , step=self.global_step, best=True)
@@ -605,20 +599,6 @@ class PL_CityDM(pl.LightningModule):
     def load_ckpts(self, model, ckpt_path, mode="train"):
         ckpt = torch.load(ckpt_path)
         
-        # if mode == "train":
-        #     if self.pretrain_model_type == self.model_type and self.fine_tune:
-        #         WARNING(f"Fine tune mode and same training type, load pretrain model's params and continue training!")
-        #         #self.optimizer.load_state_dict(ckpt["optimizer"])
-        #         self.scheduler.load_state_dict(ckpt["scheduler"])
-        #         self.now_epoch = ckpt["epoch"]
-        #         self.now_step = ckpt["step"]
-        #         self.best_evaluation_result = ckpt["best_evaluation_result"]
-        #         self.seed = ckpt["seed"]
-        
-        if self.fine_tune and mode == "train":
-            INFO(f"Load ckpt from {ckpt_path} for fintunig {self.model_type} model!")
-            INFO(f"fintuning type: {self.finetuning_type}")
-
         self.load_model_params(model, ckpt["diffusion"], self.finetuning_type)
 
         INFO(f"Ckpt loaded from {ckpt_path}")

@@ -531,8 +531,9 @@ class CityDM(object):
         return self.accelerator.device
 
     def load_model_params(self, tgt, model_state_dict, load_type):
+        
         if load_type == "full" or load_type == None:
-            tgt.load_state_dict(self.partly_load(model_state_dict))
+            tgt.load_state_dict(model_state_dict)
         elif load_type == "partial":
             tgt.load_state_dict(self.partly_load(model_state_dict), strict=False)
         elif load_type == "LoRA":
@@ -622,9 +623,10 @@ class CityDM(object):
             INFO(f"Load ckpt from {ckpt_path} for fintunig {self.model_type} model!")
             INFO(f"fintuning type: {self.finetuning_type}")
 
+        INFO(f"Ckpt loaded from {ckpt_path}")
         self.load_model_params(model, ckpt["diffusion"], self.finetuning_type)
 
-        INFO(f"Ckpt loaded from {ckpt_path}")
+        
 
         if exists(self.accelerator.scaler) and exists(ckpt['scaler']):
             self.accelerator.scaler.load_state_dict(ckpt['scaler'])
