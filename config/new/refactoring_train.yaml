@@ -81,8 +81,8 @@ Model:
     timesteps: 2500
     sampling_timesteps: 50
     image_size: 256
-    objective: "pred_noise"
-    beta_schedule: "cosine"
+    objective: "pred_v"
+    beta_schedule: "sigmoid"
     ddim_sampling_eta: 0.0
     auto_normalize: True
     offset_noise_strength: 0.0
@@ -95,7 +95,7 @@ Model:
     sampling_timesteps: 50
     image_size: 256
     objective: "pred_v"
-    beta_schedule: "linear"
+    beta_schedule: "sigmoid"
     ddim_sampling_eta: 0.0
     auto_normalize: True
     offset_noise_strength: 0.0
@@ -141,7 +141,7 @@ Validation:
   num_samples: 64
   sample_type: "Outpainting" 
   results_dir: "results/one-hot"
-  fine_tune_dir: "results/one-hot/normal/2024-03-16-04-46-34-train-normal"
+  fine_tune_dir: "results/one-hot/normal/2024-03-17-18-39-46-train-normal"
   
 # 👇 only nedded for sample config
 Test:
