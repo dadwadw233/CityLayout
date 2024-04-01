@@ -63,7 +63,6 @@ class Evaluation:
         self.metrics_list = config['metrics_list']
         self.data_type = config['data_type']
 
-        self.print_fn = print if accelerator is None else accelerator.print
         assert self.inception_block_idx in InceptionV3.BLOCK_INDEX_BY_DIM
 
         self.vis = OSMVisulizer(config=config)
