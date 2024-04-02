@@ -136,11 +136,16 @@ class Evaluation:
         self.evaluate_dict = {}
 
         self.condition = False
+        if self.device is not 'cuda':
+            WARNING("CUDA is not available, evaluation may be slow")
 
     def set_refiner(self, refiner):
         self.refiner = refiner
 
+    def reset_dl(self, dl):
+        self.dl = dl
     
+        
     def reset_sampler(self, sampler):
         INFO(f"Reset sampler")
         self.sampler = sampler

@@ -39,7 +39,7 @@ from utils.utils import (
 
 from model.version import __version__
 
-from data.osm_loader import OSMDataset
+from datasets.osm_loader import OSMDataset
 
 from torch.utils.tensorboard import SummaryWriter
 

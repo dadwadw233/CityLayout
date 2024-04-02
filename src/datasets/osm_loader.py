@@ -40,7 +40,7 @@ class OSMDataset(Dataset):
         self.key_list = key_list
         self.resize = transforms.Compose(
             [
-                transforms.Resize((config["data"]["resize"]), interpolation=InterpolationMode.BICUBIC),
+                transforms.Resize(tuple(config["data"]["resize"]), interpolation=InterpolationMode.BICUBIC),
             ]
         )
         self.normalize_method = config["data"]["normalizer"]
@@ -265,7 +265,6 @@ class OSMDataset(Dataset):
             data_dict = self.transform(data_dict)
         else:
             for key in data_dict.keys():
-                
                 data_dict[key] = self.resize(data_dict[key])
                 if key == "road":
                     data_dict[key] = self.road_augment(data_dict[key])
