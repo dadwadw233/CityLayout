@@ -39,7 +39,7 @@ from utils.utils import (
 
 from model.version import __version__
 
-from data.osm_loader import OSMDataset
+from datasets.osm_loader import OSMDataset
 
 from torch.utils.tensorboard import SummaryWriter
 
@@ -246,14 +246,13 @@ class CityDM(object):
     def get_ema(self, model):
         if self.accelerator.is_main_process:
             ema = EMA(model, beta=self.ema_decay, update_every=self.ema_update_every)
-            ema.to(self.device)
-            return ema
+            return ema.to(self.device)
     
     def opt_init(self):
         if self.opt_type == "adam":
-            self.optimizer = Adam(self.diffusion.parameters(), lr=self.lr, betas=self.adam_betas)
+            self.optimizer = Adam(self.generator.parameters(), lr=self.lr, betas=self.adam_betas)
         elif self.opt_type == "sgd":
-            self.optimizer = SGD(self.diffusion.parameters(), lr=self.lr)
+            self.optimizer = SGD(self.generator.parameters(), lr=self.lr)
         else:
             ERROR(f"Optimizer type {self.opt_type} not supported!")
             raise ValueError(f"Optimizer type {self.opt_type} not supported!")
@@ -309,9 +308,10 @@ class CityDM(object):
 
         
         self.pretrain_ckpt_dir = os.path.join(val_config["fine_tune_dir"], "ckpt")
+        self.pretrain_ckpt_type = self.config_parser.get_config_by_name("Main")["pretrain_ckpt_type"]
 
         if self.accelerator.is_main_process:
-            self.create_folder("train", self.results_dir)
+            self.create_folder("train")
             # log some info
             INFO(f"Results dir: {self.results_dir}")
             # utils prepare
@@ -327,16 +327,19 @@ class CityDM(object):
         self.optimizer, self.scheduler = self.accelerator.prepare(
             self.optimizer, self.scheduler
         )
+        
+        self.completion = False
+        self.refiner = None
     
     def sample_init(self):
         test_config = self.config_parser.get_config_by_name("Test")
         self.num_samples = test_config["num_samples"]
         self.results_dir = test_config["results_dir"]
-        self.ckpt_results_dir = test_config["ckpt_results_dir"]
-        if self.ckpt_results_dir is None or not os.path.exists(self.ckpt_results_dir) or not os.path.isdir(
-                self.ckpt_results_dir):
-            ERROR(f"ckpt_results_dir {self.ckpt_results_dir} does not exist!")
-            raise ValueError(f"ckpt_results_dir {self.ckpt_results_dir} does not exist!")
+        self.pretrain_ckpt_dir = test_config["ckpt_results_dir"]
+        if self.pretrain_ckpt_dir is None or not os.path.exists(self.pretrain_ckpt_dir) or not os.path.isdir(
+                self.pretrain_ckpt_dir):
+            ERROR(f"pretrain_ckpt_dir {self.pretrain_ckpt_dir} does not exist!")
+            raise ValueError(f"pretrain_ckpt_dir {self.pretrain_ckpt_dir} does not exist!")
         # add time stamp to results_dir
         # check if results_dir exists
         self.sample_type = test_config["sample_type"]
@@ -450,11 +453,11 @@ class CityDM(object):
         
         # step2: if finetuning or sampling, load ckpt
         if self.fine_tune or self.mode == "test":
-            INFO(f"Fine tune mode or test mode, load ckpt from {self.ckpt_results_dir}")
+            INFO(f"Fine tune mode or test mode, load ckpt from {self.pretrain_ckpt_dir}")
             if self.pretrain_ckpt_type == "best" and self.generator_ckpt_type == "best":
-                ckpt_path = os.path.join(self.ckpt_results_dir, "best_ckpt.pth")
+                ckpt_path = os.path.join(self.pretrain_ckpt_dir, "best_ckpt.pth")
             else:
-                ckpt_path = os.path.join(self.ckpt_results_dir, "latest_ckpt.pth")
+                ckpt_path = os.path.join(self.pretrain_ckpt_dir, "latest_ckpt.pth")
             self.load_ckpts(self.generator, ckpt_path, mode=self.mode)
             
             INFO(f"ckpt loaded!")
@@ -492,7 +495,9 @@ class CityDM(object):
         INFO(f"Evaluation initialized!")
         
         # print some info
-        INFO(self.evaluator.summary())
+        if self.accelerator.is_main_process:
+            
+            INFO(self.evaluator.summary())
         
         
         # Done
@@ -526,10 +531,11 @@ class CityDM(object):
         return self.accelerator.device
 
     def load_model_params(self, tgt, model_state_dict, load_type):
+        
         if load_type == "full" or load_type == None:
             tgt.load_state_dict(model_state_dict)
         elif load_type == "partial":
-            tgt.load_state_dict(self.partly_load(model_state_dict))
+            tgt.load_state_dict(self.partly_load(model_state_dict), strict=False)
         elif load_type == "LoRA":
             ERROR(f"LoRA not supported yet!")
             raise NotImplementedError(f"LoRA not supported yet!")
@@ -541,7 +547,7 @@ class CityDM(object):
         # pre-train model may not suitable for current model, so we load pre-train model's params
         # which is suitable for current model and zero init other new params
 
-        padded_dict = self.diffusion.state_dict()
+        padded_dict = self.generator.state_dict()
         for key in padded_dict.keys():
             if key not in param_dict.keys():
                 padded_dict[key] = torch.zeros_like(padded_dict[key])
@@ -583,7 +589,7 @@ class CityDM(object):
             ckpt = {
                 "epoch": epoch,
                 "step": step,
-                "diffusion": self.accelerator.get_state_dict(self.diffusion),
+                "diffusion": self.accelerator.get_state_dict(self.generator),
                 "optimizer": self.optimizer.state_dict(),
                 "scheduler": self.scheduler.state_dict(),
                 "ema": self.generator_ema.state_dict(),
@@ -617,9 +623,10 @@ class CityDM(object):
             INFO(f"Load ckpt from {ckpt_path} for fintunig {self.model_type} model!")
             INFO(f"fintuning type: {self.finetuning_type}")
 
+        INFO(f"Ckpt loaded from {ckpt_path}")
         self.load_model_params(model, ckpt["diffusion"], self.finetuning_type)
 
-        INFO(f"Ckpt loaded from {ckpt_path}")
+        
 
         if exists(self.accelerator.scaler) and exists(ckpt['scaler']):
             self.accelerator.scaler.load_state_dict(ckpt['scaler'])
@@ -632,7 +639,7 @@ class CityDM(object):
         # print model param
         INFO("Model Summary:")
         INFO("========================================")
-        INFO(self.diffusion)
+        INFO(self.generator)
         INFO("========================================")
         INFO("Model Summary End")
 
@@ -650,21 +657,21 @@ class CityDM(object):
                     if self.sweep_mode:
                         # wandb.config.update(self.config_parser.get_config_all())
                         wandb.init(config=self.config_parser.get_config_all(), name=display_name, reinit=True)
-                        # wandb.watch(self.diffusion, log="all")
+                        # wandb.watch(self.generator, log="all")
                     else:
                         wandb.init(project="CityLayout", entity="913217005", config=self.config_parser.get_config_all(),
                                    name=display_name, group=self.model_type)
-                        # wandb.watch(self.diffusion, log="all")
+                        # wandb.watch(self.generator, log="all")
             else:
                 display_name = self.results_dir.replace("/", "-")
                 if self.sweep_mode:
                     wandb.init(config=self.config_parser.get_config_all(), name=display_name, reinit=True)
                     # wandb.config.update(self.config_parser.get_config_all())
-                    # wandb.watch(self.diffusion, log="all")
+                    # wandb.watch(self.generator, log="all")
                 else:
                     wandb.init(project="CityLayout", entity="913217005", config=self.config_parser.get_config_all(),
                                name=display_name, group=self.model_type)
-                    # wandb.watch(self.diffusion, log="all")
+                    # wandb.watch(self.generator, log="all")
 
             if self.accelerator.is_main_process:
                 experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}_resultfolder{}".format(
@@ -721,7 +728,7 @@ class CityDM(object):
                     )
 
                     self.accelerator.wait_for_everyone()
-                    self.accelerator.clip_grad_norm_(self.diffusion.parameters(), self.max_grad_norm)
+                    self.accelerator.clip_grad_norm_(self.generator.parameters(), self.max_grad_norm)
 
                     self.scheduler.step()
                     self.optimizer.step()
@@ -732,13 +739,13 @@ class CityDM(object):
                     self.now_step += 1
                     self.now_epoch = (self.now_step * self.batch_size * self.grad_accumulate) // len(self.train_dataset)
                     if self.accelerator.is_main_process:
-                        self.generator_ema.upate()
+                        self.generator_ema.update()
 
                         if self.now_step != 0 and divisible_by(self.now_step, self.sample_frequency):
                             if self.model_type == "completion":
                                 self.validation(writer, cond=True)
                                 INFO(f"Validation with cond done!")
-                            elif self.model_type == "Outpainting":
+                            elif self.model_type == "CityGen":
                                 self.validation(writer, cond=True)
                                 INFO(f"Validation with cond done!")
                             elif self.model_type == "normal":
@@ -1022,7 +1029,7 @@ class CityDM(object):
                     DISPLAY_NAME = self.sample_results_dir.replace("/", "-")
                     wandb.init(project="CityLayout", entity="913217005", config=self.config_parser.get_config_all(),
                                name=DISPLAY_NAME, group="sample")
-                # wandb.watch(self.diffusion, log="all")
+                # wandb.watch(self.generator, log="all")
         except Exception as e:
             ERROR(f"wandb init failed! {e}")
             use_wandb = False

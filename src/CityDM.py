@@ -17,16 +17,11 @@ from torch.optim import Adam, lr_scheduler, SGD
 
 from torchvision import transforms as T, utils
 
-from einops import rearrange, reduce, repeat
-from einops.layers.torch import Rearrange
-
 from PIL import Image
 from tqdm.auto import tqdm
 from ema_pytorch import EMA
 
 from accelerate import Accelerator
-
-from utils.fid_evaluation import FIDEvaluation
 
 from utils.utils import (
     exists,
@@ -39,7 +34,7 @@ from utils.utils import (
 
 from model.version import __version__
 
-from data.osm_loader import OSMDataset
+from datasets.osm_loader import OSMDataset
 
 from torch.utils.tensorboard import SummaryWriter
 

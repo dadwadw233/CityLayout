@@ -16,6 +16,9 @@ from torchmetrics.multimodal import CLIPImageQualityAssessment
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 from torchmetrics.image import PeakSignalNoiseRatio
 from torchmetrics.multimodal.clip_score import CLIPScore
+from rich.progress import Progress
+from rich.console import Console
+console = Console()
 
 import torch
 import numpy as np
@@ -63,7 +66,6 @@ class Evaluation:
         self.metrics_list = config['metrics_list']
         self.data_type = config['data_type']
 
-        self.print_fn = print if accelerator is None else accelerator.print
         assert self.inception_block_idx in InceptionV3.BLOCK_INDEX_BY_DIM
 
         self.vis = OSMVisulizer(config=config)
@@ -137,11 +139,16 @@ class Evaluation:
         self.evaluate_dict = {}
 
         self.condition = False
+        if self.device != 'cuda':
+            WARNING("CUDA is not available, evaluation may be slow")
 
     def set_refiner(self, refiner):
         self.refiner = refiner
 
+    def reset_dl(self, dl):
+        self.dl = dl
     
+        
     def reset_sampler(self, sampler):
         INFO(f"Reset sampler")
         self.sampler = sampler
@@ -209,7 +216,7 @@ class Evaluation:
         self.sampler = sampler
 
     @torch.inference_mode()
-    def validation(self, condition=False, path=None):
+    def init_evaluation_dict(self):
         # init evaluate dict
         self.evaluate_dict = {}
         self.evaluate_dict['CLIP'] = {}
@@ -220,7 +227,11 @@ class Evaluation:
         self.evaluate_dict['CLIP_score'] = {}
         for prompt in self.clip_descs:
             self.evaluate_dict['CLIP_score'][prompt] = {'fake': [], 'real': []}
-            
+
+    @torch.inference_mode()
+    def validation(self, condition=False, path=None):
+        # init evaluate dict
+        self.init_evaluation_dict()
 
         self.set_condtion(condition)
 
@@ -297,6 +308,57 @@ class Evaluation:
         except Exception as e:
             ERROR(f"Error when calculating CLIP: {e}")
             return False
+    @torch.inference_mode()
+    def dump_metrics(self, path):
+
+        if 'fid' in self.metrics_list:
+            self.evaluate_dict['FID'] = self.FID_calculator.compute().item()
+        if 'kid' in self.metrics_list:
+            mean, std = self.KID_calculator.compute()
+            self.evaluate_dict['KID'] = mean.item()
+            self.evaluate_dict['KID_std'] = std.item()
+        if 'mifid' in self.metrics_list:
+            self.evaluate_dict['MIFID'] = self.MIFID_calculator.compute().item()
+        if 'is' in self.metrics_list:
+            begin_time = time.time()
+            mean, std = self.IS_caluculator.compute()
+            self.evaluate_dict['IS'] = mean.item()
+            self.evaluate_dict['IS_std'] = std.item()
+            end_time = time.time()
+            DEBUG(f"IS time: {end_time - begin_time}")
+        if 'clip' in self.metrics_list:
+
+            # get mean score for each prompt
+            for prompt in self.prompt_pair:
+                prompt_str = prompt[0] + " vs " + prompt[1]
+                self.evaluate_dict['CLIP'][prompt_str]['fake'] = np.mean(
+                    self.evaluate_dict['CLIP'][prompt_str]['fake'])
+                self.evaluate_dict['CLIP'][prompt_str]['real'] = np.mean(
+                    self.evaluate_dict['CLIP'][prompt_str]['real'])
+                
+            for desc in self.clip_descs:
+                self.evaluate_dict['CLIP_score'][desc]['fake'] = np.mean(
+                    self.evaluate_dict['CLIP_score'][desc]['fake'])
+                self.evaluate_dict['CLIP_score'][desc]['real'] = np.mean(
+                    self.evaluate_dict['CLIP_score'][desc]['real'])
+        if 'data_analysis' in self.metrics_list:
+            # DEBUG(f"Start calculating data analysis")
+            real_vs_fake = self.data_analyser.contrast_analyse(path, self.condition)
+            self.evaluate_dict['real_vs_fake'] = real_vs_fake
+
+        if 'lpips' in self.metrics_list:
+            self.evaluate_dict['LPIPS'] = self.LPIPS_calculator.compute().item()
+
+        if 'ssim' in self.metrics_list:
+            self.evaluate_dict["SSIM"] = self.SSIM_calculator.compute().item()
+        
+        if 'psnr' in self.metrics_list:
+            self.evaluate_dict["PSNR"] = self.PSNR_calculator.compute().item()
+
+        # reset metrics and release CUDA memory
+        INFO(f"Finish evaluating images\nReset metrics and release CUDA memory")
+        self.reset_metrics_stats()
+        torch.cuda.empty_cache()
 
     @torch.inference_mode()
     def image_evaluation(self, path=None):
@@ -309,113 +371,61 @@ class Evaluation:
 
             INFO(f"Start evaluating images")
             try:
-                # DEBUG(f"batches: {batches}")
-                for batch in tqdm(batches, leave=False):
-                    # DEBUG(f"batch: {batch}")
-                    real_samples = self.sample_real_data()
+                with Progress() as p:
+                    task = p.add_task("eval...", total=None)
+                    for batch in batches:
+                        # DEBUG(f"batch: {batch}")
+                        real_samples = self.sample_real_data()
 
-                    real_samples = real_samples.to(self.device)
-                    if 'fid' in self.metrics_list:
-                        self.FID_calculator.update(real_samples, True)
-                    if 'kid' in self.metrics_list:
-                        self.KID_calculator.update(real_samples, True)
-                    if 'mifid' in self.metrics_list:
-                        self.MIFID_calculator.update(real_samples, True)
+                        real_samples = real_samples.to(self.device)
+                        if 'fid' in self.metrics_list:
+                            self.FID_calculator.update(real_samples, True)
+                        if 'kid' in self.metrics_list:
+                            self.KID_calculator.update(real_samples, True)
+                        if 'mifid' in self.metrics_list:
+                            self.MIFID_calculator.update(real_samples, True)
 
-                    if self.condition:
-                        cond = next(self.dl)['layout'].to(self.device)
-                    else:
-                        cond = None
+                        if self.condition:
+                            cond = next(self.dl)['layout'].to(self.device)
+                        else:
+                            cond = None
 
-                    fake_samples = self.sample_fake_data(cond=cond)
-                    if 'fid' in self.metrics_list:
-                        self.FID_calculator.update(fake_samples, False)
-                    if 'kid' in self.metrics_list:
-                        self.KID_calculator.update(fake_samples, False)
-                    if 'mifid' in self.metrics_list:
-                        self.MIFID_calculator.update(fake_samples, False)
-                    if 'is' in self.metrics_list:
-                        self.IS_caluculator.update(fake_samples)
-                    if 'clip' in self.metrics_list:
-                        self.multimodal_evaluation(real_samples, fake_samples)
+                        fake_samples = self.sample_fake_data(cond=cond)
+                        if 'fid' in self.metrics_list:
+                            self.FID_calculator.update(fake_samples, False)
+                        if 'kid' in self.metrics_list:
+                            self.KID_calculator.update(fake_samples, False)
+                        if 'mifid' in self.metrics_list:
+                            self.MIFID_calculator.update(fake_samples, False)
+                        if 'is' in self.metrics_list:
+                            self.IS_caluculator.update(fake_samples)
+                        if 'clip' in self.metrics_list:
+                            self.multimodal_evaluation(real_samples, fake_samples)
 
-                    if self.condition:
-                        condition_sample = self.vis.onehot_to_rgb(cond)
-                        if 'lpips' in self.metrics_list:
-                            self.LPIPS_calculator.update(fake_samples, condition_sample)
-                        if 'ssim' in self.metrics_list:
-                            self.SSIM_calculator.update(fake_samples, condition_sample)
-                        if 'psnr' in self.metrics_list:
-                            self.PSNR_calculator.update(fake_samples, condition_sample)
+                        if self.condition:
+                            condition_sample = self.vis.onehot_to_rgb(cond)
+                            if 'lpips' in self.metrics_list:
+                                self.LPIPS_calculator.update(fake_samples, condition_sample)
+                            if 'ssim' in self.metrics_list:
+                                self.SSIM_calculator.update(fake_samples, condition_sample)
+                            if 'psnr' in self.metrics_list:
+                                self.PSNR_calculator.update(fake_samples, condition_sample)
+                                
+                    p.advance(task,1)
 
             except Exception as e:
                 ERROR(f"Error when evaluating images: {e}")
                 raise e
 
             # sample some real data and fake data to show by wandb
-            if not self.condition:
-                real_samples = self.sample_real_data()
-                fake_samples = self.sample_fake_data(cond=None)
-                real_samples = real_samples[0].permute(1, 2, 0).cpu().numpy()
-                fake_samples = fake_samples[0].permute(1, 2, 0).cpu().numpy()
-                # wandb.log({"real": [wandb.Image(real_samples, caption="real")]}, commit=False)
-                # wandb.log({"fake": [wandb.Image(fake_samples, caption="fake")]}, commit=False)
-
-            if 'fid' in self.metrics_list:
-                self.evaluate_dict['FID'] = self.FID_calculator.compute().item()
-            if 'kid' in self.metrics_list:
-                mean, std = self.KID_calculator.compute()
-                self.evaluate_dict['KID'] = mean.item()
-                self.evaluate_dict['KID_std'] = std.item()
-            if 'mifid' in self.metrics_list:
-                self.evaluate_dict['MIFID'] = self.MIFID_calculator.compute().item()
-            if 'is' in self.metrics_list:
-                begin_time = time.time()
-                mean, std = self.IS_caluculator.compute()
-                self.evaluate_dict['IS'] = mean.item()
-                self.evaluate_dict['IS_std'] = std.item()
-                end_time = time.time()
-                DEBUG(f"IS time: {end_time - begin_time}")
-            if 'clip' in self.metrics_list:
-
-                # get mean score for each prompt
-                for prompt in self.prompt_pair:
-                    prompt_str = prompt[0] + " vs " + prompt[1]
-                    self.evaluate_dict['CLIP'][prompt_str]['fake'] = np.mean(
-                        self.evaluate_dict['CLIP'][prompt_str]['fake'])
-                    self.evaluate_dict['CLIP'][prompt_str]['real'] = np.mean(
-                        self.evaluate_dict['CLIP'][prompt_str]['real'])
-                    
-                for desc in self.clip_descs:
-                    self.evaluate_dict['CLIP_score'][desc]['fake'] = np.mean(
-                        self.evaluate_dict['CLIP_score'][desc]['fake'])
-                    self.evaluate_dict['CLIP_score'][desc]['real'] = np.mean(
-                        self.evaluate_dict['CLIP_score'][desc]['real'])
-            if 'data_analysis' in self.metrics_list:
-                # DEBUG(f"Start calculating data analysis")
-                real_vs_fake = self.data_analyser.contrast_analyse(path, self.condition)
-                self.evaluate_dict['real_vs_fake'] = real_vs_fake
-
-            if 'lpips' in self.metrics_list:
-                self.evaluate_dict['LPIPS'] = self.LPIPS_calculator.compute().item()
-
-            if 'ssim' in self.metrics_list:
-                self.evaluate_dict["SSIM"] = self.SSIM_calculator.compute().item()
-            
-            if 'psnr' in self.metrics_list:
-                self.evaluate_dict["PSNR"] = self.PSNR_calculator.compute().item()
-
-            # reset metrics and release CUDA memory
-            INFO(f"Finish evaluating images\nReset metrics and release CUDA memory")
-            self.reset_metrics_stats()
-            torch.cuda.empty_cache()
+            self.dump_metrics(path)
 
             return True
 
         except Exception as e:
             ERROR(f"Error when calculating FID and KID: {e}")
             # log traceback
-            ERROR(f"Traceback: {traceback.format_exc()}")
+            console.print_exception(show_locals=True)
             self.evaluate_dict['FID'] = None
             self.evaluate_dict['KID'] = None
             self.evaluate_dict['MIFID'] = None
@@ -423,7 +433,69 @@ class Evaluation:
             self.evaluate_dict['CLIP'] = None
 
             return False
+    
+    @torch.inference_mode()
+    def update_metrics(self, real, fake, cond=None):
+        if 'fid' in self.metrics_list:
+            self.FID_calculator.update(real, True)
+            self.FID_calculator.update(fake, False)
+        if 'kid' in self.metrics_list:
+            self.KID_calculator.update(real, True)
+            self.KID_calculator.update(fake, False)
+        if 'mifid' in self.metrics_list:
+            self.MIFID_calculator.update(real, True)
+            self.MIFID_calculator.update(fake, False)
+            
+        if 'is' in self.metrics_list:
+            self.IS_caluculator.update(fake)
+        if 'clip' in self.metrics_list:
+            self.multimodal_evaluation(real, fake)
 
+        if cond is not None:
+            if 'lpips' in self.metrics_list:
+                self.LPIPS_calculator.update(fake, cond)
+            if 'ssim' in self.metrics_list:
+                self.SSIM_calculator.update(fake, cond)
+            if 'psnr' in self.metrics_list:
+                self.PSNR_calculator.update(fake, cond)
+                
+        if "data_analysis" in self.metrics_list:
+            self.data_analyser.add_data(real)
+            self.data_analyser.add_data(fake, True)
+            
+    
+    @torch.inference_mode()
+    def image_evaluation_ddp(self, data_dict, path):
+        '''
+            data_dict: {'real': [], 'fake': [], 'cond': []} cond list may be empty
+        '''
+        try:
+            INFO(f"Evaluate data size: {len(data_dict['real'])} {len(data_dict['fake'])}")
+            self.init_evaluation_dict()
+            stacked_real = torch.cat(data_dict['real'], dim=0)
+            stacked_fake = torch.cat(data_dict['fake'], dim=0)
+            INFO(f"stacked_real shape: {stacked_real.shape}")
+            if 'cond' in data_dict:
+                stacked_cond = torch.cat(data_dict['cond'], dim=0)
+            else:
+                stacked_cond = None
+            self.update_metrics(stacked_real, stacked_fake, stacked_cond)
+            
+            self.dump_metrics(path)
+        except Exception as e:
+            ERROR(f"Error when evaluating images: {e}")
+            # log traceback
+            console.print_exception(show_locals=True)
+            self.evaluate_dict['FID'] = None
+            self.evaluate_dict['KID'] = None
+            self.evaluate_dict['MIFID'] = None
+            self.evaluate_dict['IS'] = None
+            self.evaluate_dict['CLIP'] = None
+            return False
+        
+        
+        
+        
 
 class DataAnalyser:
     GREAT_COLOR_SET = plt.cm.get_cmap("tab20").colors
