@@ -44,7 +44,7 @@ callbacks:
 Trainer:
   _target_: pytorch_lightning.Trainer
   max_epochs: 50
-  devices: [0]
+  devices: [0,1,2,3]
   precision: 16
   accumulate_grad_batches: 4
   val_check_interval: 0.25
@@ -52,7 +52,7 @@ Trainer:
   enable_checkpointing: False # use custom checkpointing
   limit_train_batches: 1.0
   limit_val_batches: 1.0
-  limit_test_batches: 1.0
+  limit_test_batches: 0.01
   limit_predict_batches: 0.01
 
 CityDM:
@@ -159,7 +159,7 @@ CityDM:
     
 
   Main:
-    mode: "sample"
+    mode: "test"
     fine_tune: False
     finetuning_type: "full" # or "partial/LoRA/ControlNet or just set to none for same objective finetuning"
     pretrain_model_type: "normal" # or "uniDM" or 'Outpainting'
@@ -188,7 +188,7 @@ CityDM:
     max_grad_norm: 1.
 
 
-    debug: True
+    logger: "none"
 
   Validation:
     save_best_and_latest_only: True
@@ -210,7 +210,7 @@ CityDM:
     !!merge <<: *common
 
     sample_type: "Inpainting" # "Inpainting" or "normal" or "Outpainting"
-    use_completion: True
+    use_completion: False
     refiner_ckpt: "${hydra:runtime.cwd}/results/one-hot/completion/2024-03-17-12-12-20-train-completion/ckpt"
     refiner_ckpt_type : "latest" # or "best"
 
@@ -225,6 +225,7 @@ CityDM:
     data_type: "one-hot" # or "rgb"
 
     metrics_list : ["is", "ssim"]
+    # "fid", "mifid", "kid", "clip", "is", "data_analysis", "lpips", "ssim", "psnr"
 
     # at least 2048 samples for FID or the "nan" or "complex number" error will occur
     # 30000-50000 samples are recommended

@@ -213,7 +213,7 @@ class Evaluation:
         self.sampler = sampler
 
     @torch.inference_mode()
-    def validation(self, condition=False, path=None):
+    def init_evaluation_dict(self):
         # init evaluate dict
         self.evaluate_dict = {}
         self.evaluate_dict['CLIP'] = {}
@@ -224,7 +224,11 @@ class Evaluation:
         self.evaluate_dict['CLIP_score'] = {}
         for prompt in self.clip_descs:
             self.evaluate_dict['CLIP_score'][prompt] = {'fake': [], 'real': []}
-            
+
+    @torch.inference_mode()
+    def validation(self, condition=False, path=None):
+        # init evaluate dict
+        self.init_evaluation_dict()
 
         self.set_condtion(condition)
 
@@ -303,13 +307,6 @@ class Evaluation:
             return False
     @torch.inference_mode()
     def dump_metrics(self, path):
-        if not self.condition:
-            real_samples = self.sample_real_data()
-            fake_samples = self.sample_fake_data(cond=None)
-            real_samples = real_samples[0].permute(1, 2, 0).cpu().numpy()
-            fake_samples = fake_samples[0].permute(1, 2, 0).cpu().numpy()
-            # wandb.log({"real": [wandb.Image(real_samples, caption="real")]}, commit=False)
-            # wandb.log({"fake": [wandb.Image(fake_samples, caption="fake")]}, commit=False)
 
         if 'fid' in self.metrics_list:
             self.evaluate_dict['FID'] = self.FID_calculator.compute().item()
@@ -430,12 +427,69 @@ class Evaluation:
             self.evaluate_dict['CLIP'] = None
 
             return False
-        
-        
+    
     @torch.inference_mode()
-    def image_evaluation_ddp(self, path=None):
-        # NotImplemented yet
-        pass
+    def update_metrics(self, real, fake, cond=None):
+        if 'fid' in self.metrics_list:
+            self.FID_calculator.update(real, True)
+            self.FID_calculator.update(fake, False)
+        if 'kid' in self.metrics_list:
+            self.KID_calculator.update(real, True)
+            self.KID_calculator.update(fake, False)
+        if 'mifid' in self.metrics_list:
+            self.MIFID_calculator.update(real, True)
+            self.MIFID_calculator.update(fake, False)
+            
+        if 'is' in self.metrics_list:
+            self.IS_caluculator.update(fake)
+        if 'clip' in self.metrics_list:
+            self.multimodal_evaluation(real, fake)
+
+        if cond is not None:
+            if 'lpips' in self.metrics_list:
+                self.LPIPS_calculator.update(fake, cond)
+            if 'ssim' in self.metrics_list:
+                self.SSIM_calculator.update(fake, cond)
+            if 'psnr' in self.metrics_list:
+                self.PSNR_calculator.update(fake, cond)
+                
+        if "data_analysis" in self.metrics_list:
+            self.data_analyser.add_data(real)
+            self.data_analyser.add_data(fake, True)
+            
+    
+    @torch.inference_mode()
+    def image_evaluation_ddp(self, data_dict, path):
+        '''
+            data_dict: {'real': [], 'fake': [], 'cond': []} cond list may be empty
+        '''
+        try:
+            INFO(f"Evaluate data size: {len(data_dict['real'])} {len(data_dict['fake'])}")
+            self.init_evaluation_dict()
+            stacked_real = torch.cat(data_dict['real'], dim=0)
+            stacked_fake = torch.cat(data_dict['fake'], dim=0)
+            INFO(f"stacked_real shape: {stacked_real.shape}")
+            if 'cond' in data_dict:
+                stacked_cond = torch.cat(data_dict['cond'], dim=0)
+            else:
+                stacked_cond = None
+            self.update_metrics(stacked_real, stacked_fake, stacked_cond)
+            
+            self.dump_metrics(path)
+        except Exception as e:
+            ERROR(f"Error when evaluating images: {e}")
+            # log traceback
+            ERROR(f"Traceback: {traceback.format_exc()}")
+            self.evaluate_dict['FID'] = None
+            self.evaluate_dict['KID'] = None
+            self.evaluate_dict['MIFID'] = None
+            self.evaluate_dict['IS'] = None
+            self.evaluate_dict['CLIP'] = None
+            return False
+        
+        
+        
+        
 
 class DataAnalyser:
     GREAT_COLOR_SET = plt.cm.get_cmap("tab20").colors

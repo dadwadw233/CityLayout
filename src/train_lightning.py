@@ -20,10 +20,10 @@ def handle(config: DictConfig):
     OSMData: LightningDataModule = hydra.utils.instantiate(config.Data)
     
     OSMData.setup()
-    if config.CityDM.Main.debug :
+    if config.CityDM.Main.logger != "wandb":
         logger = None
     else:
-        logger = hydra.utils.instantiate(config.private.config)
+        logger = hydra.utils.instantiate(config.private.wandb.config)
 
     if "callbacks" in config:
         INFO("Callbacks found in config")

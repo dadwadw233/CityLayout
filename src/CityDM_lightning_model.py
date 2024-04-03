@@ -99,7 +99,7 @@ class PL_CityDM(pl.LightningModule):
             self.pretrain_ckpt_type = None
             self.finetuning_type = None
             
-        self.samples_for_test = {"real": [], "fake": [], "cond": []}
+        
             
     def get_ema(self, model):
         ema = EMA(model, beta=self.ema_decay, update_every=self.ema_update_every)
@@ -278,7 +278,7 @@ class PL_CityDM(pl.LightningModule):
             
             INFO(f"ckpt loaded!")
             
-            if self.mode == "test" or self.mode == "sample" and self.refiner is not None:
+            if (self.mode == "test" or self.mode == "sample") and self.refiner is not None:
                 if self.refiner_ckpt_type == "best":
                     ckpt_path = os.path.join(self.refiner_ckpt, "best_ckpt.pth")
                 else:
@@ -294,7 +294,7 @@ class PL_CityDM(pl.LightningModule):
         self.refiner_ema = None
         self.folder_init = False
         self.outputs = []
-        
+        self.samples_for_test = {"real": [], "fake": [], "cond": []}
         # confirm sample type
         self.generator.set_sample_type(self.sample_type)
         if self.refiner is not None:
@@ -320,7 +320,8 @@ class PL_CityDM(pl.LightningModule):
         layout = batch["layout"]
         with amp.autocast():
             loss = self.generator(layout)
-        self.log("loss", loss)
+            
+        self.log("train/loss", loss, logger=True, on_step=True, on_epoch=False, prog_bar=True, rank_zero_only=True)
         
         return {"loss": loss}
     
@@ -329,7 +330,6 @@ class PL_CityDM(pl.LightningModule):
         INFO(f"Epoch {self.current_epoch} finished!")
         # TODO:   check this work or not
         self.generator_ema.update()
-        exit(0)
     
     def convert_to_serializable(self, obj):
         if isinstance(obj, DictConfig):
@@ -365,9 +365,13 @@ class PL_CityDM(pl.LightningModule):
         else:
             layout = None
         sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)
+
+        if self.trainer.num_devices > 1:
+            sample = self.all_gather(sample).flatten(0, 1)
+        
+        self.outputs.append({"sample": sample})
         
         self.generator_ema.ema_model.train()
-        self.outputs.append({"sample": sample})
         
         return {"sample": sample}
 
@@ -376,15 +380,17 @@ class PL_CityDM(pl.LightningModule):
         
     
     def test_step(self, batch, batch_idx):
-        if self.trainer.is_global_zero and not self.folder_init:
-            self.create_folder("test")
-            # log some info
-            INFO(f"Results dir: {self.results_dir}")
-            # utils prepare
-            self.utils_init()
-            
-            self.folder_init = True
-            
+        if not self.folder_init:
+            if self.trainer.is_global_zero:
+                self.create_folder("test")
+                # log some info
+                INFO(f"Results dir: {self.results_dir}")
+                # utils prepare
+                self.folder_init = True
+                self.utils_init()
+        
+        
+        
         self.generator_ema.ema_model.eval()
         if self.refiner is not None:
             self.refiner_ema.ema_model.eval()
@@ -398,21 +404,29 @@ class PL_CityDM(pl.LightningModule):
         else:
             layout = None
         channel = batch['layout'].shape[1]
-        self.samples_for_test["real"].append(self.vis.onehot_to_rgb(batch["layout"]))
+        
         sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)[:, :channel, ...]
         
         if self.refiner is not None:
             sample = self.refiner_ema.ema_model.sample(batch_size=self.batch_size, cond=sample)[:, :channel, ...]
+            
+        if self.trainer.num_devices > 1:
+            sample = self.all_gather(sample).flatten(0, 1)
+            real = self.all_gather(batch["layout"]).flatten(0, 1)
+            if cond or self_cond:
+                layout = self.all_gather(layout).flatten(0, 1)
         
-        self.samples_for_test["fake"].append(self.vis.onehot_to_rgb(sample))
-        
-        if cond or self_cond:
-            self.samples_for_test["cond"].append(self.vis.onehot_to_rgb(layout))
-        
+        if self.global_rank == 0:
+            self.samples_for_test["fake"].append(self.vis.onehot_to_rgb(sample))
+            self.samples_for_test["real"].append(self.vis.onehot_to_rgb(real))
+            if cond or self_cond:
+                self.samples_for_test["cond"].append(self.vis.onehot_to_rgb(layout))        
         
         self.generator_ema.ema_model.train()
         if self.refiner is not None:
             self.refiner_ema.ema_model.train()
+        
+        
     
     def predict_step(self, batch, batch_idx, dataloader_idx=None):
         if self.trainer.is_global_zero and not self.folder_init:
