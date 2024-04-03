@@ -56,7 +56,8 @@ import wandb
 import json
 import traceback
 import torch.distributed as dist
-
+from rich.console import Console
+console = Console()
 import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning import seed_everything
@@ -241,7 +242,7 @@ class PL_CityDM(pl.LightningModule):
         except Exception as e:
             ERROR(f"Init Model failed! {e}")
             # log traceback
-            ERROR(f"Traceback: \n {traceback.format_exc()}")
+            console.print_exception(show_locals=True)
             raise e
 
         self.init_basic_params()

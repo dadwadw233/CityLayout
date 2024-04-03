@@ -17,7 +17,8 @@ from torchmetrics.image import StructuralSimilarityIndexMeasure
 from torchmetrics.image import PeakSignalNoiseRatio
 from torchmetrics.multimodal.clip_score import CLIPScore
 from rich.progress import Progress
-
+from rich.console import Console
+console = Console()
 
 import torch
 import numpy as np
@@ -424,7 +425,7 @@ class Evaluation:
         except Exception as e:
             ERROR(f"Error when calculating FID and KID: {e}")
             # log traceback
-            ERROR(f"Traceback: {traceback.format_exc()}")
+            console.print_exception(show_locals=True)
             self.evaluate_dict['FID'] = None
             self.evaluate_dict['KID'] = None
             self.evaluate_dict['MIFID'] = None
@@ -484,7 +485,7 @@ class Evaluation:
         except Exception as e:
             ERROR(f"Error when evaluating images: {e}")
             # log traceback
-            ERROR(f"Traceback: {traceback.format_exc()}")
+            console.print_exception(show_locals=True)
             self.evaluate_dict['FID'] = None
             self.evaluate_dict['KID'] = None
             self.evaluate_dict['MIFID'] = None
