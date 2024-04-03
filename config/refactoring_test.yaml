@@ -5,21 +5,6 @@ batch_size: 8
 
 
 callbacks:
-  RichProgressBar:
-    _target_: pytorch_lightning.callbacks.RichProgressBar
-    leave: True
-    theme:
-      _target_: pytorch_lightning.callbacks.progress.rich_progress.RichProgressBarTheme
-      description: 'white'
-      progress_bar: '#6206E0'
-      progress_bar_finished: '#6206E0'
-      progress_bar_pulse: '#6206E0'
-      batch_progress: 'green'
-      time: 'grey54'
-      processing_speed: 'grey70'
-      metrics: 'white' 
-
-  
   RichModelSummary:
     _target_: pytorch_lightning.callbacks.RichModelSummary
     summary: 'full'
@@ -224,7 +209,7 @@ CityDM:
     !!merge <<: *vis
     data_type: "one-hot" # or "rgb"
 
-    metrics_list : ["is", "ssim"]
+    metrics_list : ["fid", "mifid", "kid", "clip", "is", "data_analysis", "lpips", "ssim", "psnr"]
     # "fid", "mifid", "kid", "clip", "is", "data_analysis", "lpips", "ssim", "psnr"
 
     # at least 2048 samples for FID or the "nan" or "complex number" error will occur

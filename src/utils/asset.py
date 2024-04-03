@@ -14,7 +14,7 @@ from utils.config import ConfigParser
 import torch
 from tqdm import tqdm
 from utils.log import *
-
+from rich.progress import Progress
 
 class AssetGen:
     # unified assert generator which support :
@@ -106,23 +106,27 @@ class AssetGen:
             ERROR("geojson is None, please generate geojson first")
             return None
         else:
-            for item in tqdm(gdf_list, desc="Generate shapefile"):
-                if item['data'] is not None:
-                    shp_root = os.path.join(item['path'], "shps")
-                    # generate different shapefile for different geometry type
-                    os.makedirs(shp_root, exist_ok=True)
-                    # for each geometry type, we need to check the taret geometry type is exist or not
-                    try:
-                        # Polygon
-                        item['data'][item['data'].geometry.type == 'Polygon'].to_file(os.path.join(shp_root,"fake_Pologon.shp"))
-                        # LineString
-                        item['data'][item['data'].geometry.type == 'LineString'].to_file(os.path.join(shp_root,"fake_LineString.shp"))
-                        # Point
-                        item['data'][item['data'].geometry.type == 'Point'].to_file(os.path.join(shp_root,"fake_Point.shp"))
-                    except Exception as e:
-                        WARNING(f"generate shapefile failed, skip {item['path']}")
-                else:
-                    WARNING(f"geojson data is None, skip {item['path']}")
+            with Progress() as progress:
+                task = progress.add_task("[green]Generate shapefile", total=len(gdf_list))
+                for item in gdf_list:
+                    if item['data'] is not None:
+                        shp_root = os.path.join(item['path'], "shps")
+                        # generate different shapefile for different geometry type
+                        os.makedirs(shp_root, exist_ok=True)
+                        # for each geometry type, we need to check the taret geometry type is exist or not
+                        try:
+                            # Polygon
+                            item['data'][item['data'].geometry.type == 'Polygon'].to_file(os.path.join(shp_root,"fake_Pologon.shp"))
+                            # LineString
+                            item['data'][item['data'].geometry.type == 'LineString'].to_file(os.path.join(shp_root,"fake_LineString.shp"))
+                            # Point
+                            item['data'][item['data'].geometry.type == 'Point'].to_file(os.path.join(shp_root,"fake_Point.shp"))
+                        except Exception as e:
+                            WARNING(f"generate shapefile failed, skip {item['path']}")
+                    else:
+                        WARNING(f"geojson data is None, skip {item['path']}")
+                    
+                    progress.advance(task, 1)
 
     
         
@@ -396,77 +400,81 @@ class Vectorizer:
 
         asset = []
 
-        for b_id in tqdm(range(b), desc="Vectorizing images", colour="green"):
-            # create result folder
-            Path(os.path.join(save_path, str(b_id))).mkdir(parents=True, exist_ok=True)
-            temp_path = os.path.join(save_path, str(b_id))
-            self.geojson_builder_b.init_builder()
-            # plt image for every single batch, each channel need to be plotted with different color
-            fig, ax = plt.subplots(figsize=(10, 10), facecolor=self.background)
-            ax.axis("off")
-            ax.set_aspect('equal')
+        with Progress() as progress:
+            task = progress.add_task("[green]Vectorizing images", total=b)
+            for b_id in range(b):
+                # create result folder
+                Path(os.path.join(save_path, str(b_id))).mkdir(parents=True, exist_ok=True)
+                temp_path = os.path.join(save_path, str(b_id))
+                self.geojson_builder_b.init_builder()
+                # plt image for every single batch, each channel need to be plotted with different color
+                fig, ax = plt.subplots(figsize=(10, 10), facecolor=self.background)
+                ax.axis("off")
+                ax.set_aspect('equal')
 
 
-            for c_id in range(c):
-                color = hex_or_name_to_rgb(self.channel_to_rgb[c_id])
+                for c_id in range(c):
+                    color = hex_or_name_to_rgb(self.channel_to_rgb[c_id])
 
-                pts = self.get_points_set(
-                    img[b_id, c_id, :, :], self.channel_to_geo[c_id]
-                )
-                if pts is None:
-                    continue
-                for pt in pts:
-                    if self.channel_to_geo[c_id] == "LineString":
-                        self.geojson_builder_c.add_line(
-                            pt, properties={self.channel_to_key[c_id]: "fake", 'height': 0}
-                        )
-                    elif self.channel_to_geo[c_id] == "Polygon":
-                        if self.channel_to_key[c_id] == "building":
-                            if self.with_height is not None:
-
-                                height = org[b_id, c_id][pt[0][1]][pt[0][0]] * 255.0
-                                if height <= 0:
-                                    height = 15
-                                #DEBUG(f"building height: {height}")
-                                self.geojson_builder_c.add_polygon(
-                                    pt, properties={self.channel_to_key[c_id]: "fake", 'height': height}
-                                )
-                            else:
-                                self.geojson_builder_c.add_polygon(
-                                    pt, properties={self.channel_to_key[c_id]: "fake", 'height': np.random.randint(10, 70)}
-                                )
-                        else :
-                            self.geojson_builder_c.add_polygon(
+                    pts = self.get_points_set(
+                        img[b_id, c_id, :, :], self.channel_to_geo[c_id]
+                    )
+                    if pts is None:
+                        continue
+                    for pt in pts:
+                        if self.channel_to_geo[c_id] == "LineString":
+                            self.geojson_builder_c.add_line(
                                 pt, properties={self.channel_to_key[c_id]: "fake", 'height': 0}
                             )
-                    elif self.channel_to_geo[c_id] == "Point":
-                        self.geojson_builder_c.add_point(
-                            pt, properties={self.channel_to_key[c_id]: "fake", 'height': 0}
-                        )
+                        elif self.channel_to_geo[c_id] == "Polygon":
+                            if self.channel_to_key[c_id] == "building":
+                                if self.with_height is not None:
 
-                if not self.geojson_builder_c.empty():
-                    channel_gdf = self.geojson_builder_c.get_geojson()
-                    channel_feature = self.geojson_builder_c.get_features()
-                    self.geojson_builder_b.append_features(channel_feature)
-                    if self.dump_geojson:
-                        channel_gdf.to_file(
-                            os.path.join(
-                                temp_path,
-                                f"{self.channel_to_key[c_id]}_geojson.geojson",
-                            ),
-                            driver="GeoJSON",
-                        )
-                    channel_gdf.plot(ax=ax, color=color)
-                self.geojson_builder_c.init_builder()
+                                    height = org[b_id, c_id][pt[0][1]][pt[0][0]] * 255.0
+                                    if height <= 0:
+                                        height = 15
+                                    #DEBUG(f"building height: {height}")
+                                    self.geojson_builder_c.add_polygon(
+                                        pt, properties={self.channel_to_key[c_id]: "fake", 'height': height}
+                                    )
+                                else:
+                                    self.geojson_builder_c.add_polygon(
+                                        pt, properties={self.channel_to_key[c_id]: "fake", 'height': np.random.randint(10, 70)}
+                                    )
+                            else :
+                                self.geojson_builder_c.add_polygon(
+                                    pt, properties={self.channel_to_key[c_id]: "fake", 'height': 0}
+                                )
+                        elif self.channel_to_geo[c_id] == "Point":
+                            self.geojson_builder_c.add_point(
+                                pt, properties={self.channel_to_key[c_id]: "fake", 'height': 0}
+                            )
 
-            if self.dump_geojson and not self.geojson_builder_b.empty():
-                self.geojson_builder_b.get_geojson().to_file(
-                    os.path.join(temp_path, "fake.geojson"), driver="GeoJSON"
-                )
-                asset.append({'data': self.geojson_builder_b.get_geojson(), 'path': temp_path})
+                    if not self.geojson_builder_c.empty():
+                        channel_gdf = self.geojson_builder_c.get_geojson()
+                        channel_feature = self.geojson_builder_c.get_features()
+                        self.geojson_builder_b.append_features(channel_feature)
+                        if self.dump_geojson:
+                            channel_gdf.to_file(
+                                os.path.join(
+                                    temp_path,
+                                    f"{self.channel_to_key[c_id]}_geojson.geojson",
+                                ),
+                                driver="GeoJSON",
+                            )
+                        channel_gdf.plot(ax=ax, color=color)
+                    self.geojson_builder_c.init_builder()
 
-            else:
-                asset.append({'data': None, 'path': temp_path})
+                if self.dump_geojson and not self.geojson_builder_b.empty():
+                    self.geojson_builder_b.get_geojson().to_file(
+                        os.path.join(temp_path, "fake.geojson"), driver="GeoJSON"
+                    )
+                    asset.append({'data': self.geojson_builder_b.get_geojson(), 'path': temp_path})
+
+                else:
+                    asset.append({'data': None, 'path': temp_path})
+                
+                progress.advance(task, 1)
                 
 
 

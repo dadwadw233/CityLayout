@@ -4,22 +4,7 @@ defaults:
 batch_size: 8
 
 
-callbacks:
-  RichProgressBar:
-    _target_: pytorch_lightning.callbacks.RichProgressBar
-    refresh_rate: 1
-    theme:
-      _target_: pytorch_lightning.callbacks.progress.rich_progress.RichProgressBarTheme
-      description: 'white'
-      progress_bar: '#6206E0'
-      progress_bar_finished: '#6206E0'
-      progress_bar_pulse: '#6206E0'
-      batch_progress: 'green'
-      time: 'grey54'
-      processing_speed: 'grey70'
-      metrics: 'white' 
-
-  
+callbacks:  
   RichModelSummary:
     _target_: pytorch_lightning.callbacks.RichModelSummary
     summary: 'full'
@@ -44,7 +29,7 @@ callbacks:
 Trainer:
   _target_: pytorch_lightning.Trainer
   max_epochs: 50
-  devices: [0,1,2,3]
+  devices: [0]
   precision: 16
   accumulate_grad_batches: 4
   check_val_every_n_epoch: 1

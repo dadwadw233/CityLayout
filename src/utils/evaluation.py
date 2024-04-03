@@ -16,6 +16,8 @@ from torchmetrics.multimodal import CLIPImageQualityAssessment
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 from torchmetrics.image import PeakSignalNoiseRatio
 from torchmetrics.multimodal.clip_score import CLIPScore
+from rich.progress import Progress
+
 
 import torch
 import numpy as np
@@ -368,44 +370,47 @@ class Evaluation:
 
             INFO(f"Start evaluating images")
             try:
-                # DEBUG(f"batches: {batches}")
-                for batch in tqdm(batches, leave=False):
-                    # DEBUG(f"batch: {batch}")
-                    real_samples = self.sample_real_data()
+                with Progress() as p:
+                    task = p.add_task("eval...", total=None)
+                    for batch in batches:
+                        # DEBUG(f"batch: {batch}")
+                        real_samples = self.sample_real_data()
 
-                    real_samples = real_samples.to(self.device)
-                    if 'fid' in self.metrics_list:
-                        self.FID_calculator.update(real_samples, True)
-                    if 'kid' in self.metrics_list:
-                        self.KID_calculator.update(real_samples, True)
-                    if 'mifid' in self.metrics_list:
-                        self.MIFID_calculator.update(real_samples, True)
+                        real_samples = real_samples.to(self.device)
+                        if 'fid' in self.metrics_list:
+                            self.FID_calculator.update(real_samples, True)
+                        if 'kid' in self.metrics_list:
+                            self.KID_calculator.update(real_samples, True)
+                        if 'mifid' in self.metrics_list:
+                            self.MIFID_calculator.update(real_samples, True)
 
-                    if self.condition:
-                        cond = next(self.dl)['layout'].to(self.device)
-                    else:
-                        cond = None
+                        if self.condition:
+                            cond = next(self.dl)['layout'].to(self.device)
+                        else:
+                            cond = None
 
-                    fake_samples = self.sample_fake_data(cond=cond)
-                    if 'fid' in self.metrics_list:
-                        self.FID_calculator.update(fake_samples, False)
-                    if 'kid' in self.metrics_list:
-                        self.KID_calculator.update(fake_samples, False)
-                    if 'mifid' in self.metrics_list:
-                        self.MIFID_calculator.update(fake_samples, False)
-                    if 'is' in self.metrics_list:
-                        self.IS_caluculator.update(fake_samples)
-                    if 'clip' in self.metrics_list:
-                        self.multimodal_evaluation(real_samples, fake_samples)
+                        fake_samples = self.sample_fake_data(cond=cond)
+                        if 'fid' in self.metrics_list:
+                            self.FID_calculator.update(fake_samples, False)
+                        if 'kid' in self.metrics_list:
+                            self.KID_calculator.update(fake_samples, False)
+                        if 'mifid' in self.metrics_list:
+                            self.MIFID_calculator.update(fake_samples, False)
+                        if 'is' in self.metrics_list:
+                            self.IS_caluculator.update(fake_samples)
+                        if 'clip' in self.metrics_list:
+                            self.multimodal_evaluation(real_samples, fake_samples)
 
-                    if self.condition:
-                        condition_sample = self.vis.onehot_to_rgb(cond)
-                        if 'lpips' in self.metrics_list:
-                            self.LPIPS_calculator.update(fake_samples, condition_sample)
-                        if 'ssim' in self.metrics_list:
-                            self.SSIM_calculator.update(fake_samples, condition_sample)
-                        if 'psnr' in self.metrics_list:
-                            self.PSNR_calculator.update(fake_samples, condition_sample)
+                        if self.condition:
+                            condition_sample = self.vis.onehot_to_rgb(cond)
+                            if 'lpips' in self.metrics_list:
+                                self.LPIPS_calculator.update(fake_samples, condition_sample)
+                            if 'ssim' in self.metrics_list:
+                                self.SSIM_calculator.update(fake_samples, condition_sample)
+                            if 'psnr' in self.metrics_list:
+                                self.PSNR_calculator.update(fake_samples, condition_sample)
+                                
+                    p.advance(task,1)
 
             except Exception as e:
                 ERROR(f"Error when evaluating images: {e}")

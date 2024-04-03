@@ -13,6 +13,8 @@ from utils.log import *
 import os
 from datasets.osm_datamodule import OSMDataModule
 import traceback
+import warnings
+warnings.simplefilter('ignore')
 
 def handle(config: DictConfig):
     

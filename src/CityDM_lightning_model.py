@@ -61,6 +61,7 @@ import pytorch_lightning as pl
 from omegaconf import DictConfig
 from pytorch_lightning import seed_everything
 from utils.model import init_backbone, init_diffuser
+from rich.progress import Progress
 class PL_CityDM(pl.LightningModule):
 
     def __init__(self, *args, **kwargs):
@@ -307,7 +308,7 @@ class PL_CityDM(pl.LightningModule):
         if self.refiner is not None:
             self.refiner_ema = self.get_ema(self.refiner)
             INFO(f"Refiner EMA initialized!")
-        INFO("CityDM init done!")
+        INFO("CityDM (Lightning) init done!")
         
     def predict(self, *args, **kwargs):
         self.sample()
@@ -581,7 +582,8 @@ class PL_CityDM(pl.LightningModule):
         plane = extend_layout.clone()
         # slide direction: left to right; up to down
         init = False
-        with tqdm(desc="extend layout", leave=False, colour="green") as pbar:
+        with Progress() as progress:
+            task = progress.add_task("[red]Extending layout...", total=None)
             for h_l_p in range(0, int(extend_h - h * ratio), int(h * ratio)):
                 for w_l_p in range(0, int(extend_W - w * ratio), int(w * ratio)):
                     # direction: left to right
@@ -621,7 +623,7 @@ class PL_CityDM(pl.LightningModule):
                             extend_region = refine
                         extend_layout[:, :, h_l_p:h_l_p + h, w_l_p:w_l_p + w] = extend_region
 
-                    pbar.update(1)
+                    progress.update(task, advance=1)
 
                 init = True
 
@@ -701,63 +703,76 @@ class PL_CityDM(pl.LightningModule):
                     all_images = None
                     padding = self.hparams.Test['op']["padding"]
                     ratio = self.hparams.Test['op']["ratio"]
-                    for b in tqdm(range(len(batches)), desc="outpainting sampling", leave=False, colour="green"):
-                        cond_image = next(cycle(self.trainer.predict_dataloaders))["layout"].to(self.device)
-                        # DEBUG(f"cond_image shape: {cond_image.shape}")
-                        if all_images is None:
-                            all_images = self.op_handle(cond_image, padding=padding, ratio=ratio)
-                        else:
-                            all_images = torch.cat(
-                                (all_images, self.op_handle(cond_image, padding=padding, ratio=ratio)), dim=0
-                            )
+                    with Progress() as progress:
+                        task = progress.add_task("[green]outpainting sampling", total=len(batches))
+                        for b in range(len(batches)):
+                            cond_image = next(cycle(self.trainer.predict_dataloaders))["layout"].to(self.device)
+                            # DEBUG(f"cond_image shape: {cond_image.shape}")
+                            if all_images is None:
+                                all_images = self.op_handle(cond_image, padding=padding, ratio=ratio)
+                            else:
+                                all_images = torch.cat(
+                                    (all_images, self.op_handle(cond_image, padding=padding, ratio=ratio)), dim=0
+                                )
+                            progress.update(task, advance=1)
+
 
                 elif self.sample_type == "Inpainting":
                     all_images = None
-                    for b in tqdm(range(len(batches)), desc="inpaiting sampling", leave=False, colour="green"):
-                        cond_image = next(cycle(self.trainer.predict_dataloaders))["layout"].to(self.device)
-                        # DEBUG(f"cond_image shape: {cond_image.shape}")
-                        if all_images is None:
-                            all_images = self.inp_handle(cond_image)
-                        else:
-                            all_images = torch.cat(
-                                (all_images, self.inp_handle(cond_image)), dim=0
-                            )
+                    with Progress() as progress:
+                        task = progress.add_task("[green]inpaiting sampling", total=len(batches))
+                        for b in range(len(batches)):
+                            cond_image = next(cycle(self.trainer.predict_dataloaders))["layout"].to(self.device)
+                            # DEBUG(f"cond_image shape: {cond_image.shape}")
+                            if all_images is None:
+                                all_images = self.inp_handle(cond_image)
+                            else:
+                                all_images = torch.cat(
+                                    (all_images, self.inp_handle(cond_image)), dim=0
+                                )
+                            progress.update(task, advance=1)
 
                 else:
                     if cond is True:
                         # sample some real images from val_Dataloader as cond
                         all_images = None
-                        for b in tqdm(range(len(batches)), desc="sampling", leave=False, colour="green"):
-                            cond_image = next(cycle(self.trainer.predict_dataloaders))["layout"].to(self.device)
-                            sample = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=cond_image)[:, :3, ...]
-                            
-                            if self.refiner is not None:
-                                zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
-                                refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
-                                sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
-                            
-                            if all_images is None:
-                                all_images = sample
-                            
-                            else:
-                                all_images = torch.cat(
-                                    (all_images, sample), dim=0
-                                )
-                            
-                    else:
-                        if self.refiner is not None:
-                            all_images = None
-                            for b in tqdm(range(len(batches)), desc="sampling", leave=False, colour="green"):
-                                sample = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=None)
-                                zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
-                                refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
-                                sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
+                        with Progress() as progress:
+                            task = progress.add_task("[green]sampling", total=len(batches))
+                            for b in range(len(batches)):
+                                cond_image = next(cycle(self.trainer.predict_dataloaders))["layout"].to(self.device)
+                                sample = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=cond_image)[:, :3, ...]
+                                
+                                if self.refiner is not None:
+                                    zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
+                                    refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
+                                    sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
+                                
                                 if all_images is None:
                                     all_images = sample
+                                
                                 else:
                                     all_images = torch.cat(
                                         (all_images, sample), dim=0
                                     )
+                                progress.update(task, advance=1)
+                            
+                    else:
+                        if self.refiner is not None:
+                            all_images = None
+                            with Progress() as progress:
+                                task = progress.add_task("[green]sampling", total=len(batches))
+                                for b in range(len(batches)):
+                                    sample = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=None)
+                                    zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
+                                    refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
+                                    sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
+                                    if all_images is None:
+                                        all_images = sample
+                                    else:
+                                        all_images = torch.cat(
+                                            (all_images, sample), dim=0
+                                        )
+                                    progress.update(task, advance=1)
                         else:
                             all_images = list(
                                 map(
@@ -772,38 +787,40 @@ class PL_CityDM(pl.LightningModule):
                 INFO(f"Sampling {num_samples} images done!")
 
                 # save and evaluate
-                for idx in tqdm(range(len(all_images) // 4), desc='Saving Sampled imgs'):
+                with Progress() as progress:
+                    task = progress.add_task("[cyan]Saving Validation imgs", total=len(all_images) // 4)
+                    for idx in range(len(all_images) // 4):
 
-                    if self.data_type == "rgb":
-                        utils.save_image(
-                            all_images[idx * 4:idx * 4 + 4],
-                            os.path.join(
-                                self.sample_results_dir, f"sample-{idx}-c-rgb.png"
-                            ),
-                            nrow=2,
-                        )
-                        self.vis.visualize_rgb_layout(
-                            all_images[idx * 4:idx * 4 + 4],
-                            os.path.join(
-                                self.sample_results_dir, f"sample-{idx}-rgb.png"
+                        if self.data_type == "rgb":
+                            utils.save_image(
+                                all_images[idx * 4:idx * 4 + 4],
+                                os.path.join(
+                                    self.sample_results_dir, f"sample-{idx}-c-rgb.png"
+                                ),
+                                nrow=2,
                             )
-                        )
-                    elif self.data_type == "one-hot":
-                        self.vis.visulize_onehot_layout(
-                            all_images[idx * 4:idx * 4 + 4],
-                            os.path.join(
-                                self.sample_results_dir, f"sample-{idx}-onehot.png"
+                            self.vis.visualize_rgb_layout(
+                                all_images[idx * 4:idx * 4 + 4],
+                                os.path.join(
+                                    self.sample_results_dir, f"sample-{idx}-rgb.png"
+                                )
                             )
-                        )
-                        self.vis.visualize_rgb_layout(
-                            all_images[idx * 4:idx * 4 + 4],
-                            os.path.join(
-                                self.sample_results_dir, f"sample-{idx}-rgb.png"
+                        elif self.data_type == "one-hot":
+                            self.vis.visulize_onehot_layout(
+                                all_images[idx * 4:idx * 4 + 4],
+                                os.path.join(
+                                    self.sample_results_dir, f"sample-{idx}-onehot.png"
+                                )
                             )
-                        )
-                    else:
-                        raise ValueError(f"data_type {self.data_type} not supported!")
-
+                            self.vis.visualize_rgb_layout(
+                                all_images[idx * 4:idx * 4 + 4],
+                                os.path.join(
+                                    self.sample_results_dir, f"sample-{idx}-rgb.png"
+                                )
+                            )
+                        else:
+                            raise ValueError(f"data_type {self.data_type} not supported!")
+                        progress.advance(task,1)
                         # vectorize
                 # bchw
                 self.asset_gen.set_data(all_images[:, 0:3:, :])
