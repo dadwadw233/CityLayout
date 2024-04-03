@@ -83,7 +83,6 @@ class PL_CityDM(pl.LightningModule):
         self.scheduler_type = main_config["scheduler"]
 
         self.sample_frequency = main_config["sample_frequency"]
-        self.grad_accumulate = main_config["grad_accumulate"]
         self.max_grad_norm = main_config["max_grad_norm"]
 
         self.mode = main_config["mode"]
@@ -99,6 +98,8 @@ class PL_CityDM(pl.LightningModule):
             self.pretrain_model_type = None
             self.pretrain_ckpt_type = None
             self.finetuning_type = None
+            
+        self.samples_for_test = {"real": [], "fake": [], "cond": []}
             
     def get_ema(self, model):
         ema = EMA(model, beta=self.ema_decay, update_every=self.ema_update_every)
@@ -253,7 +254,7 @@ class PL_CityDM(pl.LightningModule):
         if self.mode == "train":
             self.trainer_init()
             
-        elif self.mode == "test":
+        elif self.mode == "test" or self.mode == "sample":
             self.sample_init()
             
             
@@ -267,7 +268,7 @@ class PL_CityDM(pl.LightningModule):
         self.not_best = 0
         
         # step2: if finetuning or sampling, load ckpt
-        if self.fine_tune or self.mode == "test":
+        if self.fine_tune or self.mode == "test" or self.mode == "sample":
             INFO(f"Fine tune mode or test mode, load ckpt from {self.pretrain_ckpt_dir}")
             if self.pretrain_ckpt_type == "best" and self.generator_ckpt_type == "best":
                 ckpt_path = os.path.join(self.pretrain_ckpt_dir, "best_ckpt.pth")
@@ -277,11 +278,12 @@ class PL_CityDM(pl.LightningModule):
             
             INFO(f"ckpt loaded!")
             
-            if self.mode == "test" and self.refiner is not None:
+            if self.mode == "test" or self.mode == "sample" and self.refiner is not None:
                 if self.refiner_ckpt_type == "best":
                     ckpt_path = os.path.join(self.refiner_ckpt, "best_ckpt.pth")
                 else:
                     ckpt_path = os.path.join(self.refiner_ckpt, "latest_ckpt.pth")
+                INFO(f"Refiner ckpt path: {ckpt_path}")
                 self.load_ckpts(self.refiner, ckpt_path, mode=self.mode)
                 INFO(f"Refiner ckpt loaded!")
         else:
@@ -307,18 +309,19 @@ class PL_CityDM(pl.LightningModule):
             INFO(f"Refiner EMA initialized!")
         INFO("CityDM init done!")
         
+    def predict(self, *args, **kwargs):
+        self.sample()
     
     def configure_optimizers(self):
         return [self.optimizer], [self.scheduler]
     
     def training_step(self, batch, batch_idx):
         
-        
         layout = batch["layout"]
         with amp.autocast():
             loss = self.generator(layout)
         self.log("loss", loss)
-        INFO(f"Epoch {self.current_epoch}, Step {self.global_step}, Loss: {loss}")  
+        
         return {"loss": loss}
     
     def on_train_epoch_end(self):
@@ -355,7 +358,7 @@ class PL_CityDM(pl.LightningModule):
         
         self.generator_ema.ema_model.eval()
         val_cond = False
-        if self.model_type == "completion" or self.model_type == "CityGen":
+        if self.model_type == "Completion" or self.model_type == "CityGen":
             val_cond = True
         if val_cond:
             layout = batch["layout"]
@@ -381,8 +384,50 @@ class PL_CityDM(pl.LightningModule):
             self.utils_init()
             
             self.folder_init = True
+            
+        self.generator_ema.ema_model.eval()
+        if self.refiner is not None:
+            self.refiner_ema.ema_model.eval()
+            
+        cond = False
+        self_cond = self.model_type == "normal" and self.generator.get_sample_type() != "normal"
+        if self.model_type == "Completion" or self.model_type == "CityGen" or self_cond:
+            cond = True
+        if cond:
+            layout = batch["layout"]
+        else:
+            layout = None
+        channel = batch['layout'].shape[1]
+        self.samples_for_test["real"].append(self.vis.onehot_to_rgb(batch["layout"]))
+        sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)[:, :channel, ...]
         
+        if self.refiner is not None:
+            sample = self.refiner_ema.ema_model.sample(batch_size=self.batch_size, cond=sample)[:, :channel, ...]
+        
+        self.samples_for_test["fake"].append(self.vis.onehot_to_rgb(sample))
+        
+        if cond or self_cond:
+            self.samples_for_test["cond"].append(self.vis.onehot_to_rgb(layout))
+        
+        
+        self.generator_ema.ema_model.train()
+        if self.refiner is not None:
+            self.refiner_ema.ema_model.train()
+    
+    def predict_step(self, batch, batch_idx, dataloader_idx=None):
+        if self.trainer.is_global_zero and not self.folder_init:
+            self.create_folder("test")
+            # log some info
+            INFO(f"Results dir: {self.results_dir}")
+            # utils prepare
+            self.utils_init()
+            
+            self.folder_init = True
         pass
+    
+    def on_predict_epoch_end(self):
+        self.sample(num_samples=self.num_samples)
+        return
 
 
     def check_best_or_not(self, result):
@@ -406,7 +451,7 @@ class PL_CityDM(pl.LightningModule):
 
     def load_model_params(self, tgt, model_state_dict, load_type):
         if load_type == "full" or load_type == None:
-            tgt.load_state_dict(self.partly_load(model_state_dict))
+            tgt.load_state_dict(model_state_dict, strict=True)
         elif load_type == "partial":
             tgt.load_state_dict(self.partly_load(model_state_dict), strict=False)
         elif load_type == "LoRA":
@@ -624,173 +669,135 @@ class PL_CityDM(pl.LightningModule):
             return sample
         return self.generator_ema.ema_model.sample(batch_size=org.shape[0], cond=org, mask=mask)
 
-    def sample(self, cond=False, eval=True, use_wandb=False):
+
+    def sample(self, cond=False, num_samples=16):
         
-        INFO(f"Start sampling {self.num_samples} images...")
-        INFO(F"Sample result save to {self.sample_results_dir}")
+        if self.global_rank == 0:
+        
+            INFO(f"Start sampling {num_samples} images...")
+            INFO(F"Sample result save to {self.sample_results_dir}")
 
-        INFO(f"sample mode: {'random' if not cond else 'conditional'}")
+            INFO(f"sample mode: {'random' if not cond else 'conditional'}")
 
-        try:
-            if use_wandb:
-                if not self.debug:
-                    DISPLAY_NAME = self.sample_results_dir.replace("/", "-")
-                    wandb.init(project="CityLayout", entity="913217005", config=self.config_parser.get_config_all(),
-                               name=DISPLAY_NAME, group="sample")
-                # wandb.watch(self.generator, log="all")
-        except Exception as e:
-            ERROR(f"wandb init failed! {e}")
-            use_wandb = False
+            with torch.inference_mode():
 
-        with torch.inference_mode():
+                batches = num_to_groups(num_samples, self.batch_size)
 
-            batches = num_to_groups(self.num_samples, self.batch_size)
-
-            if self.sample_type == "Outpainting":
-                all_images = None
-                padding = self.hparams.Test['op']["padding"]
-                ratio = self.hparams.Test['op']["ratio"]
-                for b in tqdm(range(len(batches)), desc="outpainting sampling", leave=False, colour="green"):
-                    cond_image = next(self.test_dataloader)["layout"].to(self.device)
-                    # DEBUG(f"cond_image shape: {cond_image.shape}")
-                    if all_images is None:
-                        all_images = self.op_handle(cond_image, padding=padding, ratio=ratio)
-                    else:
-                        all_images = torch.cat(
-                            (all_images, self.op_handle(cond_image, padding=padding, ratio=ratio)), dim=0
-                        )
-
-            elif self.sample_type == "Inpainting":
-                all_images = None
-                for b in tqdm(range(len(batches)), desc="inpaiting sampling", leave=False, colour="green"):
-                    cond_image = next(self.test_dataloader)["layout"].to(self.device)
-                    # DEBUG(f"cond_image shape: {cond_image.shape}")
-                    if all_images is None:
-                        all_images = self.inp_handle(cond_image)
-                    else:
-                        all_images = torch.cat(
-                            (all_images, self.inp_handle(cond_image)), dim=0
-                        )
-
-            else:
-                if cond is True:
-                    # sample some real images from val_Dataloader as cond
+                if self.sample_type == "Outpainting":
                     all_images = None
-                    for b in tqdm(range(len(batches)), desc="sampling", leave=False, colour="green"):
-                        cond_image = next(self.test_dataloader)["layout"].to(self.device)
-                        sample = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=cond_image)[:, :3, ...]
-                        
-                        if self.refiner is not None:
-                            zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
-                            refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
-                            sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
-                        
+                    padding = self.hparams.Test['op']["padding"]
+                    ratio = self.hparams.Test['op']["ratio"]
+                    for b in tqdm(range(len(batches)), desc="outpainting sampling", leave=False, colour="green"):
+                        cond_image = next(cycle(self.trainer.predict_dataloaders))["layout"].to(self.device)
+                        # DEBUG(f"cond_image shape: {cond_image.shape}")
                         if all_images is None:
-                            all_images = sample
-                        
+                            all_images = self.op_handle(cond_image, padding=padding, ratio=ratio)
                         else:
                             all_images = torch.cat(
-                                (all_images, sample), dim=0
+                                (all_images, self.op_handle(cond_image, padding=padding, ratio=ratio)), dim=0
                             )
-                        
+
+                elif self.sample_type == "Inpainting":
+                    all_images = None
+                    for b in tqdm(range(len(batches)), desc="inpaiting sampling", leave=False, colour="green"):
+                        cond_image = next(cycle(self.trainer.predict_dataloaders))["layout"].to(self.device)
+                        # DEBUG(f"cond_image shape: {cond_image.shape}")
+                        if all_images is None:
+                            all_images = self.inp_handle(cond_image)
+                        else:
+                            all_images = torch.cat(
+                                (all_images, self.inp_handle(cond_image)), dim=0
+                            )
+
                 else:
-                    if self.refiner is not None:
+                    if cond is True:
+                        # sample some real images from val_Dataloader as cond
                         all_images = None
                         for b in tqdm(range(len(batches)), desc="sampling", leave=False, colour="green"):
-                            sample = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=None)
-                            zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
-                            refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
-                            sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
+                            cond_image = next(cycle(self.trainer.predict_dataloaders))["layout"].to(self.device)
+                            sample = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=cond_image)[:, :3, ...]
+                            
+                            if self.refiner is not None:
+                                zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
+                                refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
+                                sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
+                            
                             if all_images is None:
                                 all_images = sample
+                            
                             else:
                                 all_images = torch.cat(
                                     (all_images, sample), dim=0
                                 )
+                            
                     else:
-                        all_images = list(
-                            map(
-                                lambda n: self.generator_ema.ema_model.sample(batch_size=n, cond=None),
-                                batches,
+                        if self.refiner is not None:
+                            all_images = None
+                            for b in tqdm(range(len(batches)), desc="sampling", leave=False, colour="green"):
+                                sample = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=None)
+                                zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
+                                refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
+                                sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
+                                if all_images is None:
+                                    all_images = sample
+                                else:
+                                    all_images = torch.cat(
+                                        (all_images, sample), dim=0
+                                    )
+                        else:
+                            all_images = list(
+                                map(
+                                    lambda n: self.generator_ema.ema_model.sample(batch_size=n, cond=None),
+                                    batches,
+                                )
+                            )
+                            all_images = torch.cat(
+                                all_images, dim=0
+                            )
+
+                INFO(f"Sampling {num_samples} images done!")
+
+                # save and evaluate
+                for idx in tqdm(range(len(all_images) // 4), desc='Saving Sampled imgs'):
+
+                    if self.data_type == "rgb":
+                        utils.save_image(
+                            all_images[idx * 4:idx * 4 + 4],
+                            os.path.join(
+                                self.sample_results_dir, f"sample-{idx}-c-rgb.png"
+                            ),
+                            nrow=2,
+                        )
+                        self.vis.visualize_rgb_layout(
+                            all_images[idx * 4:idx * 4 + 4],
+                            os.path.join(
+                                self.sample_results_dir, f"sample-{idx}-rgb.png"
                             )
                         )
-                        all_images = torch.cat(
-                            all_images, dim=0
+                    elif self.data_type == "one-hot":
+                        self.vis.visulize_onehot_layout(
+                            all_images[idx * 4:idx * 4 + 4],
+                            os.path.join(
+                                self.sample_results_dir, f"sample-{idx}-onehot.png"
+                            )
                         )
-
-            INFO(f"Sampling {self.num_samples} images done!")
-
-            # save and evaluate
-            for idx in tqdm(range(len(all_images) // 4), desc='Saving Sampled imgs'):
-
-                if self.data_type == "rgb":
-                    utils.save_image(
-                        all_images[idx * 4:idx * 4 + 4],
-                        os.path.join(
-                            self.sample_results_dir, f"sample-{idx}-c-rgb.png"
-                        ),
-                        nrow=2,
-                    )
-                    self.vis.visualize_rgb_layout(
-                        all_images[idx * 4:idx * 4 + 4],
-                        os.path.join(
-                            self.sample_results_dir, f"sample-{idx}-rgb.png"
+                        self.vis.visualize_rgb_layout(
+                            all_images[idx * 4:idx * 4 + 4],
+                            os.path.join(
+                                self.sample_results_dir, f"sample-{idx}-rgb.png"
+                            )
                         )
-                    )
-                elif self.data_type == "one-hot":
-                    self.vis.visulize_onehot_layout(
-                        all_images[idx * 4:idx * 4 + 4],
-                        os.path.join(
-                            self.sample_results_dir, f"sample-{idx}-onehot.png"
-                        )
-                    )
-                    self.vis.visualize_rgb_layout(
-                        all_images[idx * 4:idx * 4 + 4],
-                        os.path.join(
-                            self.sample_results_dir, f"sample-{idx}-rgb.png"
-                        )
-                    )
-                else:
-                    raise ValueError(f"data_type {self.data_type} not supported!")
+                    else:
+                        raise ValueError(f"data_type {self.data_type} not supported!")
 
-                    # vectorize
-            # bchw
-            self.asset_gen.set_data(all_images[:, 0:3:, :])
-            self.asset_gen.generate_geofiles()
-            
-            
-            try:
-                overlapping_rate = cal_overlapping_rate(all_images[:, 0:3:, :])
-                if use_wandb:
-                    wandb.log({"overlapping_rate": overlapping_rate})
-            except Exception as e:
-                ERROR(f"overlapping_rate calculation failed! {e}")
+                        # vectorize
+                # bchw
+                self.asset_gen.set_data(all_images[:, 0:3:, :])
+                self.asset_gen.generate_geofiles()
             
 
-            # evaluate
-            result = None
-            if eval:
-                try:
-                    self.evaluator.validation(cond, os.path.join(self.sample_results_dir, "data_analyse"))
-                    result = self.evaluator.get_evaluation_dict()
-                    try:
-                        if use_wandb:
-                            wandb.log({"sample": result})
-                            wandb.finish()
-                    except Exception as e:
-                        ERROR(f"wandb log failed! {e}")
-                    
-                    # dump result into json
-                    with open(os.path.join(self.sample_results_dir, "result.json"), "w") as f:
-                        f.write(json.dumps(result, indent=4))
-                        
-
-
-                except Exception as e:
-                    pass
-
-                return all_images, result
-            else:
-                return all_images, None
+                
+                return all_images
+        
             
             

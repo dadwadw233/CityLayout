@@ -12,9 +12,9 @@ from typing import List
 from utils.log import *
 import os
 from datasets.osm_datamodule import OSMDataModule
+import traceback
 
-
-def train(config: DictConfig):
+def handle(config: DictConfig):
     
     CityDM: LightningModule = hydra.utils.instantiate(config.CityDM)
     OSMData: LightningDataModule = hydra.utils.instantiate(config.Data)
@@ -37,23 +37,19 @@ def train(config: DictConfig):
                                       callbacks=callbacks
                                       )
     
-    trainer.fit(CityDM, datamodule=OSMData)
+    if config.CityDM.Main.mode == "train":
+        trainer.fit(CityDM, datamodule=OSMData)
+    elif config.CityDM.Main.mode == "test":
+        trainer.test(CityDM, datamodule=OSMData)
+    elif config.CityDM.Main.mode == "sample":
+        trainer.predict(CityDM, datamodule=OSMData)
+    else:
+        raise ValueError(f"mode {config.CityDM.Main.mode} not supported!")
     
-    exit()
     
-    print('Training...')
-    
-def sample(config: DictConfig):
-    print('Sampling...')
-
 @hydra.main(config_path='../config', config_name='refactoring_train.yaml')
 def main(config: DictConfig):
-    if config.CityDM.Main.mode == 'train':
-        train(config)
-    elif config.CityDM.Main.mode == 'sample':
-        sample(config)
-    else:
-        raise ValueError(f'Invalid mode: {config.mode}')
+    handle(config)
 
 if __name__ == '__main__':
     main()

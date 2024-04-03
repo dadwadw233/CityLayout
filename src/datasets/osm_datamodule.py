@@ -1,3 +1,4 @@
+from pytorch_lightning.utilities.types import EVAL_DATALOADERS
 from utils.log import *
 from .osm_loader import OSMDataset
 
@@ -28,4 +29,7 @@ class OSMDataModule(pl.LightningDataModule):
         return DataLoader(self.val_dataset, batch_size=self.config.batch_size, shuffle=False, num_workers=self.config.num_workers)
 
     def test_dataloader(self):
+        return DataLoader(self.test_dataset, batch_size=self.config.batch_size, shuffle=False, num_workers=self.config.num_workers)
+    
+    def predict_dataloader(self):
         return DataLoader(self.test_dataset, batch_size=self.config.batch_size, shuffle=False, num_workers=self.config.num_workers)

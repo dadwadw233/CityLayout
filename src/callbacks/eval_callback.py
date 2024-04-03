@@ -94,3 +94,6 @@ class EvalCallback(pl.Callback):
                 
             pl_module.generator_ema.ema_model.train()
             pl_module.outputs.clear()
+            
+    def on_test_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
+        return super().on_test_epoch_end(trainer, pl_module)
