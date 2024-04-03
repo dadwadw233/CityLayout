@@ -1,9 +1,52 @@
 defaults:
   - private: log
 
+batch_size: 8
 
-all:
+
+callbacks:
+  RichProgressBar:
+    _target_: pytorch_lightning.callbacks.RichProgressBar
+    refresh_rate: 1
+    theme:
+      _target_: pytorch_lightning.callbacks.progress.rich_progress.RichProgressBarTheme
+      description: 'white'
+      progress_bar: '#6206E0'
+      progress_bar_finished: '#6206E0'
+      progress_bar_pulse: '#6206E0'
+      batch_progress: 'green'
+      time: 'grey54'
+      processing_speed: 'grey70'
+      metrics: 'white' 
+
+  
+  RichModelSummary:
+    _target_: pytorch_lightning.callbacks.RichModelSummary
+    summary: 'full'
+    max_depth: 3
+    max_children: 3
+    tablefmt: 'github'
+  
+  # some custom callbacks here
+
+
+
+
+
+Trainer:
+  _target_: pytorch_lightning.Trainer
+  max_epochs: 50
+  devices: [0]
+  precision: 16
+  accumulate_grad_batches: 4
+  val_check_interval: 0.25
+  check_val_every_n_epoch: 1
+  enable_checkpointing: False # use custom checkpointing
+  limit_train_batches: 1.0
+
+CityDM:
   _target_: CityDM_lightning_model.PL_CityDM
+
   Common: &common
       # define the layout type and granularity
       # if custom is True, the layout type and granularity will be defined by 'custom_dict'
@@ -53,13 +96,6 @@ all:
     
     Mesh:
       !!merge <<: *vec
-
-
-  Accelerator:
-    split_batches: True
-    mixed_precision: "fp16"
-    cpu: False
-    # amp: True
 
   Model:
     backbone: 
@@ -120,11 +156,11 @@ all:
     seed: null
     condition: False
 
-    batch_size: 8
+    batch_size: ${batch_size}
     milestone: 0
     device: cuda
     lr: 1e-5
-    max_epochs: 50
+    max_epochs: ${Trainer.max_epochs}
     num_workers: 16
 
 
@@ -140,8 +176,6 @@ all:
     
     max_grad_norm: 1.
 
-    gpus: [0, 1, 2, 3]
-    precision: 16
 
     debug: True
 
@@ -192,101 +226,107 @@ all:
     !!merge <<: *common
 
 
-  Data:
-    batch_size: 8
-    num_workers: 16
-    # root path for city_name.h5
-    path:
-      train_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_large
-      test_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
-      val_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
+  
 
-    params:
-      mode: "test"
-      # define which layout type to use and modify the layout's granularity by user's choice
-      custom: True
-      device: "cuda"
-      condition: False
+# datamodule configs
+
+Data:
+  _target_: datasets.osm_datamodule.OSMDataModule
+
+  batch_size: ${batch_size}
+  num_workers: 16
+  # root path for city_name.h5
+  path:
+    train_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_large
+    test_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
+    val_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
+
+  params:
+    mode: "test"
+    # define which layout type to use and modify the layout's granularity by user's choice
+    custom: True
+    device: "cuda"
+    condition: False
 
 
 
-    data:
-      normalizer: "clamp"
-      std: [0.0, 0.0, 0.0]
-      mean: [1.0, 1.0, 1.0]
-      resize: [256, 256]
-      type: "one-hot"  # or rgb
+  data:
+    normalizer: "clamp"
+    std: [0.0, 0.0, 0.0]
+    mean: [1.0, 1.0, 1.0]
+    resize: [256, 256]
+    type: "one-hot"  # or rgb
 
-      # define the layout type and granularity
-      # if custom is True, the layout type and granularity will be defined by 'custom_dict'
-      # or all the layout types will be used
-      !!merge <<: *common
-      
+    # define the layout type and granularity
+    # if custom is True, the layout type and granularity will be defined by 'custom_dict'
+    # or all the layout types will be used
+    !!merge <<: *common
+    
 
-      condition_dim: []
+    condition_dim: []
 
-      # will be used in creating rgb training data
-      channel_to_rgb: {
-        0: 'white',
-        1: 'blue',
-        2: 'red',
+    # will be used in creating rgb training data
+    channel_to_rgb: {
+      0: 'white',
+      1: 'blue',
+      2: 'red',
+    }
+
+    filter:
+      {
+        "building": [0.01, 0.7], 
+        "landuse": [-1, 2], 
+        "natural": [-1, 0.5], 
+        "road": [0, 2], # <=, >=
       }
 
-      filter:
+    # predefined mapping layout types <----> one hot feature channels
+    # mapping's number of each super class ('building', 'landuse', etc) should be the same as the number of feature channels
+    # this mapping can easily established by preprocess.yaml's feature_list
+    key_map:
+      building: { "building": 0 }
+      height: { "height": 0 }
+      landuse:
         {
-          "building": [0.01, 0.7], 
-          "landuse": [-1, 2], 
-          "natural": [-1, 0.5], 
-          "road": [0, 2], # <=, >=
+          "commercial": 0,
+          "retail": 1,
+          "education": 2,
+          "industrial": 3,
+          "residual": 4,
+          "forest": 5,
+          "grass": 6,
+          "greenfield": 7,
+          "railway": 8,
+          "recreation_ground": 9,
+          "default": 10,
         }
-
-      # predefined mapping layout types <----> one hot feature channels
-      # mapping's number of each super class ('building', 'landuse', etc) should be the same as the number of feature channels
-      # this mapping can easily established by preprocess.yaml's feature_list
-      key_map:
-        building: { "building": 0 }
-        height: { "height": 0 }
-        landuse:
-          {
-            "commercial": 0,
-            "retail": 1,
-            "education": 2,
-            "industrial": 3,
-            "residual": 4,
-            "forest": 5,
-            "grass": 6,
-            "greenfield": 7,
-            "railway": 8,
-            "recreation_ground": 9,
-            "default": 10,
-          }
-        natural:
-          {
-            "grassland": 0,
-            "tree": 1,
-            "tree_row": 2,
-            "wood": 3,
-            "beach": 4,
-            "water": 5,
-            "wetland": 6,
-            "bare_rock": 7,
-            "hill": 8,
-            "sand": 9,
-            "valley": 10,
-            "default": 11,
-          }
-        road:
-          {
-            "motorway": 0,
-            "trunk": 1,
-            "primary": 2,
-            "secondary": 3,
-            "tertiary": 4,
-            "residential": 5,
-            "service": 6,
-            "living_street": 7,
-            "pedestrian": 8,
-            "footway": 9,
-          }
+      natural:
+        {
+          "grassland": 0,
+          "tree": 1,
+          "tree_row": 2,
+          "wood": 3,
+          "beach": 4,
+          "water": 5,
+          "wetland": 6,
+          "bare_rock": 7,
+          "hill": 8,
+          "sand": 9,
+          "valley": 10,
+          "default": 11,
+        }
+      road:
+        {
+          "motorway": 0,
+          "trunk": 1,
+          "primary": 2,
+          "secondary": 3,
+          "tertiary": 4,
+          "residential": 5,
+          "service": 6,
+          "living_street": 7,
+          "pedestrian": 8,
+          "footway": 9,
+        }
 
 # ${hydra:runtime.cwd}

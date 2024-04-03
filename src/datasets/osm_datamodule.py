@@ -3,14 +3,14 @@ from .osm_loader import OSMDataset
 
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
-
+from omegaconf import DictConfig
 
 class OSMDataModule(pl.LightningDataModule):
-    def __init__(self, config):
+    def __init__(self, *args, **kwargs):
         super().__init__()
         # data config for initializing the datamodule
-        self.config = config
-
+        self.config: DictConfig  = DictConfig(kwargs)
+        INFO("OSMDataModule initialized")
 
     def prepare_data(self):
         pass

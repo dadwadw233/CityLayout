@@ -8,6 +8,7 @@ from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 from pytorch_lightning.callbacks import LearningRateMonitor
 from pytorch_lightning.callbacks import Callback
 from CityDM_lightning_model import PL_CityDM
+from typing import List
 from utils.log import *
 import os
 from datasets.osm_datamodule import OSMDataModule
@@ -15,23 +16,26 @@ from datasets.osm_datamodule import OSMDataModule
 
 def train(config: DictConfig):
     
-    CityDM: LightningModule = hydra.utils.instantiate(config.all)
-    OSMData: LightningDataModule = OSMDataModule(config.all.Data)
-    OSMData.setup()
-    wandb_config = config.private.wandb
-    trainer = Trainer(
-        max_epochs=config.all.Main.max_epochs,
-        devices=config.all.Main.gpus,
-        logger=WandbLogger(project=wandb_config.project, 
-                           group=wandb_config.group, 
-                           entity=wandb_config.entity, 
-                           job_type=wandb_config.job_type) if not config.all.Main.debug else False,
-        precision=config.all.Main.precision,
-        accumulate_grad_batches=config.all.Main.grad_accumulate,
-        val_check_interval=10,
-        limit_val_batches=0.1,
-    )
+    CityDM: LightningModule = hydra.utils.instantiate(config.CityDM)
+    OSMData: LightningDataModule = hydra.utils.instantiate(config.Data)
     
+    OSMData.setup()
+    if config.CityDM.Main.debug :
+        logger = None
+    else:
+        logger = hydra.utils.instantiate(config.private.config)
+
+    if "callbacks" in config:
+        INFO("Callbacks found in config")
+        callbacks: List[Callback] = [hydra.utils.instantiate(config.callbacks[c]) for c in config.callbacks]
+    else:
+        callbacks = []
+    
+    
+    trainer = hydra.utils.instantiate(config.Trainer, 
+                                      logger=logger,
+                                      callbacks=callbacks
+                                      )
     
     trainer.fit(CityDM, datamodule=OSMData)
     
@@ -44,9 +48,9 @@ def sample(config: DictConfig):
 
 @hydra.main(config_path='../config', config_name='refactoring_train.yaml')
 def main(config: DictConfig):
-    if config.all.Main.mode == 'train':
+    if config.CityDM.Main.mode == 'train':
         train(config)
-    elif config.all.Main.mode == 'sample':
+    elif config.CityDM.Main.mode == 'sample':
         sample(config)
     else:
         raise ValueError(f'Invalid mode: {config.mode}')

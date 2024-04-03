@@ -170,7 +170,6 @@ class PL_CityDM(pl.LightningModule):
 
         # Init Scheduler
         self.scheduler_init()
-        # prepare model, optimizer, scheduler with accelerator
         
         
         self.completion = False
@@ -901,8 +900,7 @@ class PL_CityDM(pl.LightningModule):
 
 
                 except Exception as e:
-                    self.accelerator.print("evaluation failed: \n")
-                    self.accelerator.print(e)
+                    pass
 
                 return all_images, result
             else:
