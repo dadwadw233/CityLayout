@@ -218,21 +218,6 @@ class PL_CityDM(pl.LightningModule):
         
         self.generator_ckpt_type = test_config["generator_ckpt_type"]
         
-            
-            
-    def get_evaluator(self, sampler):
-        eval_config = self.hparams.Evaluation
-        
-        evaluation = Evaluation(batch_size=self.batch_size,
-                                        device='cuda',
-                                        dl=self.val_dataloader if self.mode == "train" else self.test_dataloader,
-                                        sampler=sampler,
-                                        accelerator=None,
-                                        mapping=eval_config["channel_to_rgb"],
-                                        config=eval_config,
-                                        )
-        return evaluation
-            
 
     def init_main(self):
         self.timesteps = self.hparams.Model.diffusion.timesteps
@@ -316,18 +301,12 @@ class PL_CityDM(pl.LightningModule):
         # Init EMA
         self.generator_ema = self.get_ema(self.generator)
         INFO(f"EMA initialized!")
-        self.evaluator = self.get_evaluator(self.generator_ema.ema_model)
         
         if self.refiner is not None:
             self.refiner_ema = self.get_ema(self.refiner)
             INFO(f"Refiner EMA initialized!")
-            self.evaluator.set_refiner(self.refiner_ema.ema_model)
-            
-        INFO(f"Evaluator initialized!")
         INFO("CityDM init done!")
         
-        
-    
     
     def configure_optimizers(self):
         return [self.optimizer], [self.scheduler]
@@ -351,19 +330,14 @@ class PL_CityDM(pl.LightningModule):
     
     def convert_to_serializable(self, obj):
         if isinstance(obj, DictConfig):
-            # 如果是 DictConfig，递归转换为字典
             return {k: self.convert_to_serializable(v) for k, v in obj.items()}
         elif isinstance(obj, list):
-            # 如果是列表，递归转换列表中的每个元素
             return [self.convert_to_serializable(v) for v in obj]
         elif isinstance(obj, tuple):
-            # 如果是元组，递归转换元组中的每个元素，并转换为列表
             return [self.convert_to_serializable(v) for v in obj]
         elif isinstance(obj, (int, float, str, bool, type(None))):
-            # 如果是基本数据类型，直接返回
             return obj
         else:
-            # 对于其他所有类型，转换为字符串
             return str(obj)
 
     def validation_step(self, batch, batch_idx):
@@ -392,85 +366,11 @@ class PL_CityDM(pl.LightningModule):
         self.generator_ema.ema_model.train()
         self.outputs.append({"sample": sample})
         
-        
-        # DEBUG(f"Validation step {batch_idx} finished!")
-        
         return {"sample": sample}
 
     def on_validation_epoch_end(self):
+        pass
         
-        if self.trainer.is_global_zero:
-            val_cond = False
-            if self.model_type == "completion" or self.model_type == "CityGen":
-                val_cond = True
-            milestone = self.now_step // self.sample_frequency
-            now_val_path = os.path.join(self.val_results_dir, f"milestone_{milestone}_val_cond_{val_cond}")
-            os.makedirs(now_val_path, exist_ok=True)
-            all_images_list = list(map(lambda x: x["sample"], self.outputs))
-            all_images = torch.cat(all_images_list, dim=0)
-            
-            for idx in tqdm(range(len(all_images) // 4), desc='Saving Validation imgs'):
-                if self.data_type == "rgb":
-                    utils.save_image(
-                        all_images[idx * 4:idx * 4 + 4],
-                        os.path.join(
-                            now_val_path, f"sample-{idx}-c-rgb.png"
-                        ),
-                        nrow=2,
-                    )
-                    self.vis.visualize_rgb_layout(
-                        all_images[idx * 4:idx * 4 + 4],
-                        os.path.join(
-                            now_val_path, f"sample-{idx}-rgb.png"
-                        )
-                    )
-                elif self.data_type == "one-hot":
-                    self.vis.visulize_onehot_layout(
-                        all_images[idx * 4:idx * 4 + 4],
-                        os.path.join(
-                            now_val_path, f"sample-{idx}-onehot.png"
-                        )
-                    )
-                    self.vis.visualize_rgb_layout(
-                        all_images[idx * 4:idx * 4 + 4],
-                        os.path.join(
-                            now_val_path, f"sample-{idx}-rgb.png"
-                        )
-                    )
-                else:
-                    raise ValueError(f"data_type {self.data_type} not supported!")
-                
-            overlapping_rate = cal_overlapping_rate(all_images)
-            #if not self.debug:
-                # self.log("overlapping_rate", overlapping_rate)
-            
-            val_result = None
-            try:
-                self.evaluator.reset_dl(cycle(self.trainer.val_dataloaders))
-                if (self.evaluator.validation(val_cond, os.path.join(now_val_path, "data_analyse"))):
-                    val_result = self.evaluator.get_evaluation_dict()
-            except Exception as e:
-                ERROR(f"Validation failed! {e}")
-                # log traceback
-                ERROR(f"Traceback: \n {traceback.format_exc()}")
-                raise e
-            
-            #if val_result is not None:
-            #   if not self.debug:
-                    # self.log_dict(val_result)
-            if self.save_best_and_latest_only:
-                if self.check_best_or_not(val_result):
-                    self.save_ckpts(epoch=self.current_epoch , step=self.global_step, best=True)
-                self.save_ckpts(epoch=self.current_epoch , step=self.global_step, latest=True)
-                
-            elif not self.save_best_and_latest_only:
-                self.save_ckpts(epoch=self.current_epoch , step=self.global_step)
-                
-            self.generator_ema.ema_model.train()
-            self.outputs.clear()
-        
-    
-    
     
     def test_step(self, batch, batch_idx):
         if self.trainer.is_global_zero and not self.folder_init:
@@ -585,19 +485,6 @@ class PL_CityDM(pl.LightningModule):
         self.load_model_params(model, ckpt["diffusion"], self.finetuning_type)
 
         INFO(f"Ckpt loaded from {ckpt_path}")
-
-
-    def config_summarize(self):
-        INFO(self.config_parser.get_summary())
-
-    def model_summarize(self):
-
-        # print model param
-        INFO("Model Summary:")
-        INFO("========================================")
-        INFO(self.generator)
-        INFO("========================================")
-        INFO("Model Summary End")
 
 
     def get_op_mask(self, ratio=0.5, d='right', shape=(1, 3, 256, 256)):

@@ -26,11 +26,19 @@ callbacks:
     max_depth: 3
     max_children: 3
     tablefmt: 'github'
+
   
   # some custom callbacks here
-
-
-
+  EvalCallback:
+    _target_: callbacks.eval_callback.EvalCallback
+    config:
+      batch_size: ${batch_size}
+      device: cuda
+      accelerator: null
+      sampler: null
+      dl: null
+      mapping: ${CityDM.Vis.channel_to_rgb}
+      config: ${CityDM.Evaluation}
 
 
 Trainer:

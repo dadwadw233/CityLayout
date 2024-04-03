@@ -136,7 +136,7 @@ class Evaluation:
         self.evaluate_dict = {}
 
         self.condition = False
-        if self.device is not 'cuda':
+        if self.device != 'cuda':
             WARNING("CUDA is not available, evaluation may be slow")
 
     def set_refiner(self, refiner):
@@ -301,6 +301,64 @@ class Evaluation:
         except Exception as e:
             ERROR(f"Error when calculating CLIP: {e}")
             return False
+    @torch.inference_mode()
+    def dump_metrics(self, path):
+        if not self.condition:
+            real_samples = self.sample_real_data()
+            fake_samples = self.sample_fake_data(cond=None)
+            real_samples = real_samples[0].permute(1, 2, 0).cpu().numpy()
+            fake_samples = fake_samples[0].permute(1, 2, 0).cpu().numpy()
+            # wandb.log({"real": [wandb.Image(real_samples, caption="real")]}, commit=False)
+            # wandb.log({"fake": [wandb.Image(fake_samples, caption="fake")]}, commit=False)
+
+        if 'fid' in self.metrics_list:
+            self.evaluate_dict['FID'] = self.FID_calculator.compute().item()
+        if 'kid' in self.metrics_list:
+            mean, std = self.KID_calculator.compute()
+            self.evaluate_dict['KID'] = mean.item()
+            self.evaluate_dict['KID_std'] = std.item()
+        if 'mifid' in self.metrics_list:
+            self.evaluate_dict['MIFID'] = self.MIFID_calculator.compute().item()
+        if 'is' in self.metrics_list:
+            begin_time = time.time()
+            mean, std = self.IS_caluculator.compute()
+            self.evaluate_dict['IS'] = mean.item()
+            self.evaluate_dict['IS_std'] = std.item()
+            end_time = time.time()
+            DEBUG(f"IS time: {end_time - begin_time}")
+        if 'clip' in self.metrics_list:
+
+            # get mean score for each prompt
+            for prompt in self.prompt_pair:
+                prompt_str = prompt[0] + " vs " + prompt[1]
+                self.evaluate_dict['CLIP'][prompt_str]['fake'] = np.mean(
+                    self.evaluate_dict['CLIP'][prompt_str]['fake'])
+                self.evaluate_dict['CLIP'][prompt_str]['real'] = np.mean(
+                    self.evaluate_dict['CLIP'][prompt_str]['real'])
+                
+            for desc in self.clip_descs:
+                self.evaluate_dict['CLIP_score'][desc]['fake'] = np.mean(
+                    self.evaluate_dict['CLIP_score'][desc]['fake'])
+                self.evaluate_dict['CLIP_score'][desc]['real'] = np.mean(
+                    self.evaluate_dict['CLIP_score'][desc]['real'])
+        if 'data_analysis' in self.metrics_list:
+            # DEBUG(f"Start calculating data analysis")
+            real_vs_fake = self.data_analyser.contrast_analyse(path, self.condition)
+            self.evaluate_dict['real_vs_fake'] = real_vs_fake
+
+        if 'lpips' in self.metrics_list:
+            self.evaluate_dict['LPIPS'] = self.LPIPS_calculator.compute().item()
+
+        if 'ssim' in self.metrics_list:
+            self.evaluate_dict["SSIM"] = self.SSIM_calculator.compute().item()
+        
+        if 'psnr' in self.metrics_list:
+            self.evaluate_dict["PSNR"] = self.PSNR_calculator.compute().item()
+
+        # reset metrics and release CUDA memory
+        INFO(f"Finish evaluating images\nReset metrics and release CUDA memory")
+        self.reset_metrics_stats()
+        torch.cuda.empty_cache()
 
     @torch.inference_mode()
     def image_evaluation(self, path=None):
@@ -357,62 +415,7 @@ class Evaluation:
                 raise e
 
             # sample some real data and fake data to show by wandb
-            if not self.condition:
-                real_samples = self.sample_real_data()
-                fake_samples = self.sample_fake_data(cond=None)
-                real_samples = real_samples[0].permute(1, 2, 0).cpu().numpy()
-                fake_samples = fake_samples[0].permute(1, 2, 0).cpu().numpy()
-                # wandb.log({"real": [wandb.Image(real_samples, caption="real")]}, commit=False)
-                # wandb.log({"fake": [wandb.Image(fake_samples, caption="fake")]}, commit=False)
-
-            if 'fid' in self.metrics_list:
-                self.evaluate_dict['FID'] = self.FID_calculator.compute().item()
-            if 'kid' in self.metrics_list:
-                mean, std = self.KID_calculator.compute()
-                self.evaluate_dict['KID'] = mean.item()
-                self.evaluate_dict['KID_std'] = std.item()
-            if 'mifid' in self.metrics_list:
-                self.evaluate_dict['MIFID'] = self.MIFID_calculator.compute().item()
-            if 'is' in self.metrics_list:
-                begin_time = time.time()
-                mean, std = self.IS_caluculator.compute()
-                self.evaluate_dict['IS'] = mean.item()
-                self.evaluate_dict['IS_std'] = std.item()
-                end_time = time.time()
-                DEBUG(f"IS time: {end_time - begin_time}")
-            if 'clip' in self.metrics_list:
-
-                # get mean score for each prompt
-                for prompt in self.prompt_pair:
-                    prompt_str = prompt[0] + " vs " + prompt[1]
-                    self.evaluate_dict['CLIP'][prompt_str]['fake'] = np.mean(
-                        self.evaluate_dict['CLIP'][prompt_str]['fake'])
-                    self.evaluate_dict['CLIP'][prompt_str]['real'] = np.mean(
-                        self.evaluate_dict['CLIP'][prompt_str]['real'])
-                    
-                for desc in self.clip_descs:
-                    self.evaluate_dict['CLIP_score'][desc]['fake'] = np.mean(
-                        self.evaluate_dict['CLIP_score'][desc]['fake'])
-                    self.evaluate_dict['CLIP_score'][desc]['real'] = np.mean(
-                        self.evaluate_dict['CLIP_score'][desc]['real'])
-            if 'data_analysis' in self.metrics_list:
-                # DEBUG(f"Start calculating data analysis")
-                real_vs_fake = self.data_analyser.contrast_analyse(path, self.condition)
-                self.evaluate_dict['real_vs_fake'] = real_vs_fake
-
-            if 'lpips' in self.metrics_list:
-                self.evaluate_dict['LPIPS'] = self.LPIPS_calculator.compute().item()
-
-            if 'ssim' in self.metrics_list:
-                self.evaluate_dict["SSIM"] = self.SSIM_calculator.compute().item()
-            
-            if 'psnr' in self.metrics_list:
-                self.evaluate_dict["PSNR"] = self.PSNR_calculator.compute().item()
-
-            # reset metrics and release CUDA memory
-            INFO(f"Finish evaluating images\nReset metrics and release CUDA memory")
-            self.reset_metrics_stats()
-            torch.cuda.empty_cache()
+            self.dump_metrics(path)
 
             return True
 
@@ -427,7 +430,12 @@ class Evaluation:
             self.evaluate_dict['CLIP'] = None
 
             return False
-
+        
+        
+    @torch.inference_mode()
+    def image_evaluation_ddp(self, path=None):
+        # NotImplemented yet
+        pass
 
 class DataAnalyser:
     GREAT_COLOR_SET = plt.cm.get_cmap("tab20").colors
