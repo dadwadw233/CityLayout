@@ -247,8 +247,9 @@ class Evaluation:
                     fake_samples = self.refiner.sample(batch_size=self.batch_size, cond=fake_samples)[:, :self.channels, :, :]
             else:
                 fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=None)[:, :self.channels, :, :]
+                zero_mask = torch.zeros(fake_samples.shape, device=self.device)
                 if self.refiner is not None:
-                    fake_samples = self.refiner.sample(batch_size=self.batch_size, cond=fake_samples)[:, :self.channels, :, :]
+                    fake_samples = self.refiner.sample(batch_size=self.batch_size, cond=fake_samples, mask=zero_mask)[:, :self.channels, :, :]
 
         # DEBUG(f"fake samples shape: {fake_samples.shape}")
         if 'data_analysis' in self.metrics_list:

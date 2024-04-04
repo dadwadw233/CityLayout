@@ -412,7 +412,8 @@ class PL_CityDM(pl.LightningModule):
             sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)[:, :channel, ...]
             
             if self.refiner is not None:
-                sample = self.refiner_ema.ema_model.sample(batch_size=self.batch_size, cond=sample)[:, :channel, ...]
+                zero_mask = torch.zeros(sample.shape, device=self.device)
+                sample = self.refiner_ema.ema_model.sample(batch_size=self.batch_size, cond=sample, mask=zero_mask)[:, :channel, ...]
             
         if self.trainer.num_devices > 1:
             sample = self.all_gather(sample).flatten(0, 1)
@@ -572,7 +573,7 @@ class PL_CityDM(pl.LightningModule):
 
         return mask
 
-    def op_handle(self, org, padding=1, ratio=0.5):
+    def op_handle(self, org, padding=1, ratio=0.5, bar=None):
         # extend origin layout by sliding window 
         b, c, h, w = org.shape
         INFO(f"start extend layout with padding {padding} and ratio {ratio}...")
@@ -588,6 +589,7 @@ class PL_CityDM(pl.LightningModule):
         init = False
         #with Progress() as progress:
             #task = progress.add_task("[red]Extending layout...", total=None)
+        task = bar.add_task("[red]Extending layout...", total=None)
         for h_l_p in range(0, int(extend_h - h * ratio), int(h * ratio)):
             for w_l_p in range(0, int(extend_W - w * ratio), int(w * ratio)):
                 # direction: left to right
@@ -612,7 +614,7 @@ class PL_CityDM(pl.LightningModule):
 
                     extend_layout[:, :, h_l_p:h_l_p + h,
                     w_l_p + int(w * ratio):w_l_p + int(w * ratio) + w] = extend_region
-
+                     
 
                 else:
                     cond_region = extend_layout[:, :, h_l_p:h_l_p + h, w_l_p:w_l_p + w]
@@ -627,13 +629,20 @@ class PL_CityDM(pl.LightningModule):
                         extend_region = refine
                     extend_layout[:, :, h_l_p:h_l_p + h, w_l_p:w_l_p + w] = extend_region
 
-                #progress.update(task, advance=1)
+                bar.update(task, advance=1)
 
             init = True
 
         if self.refiner is not None:
             zero_mask = torch.zeros((b, 1, extend_h, extend_W), device=self.device)
-            refine = self.refiner_ema.ema_model.sample(batch_size=b, cond=extend_layout[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
+            # for cuda memory consern, refine batch samples on by one
+            refine = extend_layout.clone()
+            task = bar.add_task("[red]Refining layout...", total=b)
+            for i in range(b):
+                refine[i, :, :, :] = self.refiner_ema.ema_model.sample(batch_size=1, 
+                                                                       cond=extend_layout[i:i+1, :3, ...].clone(), 
+                                                                       mask=zero_mask[i:i+1, ...])[:, :3, ...]
+                bar.update(task, advance=1)
             extend_layout = torch.cat((refine, extend_layout), dim=1)
             
         INFO(f"extend layout done!")    
@@ -720,10 +729,10 @@ class PL_CityDM(pl.LightningModule):
                             cond_image = next(cycle(self.trainer.predict_dataloaders))["layout"].to(self.device)
                             # DEBUG(f"cond_image shape: {cond_image.shape}")
                             if all_images is None:
-                                all_images = self.op_handle(cond_image, padding=padding, ratio=ratio)
+                                all_images = self.op_handle(cond_image, padding=padding, ratio=ratio, bar=progress)
                             else:
                                 all_images = torch.cat(
-                                    (all_images, self.op_handle(cond_image, padding=padding, ratio=ratio)), dim=0
+                                    (all_images, self.op_handle(cond_image, padding=padding, ratio=ratio, bar=progress)), dim=0
                                 )
                             progress.update(task, advance=1)
 

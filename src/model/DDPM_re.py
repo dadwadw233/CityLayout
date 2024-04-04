@@ -545,7 +545,9 @@ class GaussianDiffusion(nn.Module):
         if self.model_type == "Completion":
             if org is not None:
                 mask = self.get_completion_mask_backward(org.clone(), mask=mask)
-            img = torch.randn((shape[0], shape[1]//2, shape[2], shape[3]), device=device)
+                img = torch.randn(org.shape, device=device)
+            else:
+                img = torch.randn((shape[0], shape[1]//2, shape[2], shape[3]), device=device)
             
         elif self.model_type == "CityGen" or (self.model_type=="normal" and (self.sample_type=="Inpainting" or self.sample_type=="Outpainting")):
             img, mask = self.random_outpainting_noise_backward(org.clone(), mask)    
