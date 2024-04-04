@@ -419,14 +419,15 @@ class PL_CityDM(pl.LightningModule):
                 layout = self.all_gather(layout).flatten(0, 1)
         
         if self.global_rank == 0:
-            self.samples_for_test["fake"].append(self.vis.onehot_to_rgb(sample))
-            self.samples_for_test["real"].append(self.vis.onehot_to_rgb(real))
+            self.samples_for_test["fake"].append(sample.detach().cpu())
+            self.samples_for_test["real"].append(real.detach().cpu())
             if cond or self_cond:
-                self.samples_for_test["cond"].append(self.vis.onehot_to_rgb(layout))        
+                self.samples_for_test["cond"].append(layout.detach().cpu())        
         
         self.generator_ema.ema_model.train()
         if self.refiner is not None:
             self.refiner_ema.ema_model.train()
+            
         
         
     

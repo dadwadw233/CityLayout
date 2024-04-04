@@ -15,7 +15,6 @@ from torchmetrics.image.lpip import LearnedPerceptualImagePatchSimilarity
 from torchmetrics.multimodal import CLIPImageQualityAssessment
 from torchmetrics.image import StructuralSimilarityIndexMeasure
 from torchmetrics.image import PeakSignalNoiseRatio
-from torchmetrics.multimodal.clip_score import CLIPScore
 from rich.progress import Progress
 from rich.console import Console
 console = Console()
@@ -104,25 +103,10 @@ class Evaluation:
             ("a city region with buildings, roads and water", "a city region without buildings, roads and water"),
         )
         
-        self.clip_descs = [
-            "a city region",
-            "An abstract representation of a city layout",
-            "An abstract representation of a city layout, which may include buildings and roads",
-            "a city map include buildings and roads",
-            "a city region with buildings, roads and water",
-            "a map with lines and shapes representing a city layout",
-            "An abstract representation of a city layout with broad, unmarked streets and undefined building structures, predominantly in beige and white colors.",
-            "A stylized city map segment featuring blue water bodies, such as rivers or lakes, with surrounding beige areas representing buildings or open spaces.",
-            "A detailed section of a city map including blue water features, intricate beige building shapes, and a clear delineation of roads and pathways.",
-            "A minimalistic urban map fragment showing a section of a road or highway without any adjacent buildings, with a focus on the transportation network.",
-        ]
-        
         # MultoModal metrics
         if 'clip' in self.metrics_list:
             self.CLIP_calculator = CLIPImageQualityAssessment(data_range=1.0, prompts=self.prompt_pair,
                                                               sync_on_compute=False).to(device)
-            self.CLIP_score_calculator_real = CLIPScore(model_name_or_path="openai/clip-vit-base-patch16", sync_on_compute=False).to(device)
-            self.CLIP_score_calculator_fake = CLIPScore(model_name_or_path="openai/clip-vit-base-patch16", sync_on_compute=False).to(device)
 
         # some matrics to evaluate conditional generation's consistency
         if 'lpips' in self.metrics_list:
@@ -169,8 +153,6 @@ class Evaluation:
             self.IS_caluculator.reset()
         if 'clip' in self.metrics_list:
             self.CLIP_calculator.reset()
-            self.CLIP_score_calculator_real.reset()
-            self.CLIP_score_calculator_fake.reset()
         if 'lpips' in self.metrics_list:
             self.LPIPS_calculator.reset()
         if 'ssim' in self.metrics_list:
@@ -223,10 +205,6 @@ class Evaluation:
         for prompt in self.prompt_pair:
             prompt_str = prompt[0] + " vs " + prompt[1]
             self.evaluate_dict['CLIP'][prompt_str] = {'fake': [], 'real': []}
-        
-        self.evaluate_dict['CLIP_score'] = {}
-        for prompt in self.clip_descs:
-            self.evaluate_dict['CLIP_score'][prompt] = {'fake': [], 'real': []}
 
     @torch.inference_mode()
     def validation(self, condition=False, path=None):
@@ -294,15 +272,6 @@ class Evaluation:
                 self.evaluate_dict['CLIP'][prompt_key]['fake'].append(fake_score[clip_k].mean().item())
                 self.evaluate_dict['CLIP'][prompt_key]['real'].append(real_score[clip_k].mean().item())
                 
-            for desc in self.clip_descs:
-                
-                batch_desc = [desc] * real.shape[0]
-                
-                real_clip_score = self.CLIP_score_calculator_real(real, batch_desc)
-                fake_clip_score = self.CLIP_score_calculator_fake(fake, batch_desc)
-                self.evaluate_dict['CLIP_score'][desc]['fake'].append(fake_clip_score.mean().item())
-                self.evaluate_dict['CLIP_score'][desc]['real'].append(real_clip_score.mean().item())
-                
 
             return True
         except Exception as e:
@@ -327,7 +296,6 @@ class Evaluation:
             end_time = time.time()
             DEBUG(f"IS time: {end_time - begin_time}")
         if 'clip' in self.metrics_list:
-
             # get mean score for each prompt
             for prompt in self.prompt_pair:
                 prompt_str = prompt[0] + " vs " + prompt[1]
@@ -336,11 +304,6 @@ class Evaluation:
                 self.evaluate_dict['CLIP'][prompt_str]['real'] = np.mean(
                     self.evaluate_dict['CLIP'][prompt_str]['real'])
                 
-            for desc in self.clip_descs:
-                self.evaluate_dict['CLIP_score'][desc]['fake'] = np.mean(
-                    self.evaluate_dict['CLIP_score'][desc]['fake'])
-                self.evaluate_dict['CLIP_score'][desc]['real'] = np.mean(
-                    self.evaluate_dict['CLIP_score'][desc]['real'])
         if 'data_analysis' in self.metrics_list:
             # DEBUG(f"Start calculating data analysis")
             real_vs_fake = self.data_analyser.contrast_analyse(path, self.condition)
@@ -435,33 +398,54 @@ class Evaluation:
             return False
     
     @torch.inference_mode()
-    def update_metrics(self, real, fake, cond=None):
+    def update_metrics(self, real, fake, cond=None, recur=False):
+        device = real.device
+        if self.device != device and not recur:
+            INFO(f"evaluator device: {self.device}; data device: {device}")
+            b = real.shape[0]
+            with Progress() as p:
+                task = p.add_task("[red]Update metrics data recursively!", total=b)
+                for bid in range(b):
+                    self.update_metrics(real[bid].unsqueeze(0).cuda(), 
+                                        fake[bid].unsqueeze(0).cuda(), 
+                                        cond=None if cond is None else cond[bid].unsqueeze(0).cuda(),
+                                        recur=True
+                                        )
+                    p.advance(task, 1)
+            return
+        
+        rgb_real = self.vis.onehot_to_rgb(real)
+        rgb_fake = self.vis.onehot_to_rgb(fake)
+        if cond is not None:
+            rgb_cond = self.vis.onehot_to_rgb(cond)
         if 'fid' in self.metrics_list:
-            self.FID_calculator.update(real, True)
-            self.FID_calculator.update(fake, False)
+            self.FID_calculator.update(rgb_real, True)
+            self.FID_calculator.update(rgb_fake, False)
         if 'kid' in self.metrics_list:
-            self.KID_calculator.update(real, True)
-            self.KID_calculator.update(fake, False)
+            self.KID_calculator.update(rgb_real, True)
+            self.KID_calculator.update(rgb_fake, False)
         if 'mifid' in self.metrics_list:
-            self.MIFID_calculator.update(real, True)
-            self.MIFID_calculator.update(fake, False)
+            self.MIFID_calculator.update(rgb_real, True)
+            self.MIFID_calculator.update(rgb_fake, False)
             
         if 'is' in self.metrics_list:
-            self.IS_caluculator.update(fake)
+            self.IS_caluculator.update(rgb_fake)
         if 'clip' in self.metrics_list:
-            self.multimodal_evaluation(real, fake)
+            self.multimodal_evaluation(rgb_real, rgb_fake)
 
         if cond is not None:
             if 'lpips' in self.metrics_list:
-                self.LPIPS_calculator.update(fake, cond)
+                self.LPIPS_calculator.update(rgb_fake, rgb_cond)
             if 'ssim' in self.metrics_list:
-                self.SSIM_calculator.update(fake, cond)
+                self.SSIM_calculator.update(rgb_fake, rgb_cond)
             if 'psnr' in self.metrics_list:
-                self.PSNR_calculator.update(fake, cond)
+                self.PSNR_calculator.update(rgb_fake, rgb_cond)
                 
         if "data_analysis" in self.metrics_list:
             self.data_analyser.add_data(real)
             self.data_analyser.add_data(fake, True)
+            
+        del rgb_real, rgb_fake
             
     
     @torch.inference_mode()
@@ -475,7 +459,7 @@ class Evaluation:
             stacked_real = torch.cat(data_dict['real'], dim=0)
             stacked_fake = torch.cat(data_dict['fake'], dim=0)
             INFO(f"stacked_real shape: {stacked_real.shape}")
-            if 'cond' in data_dict:
+            if len(data_dict['cond']) != 0:
                 stacked_cond = torch.cat(data_dict['cond'], dim=0)
             else:
                 stacked_cond = None
