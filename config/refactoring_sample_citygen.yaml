@@ -29,7 +29,7 @@ callbacks:
 Trainer:
   _target_: pytorch_lightning.Trainer
   max_epochs: 50
-  devices: [0,1,2,3]
+  devices: [0]
   precision: 16
   accumulate_grad_batches: 4
   val_check_interval: 0.25
@@ -99,7 +99,7 @@ CityDM:
       init_dim: null
       out_dim: 3 # if in_channel != out_channel, out_dim should be set 
       dim_mults: [1, 2, 4, 8]
-      channels: 3 # if model_type is Outpainting, channel equals data channel + 1 due to the outpainting mask channel
+      channels: 7 # if model_type is Outpainting, channel equals data channel + 1 due to the outpainting mask channel
       self_condition: False
       resnet_block_groups: 8
       learned_variance: False
@@ -126,7 +126,7 @@ CityDM:
       offset_noise_strength: 0.0
       min_snr_gamma: 5
       min_snr_loss_weight: False
-      model_type: "normal" # or "CityGen" or 'Completion' or "normal"
+      model_type: "CityGen" # or "CityGen" or 'Completion' or "normal"
 
     completion:
       timesteps: 2500
@@ -144,7 +144,7 @@ CityDM:
     
 
   Main:
-    mode: "test"
+    mode: "sample"
     fine_tune: False
     finetuning_type: "full" # or "partial/LoRA/ControlNet or just set to none for same objective finetuning"
     pretrain_model_type: "normal" # or "uniDM" or 'Outpainting'
@@ -188,15 +188,15 @@ CityDM:
   Test:
     !!merge <<: *vis
     data_type: "one-hot" # or "rgb"
-    num_samples: 8
+    num_samples: 16
     results_dir: "${hydra:runtime.cwd}/results/one-hot"
-    ckpt_results_dir: "${hydra:runtime.cwd}/results/one-hot/normal/2024-02-07-17-06-33-train-normal/ckpt"
+    ckpt_results_dir: "${hydra:runtime.cwd}/results/one-hot/CityGen/2024-03-20-21-28-16-train-Outpainting/ckpt"
     generator_ckpt_type : "latest" # or "best"
     !!merge <<: *common
 
-    sample_type: "normal" # "Inpainting" or "normal" or "Outpainting"
-    use_completion: False
-    refiner_ckpt: "${hydra:runtime.cwd}/results/one-hot/completion/2024-03-17-12-12-20-train-completion/ckpt"
+    sample_type: "Outpainting" # "Inpainting" or "normal" or "Outpainting"
+    use_completion: True
+    refiner_ckpt: "${hydra:runtime.cwd}/results/one-hot/completion/2024-03-16-15-35-50-train-completion/ckpt"
     refiner_ckpt_type : "latest" # or "best"
 
 
@@ -209,7 +209,7 @@ CityDM:
     !!merge <<: *vis
     data_type: "one-hot" # or "rgb"
 
-    metrics_list : ["fid", "mifid", "kid", "clip", "is", "data_analysis", "lpips", "ssim", "psnr"]
+    metrics_list : ["is"]
     # "fid", "mifid", "kid", "clip", "is", "data_analysis", "lpips", "ssim", "psnr"
 
     # at least 2048 samples for FID or the "nan" or "complex number" error will occur
