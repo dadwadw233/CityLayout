@@ -56,7 +56,7 @@ if __name__ == "__main__":
         # print(data['condition'].shape)
         print(data['layout'].shape)
         
-        vis.visulize_onehot_layout(data['layout'], "/home/admin/workspace/yuyuanhong/code/CityLayout/test-{}.png".format(i))
+        vis.visualize_onehot_layout(data['layout'], "/home/admin/workspace/yuyuanhong/code/CityLayout/test-{}.png".format(i))
         vis.visualize_rgb_layout(data['layout'], "/home/admin/workspace/yuyuanhong/code/CityLayout/test-rgb-{}.png".format(i))
         
         rgb_test = vis.onehot_to_rgb(data['layout'])

@@ -668,7 +668,7 @@ class GaussianDiffusion(nn.Module):
             if op_mask is not None:
                 bool_mask = ((op_mask + 1) / 2).bool()
                 ret = torch.cat((ret, self.normalize(self.unnormalize(org) * ~bool_mask)), dim=1)
-                ret = torch.cat((ret, op_mask), dim=1)
+                # ret = torch.cat((ret, op_mask), dim=1)
                 # ret = torch.cat((ret, imgs[imgs.__len__() // 2]), dim=1)
             else:
                 ret = torch.cat((ret, org), dim=1)

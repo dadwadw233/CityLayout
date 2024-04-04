@@ -39,7 +39,7 @@ class EvalCallback(pl.Callback):
                         )
                     )
                 elif pl_module.data_type == "one-hot":
-                    pl_module.vis.visulize_onehot_layout(
+                    pl_module.vis.visualize_onehot_layout(
                         all_images[idx * 4:idx * 4 + 4],
                         os.path.join(
                             path, f"sample-{idx}-onehot.png"

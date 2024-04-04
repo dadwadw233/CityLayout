@@ -405,7 +405,7 @@ class Trainer(object):
                                 ),
                             )
                         else:
-                            self.vis.visulize_onehot_layout(
+                            self.vis.visualize_onehot_layout(
                                 image_for_show,
                                 str(
                                     self.results_folder

@@ -1,6 +1,7 @@
 import os
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
+from mpl_toolkits.axes_grid1 import ImageGrid
 import numpy as np
 import torch
 from utils.log import *
@@ -22,27 +23,42 @@ class OSMVisulizer:
         data = data / data.max()
         return data
 
-    def visulize_onehot_layout(self, data, path=None) -> None:
-        b, c, h, w = data.shape
-        # print(data.shape)
-        # exit(0)
-        # print(path)
-        assert (
-            b > 1
-        ), f"batch size {b} is too small, please set batch size larger than 1"
+    def visualize_onehot_layout(self, data, path=None) -> None:
+        B, C, H, W = data.shape
+        num_channels = len(self.channel_to_rgb)
+        assert C % num_channels == 0, f"Channel number {C} is not a multiple of {num_channels}"
 
-        fig, axes = plt.subplots(b, c, figsize=(20, 20))
+        # 图像每行显示的数量
+        num_cols = C // num_channels
+        fig = plt.figure(figsize=(20, B * num_cols))
 
-        for i in range(b):
-            for j in range(c):
-                if c == 1:
-                    axes[i].imshow(data[i, j, :, :].cpu().numpy(), cmap="gray")
-                else:
-                    axes[i, j].imshow(data[i, j, :, :].cpu().numpy(), cmap="gray")
-                    axes[i, j].axis("off")
+        # 创建 ImageGrid 实例
+        grid = ImageGrid(fig, 111,  # 相当于subplot(111)
+                        nrows_ncols=(B, num_cols),  # 网格大小
+                        axes_pad=0.15,  # 两个axes之间的padding
+                        share_all=True,
+                        label_mode="L",
+                        )
+
+        for b in range(B):
+            for i in range(0, C, num_channels):
+                idx = b * num_cols + i // num_channels
+                ax = grid[idx]
+                # 将每三个通道的onehot转换为一个RGB图像
+                combined_rgb_data = self.onehot_to_rgb(data[b:b+1, i:i+num_channels, :, :])
+                # 显示图像
+                ax.imshow(combined_rgb_data[0].permute(1, 2, 0).cpu().numpy())
+                # 关闭坐标轴
+                ax.axis('off')
+                # 设置边框（spine）颜色和宽度
+                for spine in ax.spines.values():
+                    spine.set_edgecolor('white')
+                    spine.set_linewidth(1)
+
+        # 如果提供了路径，就保存到路径，否则保存到self.path
         if path is None:
-            path = os.path.join(self.path, "onehot.png")
-        plt.savefig(path)
+            path = os.path.join(self.path, "combined_rgb.png")
+        plt.savefig(path, bbox_inches='tight', pad_inches=0.05)
         plt.close()
 
     def hex_or_name_to_rgb(self, color):

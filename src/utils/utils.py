@@ -131,7 +131,7 @@ class OSMVisulizer:
         data = data / data.max()
         return data
 
-    def visulize_onehot_layout(self, data, path=None) -> None:
+    def visualize_onehot_layout(self, data, path=None) -> None:
         b, c, h, w = data.shape
         # print(data.shape)
         # exit(0)

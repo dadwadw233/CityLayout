@@ -158,9 +158,9 @@ if trainer_config["trainer"]["mode"] == "eval":
     if train_type == "one-hot":
         vis.visualize_rgb_layout(ret)
         if ref is not None:
-            vis.visulize_onehot_layout(torch.cat([ret, ref], dim=1))
+            vis.visualize_onehot_layout(torch.cat([ret, ref], dim=1))
         else:
-            vis.visulize_onehot_layout(ret)
+            vis.visualize_onehot_layout(ret)
 
         data_for_vec = ret
         f = vec.vectorize(data_for_vec)
