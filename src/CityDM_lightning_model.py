@@ -63,6 +63,7 @@ from omegaconf import DictConfig
 from pytorch_lightning import seed_everything
 from utils.model import init_backbone, init_diffuser
 from rich.progress import Progress
+
 class PL_CityDM(pl.LightningModule):
 
     def __init__(self, *args, **kwargs):
@@ -319,7 +320,7 @@ class PL_CityDM(pl.LightningModule):
     
     def training_step(self, batch, batch_idx):
         
-        layout = batch["layout"]
+        layout = batch["layout"].to(self.device)
         with amp.autocast():
             loss = self.generator(layout)
             
@@ -363,10 +364,11 @@ class PL_CityDM(pl.LightningModule):
         if self.model_type == "Completion" or self.model_type == "CityGen":
             val_cond = True
         if val_cond:
-            layout = batch["layout"]
+            layout = batch["layout"].to(self.device)
         else:
             layout = None
-        sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)
+        with amp.autocast():
+            sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)
 
         if self.trainer.num_devices > 1:
             sample = self.all_gather(sample).flatten(0, 1)
@@ -402,15 +404,15 @@ class PL_CityDM(pl.LightningModule):
         if self.model_type == "Completion" or self.model_type == "CityGen" or self_cond:
             cond = True
         if cond:
-            layout = batch["layout"]
+            layout = batch["layout"].to(self.device)
         else:
             layout = None
         channel = batch['layout'].shape[1]
-        
-        sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)[:, :channel, ...]
-        
-        if self.refiner is not None:
-            sample = self.refiner_ema.ema_model.sample(batch_size=self.batch_size, cond=sample)[:, :channel, ...]
+        with amp.autocast():
+            sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)[:, :channel, ...]
+            
+            if self.refiner is not None:
+                sample = self.refiner_ema.ema_model.sample(batch_size=self.batch_size, cond=sample)[:, :channel, ...]
             
         if self.trainer.num_devices > 1:
             sample = self.all_gather(sample).flatten(0, 1)

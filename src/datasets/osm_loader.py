@@ -329,7 +329,13 @@ class OSMDataset(Dataset):
         natural: 0-1 (one-hot)
         road: 0-1 (one-hot)
         '''
-
+        # convert data to float16
+        for key in data_dict.keys():
+            try:
+                data_dict[key] = data_dict[key].float()
+                data_dict[key] = data_dict[key].type(torch.float16)
+            except:
+                continue
         
 
         return data_dict

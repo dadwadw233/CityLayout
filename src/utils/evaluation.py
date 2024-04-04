@@ -18,7 +18,7 @@ from torchmetrics.image import PeakSignalNoiseRatio
 from rich.progress import Progress
 from rich.console import Console
 console = Console()
-
+from torch.cuda import amp
 import torch
 import numpy as np
 import os
@@ -238,16 +238,17 @@ class Evaluation:
 
     @torch.inference_mode()
     def sample_fake_data(self, cond=None):
-        if cond is not None:
-            cond = cond.to(self.device)
-            fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=cond)
-            fake_samples = fake_samples[:, :self.channels, :, :]
-            if self.refiner is not None:
-                fake_samples = self.refiner.sample(batch_size=self.batch_size, cond=fake_samples)[:, :self.channels, :, :]
-        else:
-            fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=None)[:, :self.channels, :, :]
-            if self.refiner is not None:
-                fake_samples = self.refiner.sample(batch_size=self.batch_size, cond=fake_samples)[:, :self.channels, :, :]
+        with amp.autocast():
+            if cond is not None:
+                cond = cond.to(self.device)
+                fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=cond)
+                fake_samples = fake_samples[:, :self.channels, :, :]
+                if self.refiner is not None:
+                    fake_samples = self.refiner.sample(batch_size=self.batch_size, cond=fake_samples)[:, :self.channels, :, :]
+            else:
+                fake_samples = self.sampler.sample(batch_size=self.batch_size, cond=None)[:, :self.channels, :, :]
+                if self.refiner is not None:
+                    fake_samples = self.refiner.sample(batch_size=self.batch_size, cond=fake_samples)[:, :self.channels, :, :]
 
         # DEBUG(f"fake samples shape: {fake_samples.shape}")
         if 'data_analysis' in self.metrics_list:
