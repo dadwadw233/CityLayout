@@ -478,11 +478,11 @@ class Vectorizer:
                 
 
 
-            # save image
-            plt.savefig(
-                os.path.join(temp_path, "fake.png"), bbox_inches="tight", pad_inches=0
-            )
-            plt.close("all")
+                # save image
+                plt.savefig(
+                    os.path.join(temp_path, "fake.png"), bbox_inches="tight", pad_inches=0
+                )
+                plt.close("all")
 
         return asset
 
