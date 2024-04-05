@@ -549,8 +549,9 @@ class PL_CityDM(pl.LightningModule):
         
         self.load_model_params(model, ckpt["diffusion"], self.finetuning_type)
         if mode == "train":
-            self.optimizer.load_state_dict(ckpt["optimizer"])                
-            INFO("train mode, load optimizer state dict!")
+            self.opt_init()
+            self.scheduler_init()
+            INFO(f"reinit optimizer!")
             
         
 
