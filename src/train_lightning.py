@@ -15,8 +15,9 @@ from datasets.osm_datamodule import OSMDataModule
 from rich.console import Console
 console = Console()
 import warnings
+import torch
 warnings.simplefilter('ignore')
-
+torch.set_float32_matmul_precision('medium')
 def handle(config: DictConfig):
     try:
         

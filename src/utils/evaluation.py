@@ -283,13 +283,22 @@ class Evaluation:
     def dump_metrics(self, path):
 
         if 'fid' in self.metrics_list:
+            begin_time = time.time()
             self.evaluate_dict['FID'] = self.FID_calculator.compute().item()
+            end_time = time.time()
+            DEBUG(f"FID time: {end_time - begin_time}")
         if 'kid' in self.metrics_list:
+            begin_time = time.time()
             mean, std = self.KID_calculator.compute()
             self.evaluate_dict['KID'] = mean.item()
             self.evaluate_dict['KID_std'] = std.item()
+            end_time = time.time()
+            DEBUG(f"KID time: {end_time - begin_time}")
         if 'mifid' in self.metrics_list:
+            begin_time = time.time()
             self.evaluate_dict['MIFID'] = self.MIFID_calculator.compute().item()
+            end_time = time.time()
+            DEBUG(f"MIFID time: {end_time - begin_time}")
         if 'is' in self.metrics_list:
             begin_time = time.time()
             mean, std = self.IS_caluculator.compute()
@@ -308,8 +317,11 @@ class Evaluation:
                 
         if 'data_analysis' in self.metrics_list:
             # DEBUG(f"Start calculating data analysis")
+            begin_time = time.time()
             real_vs_fake = self.data_analyser.contrast_analyse(path, self.condition)
             self.evaluate_dict['real_vs_fake'] = real_vs_fake
+            end_time = time.time()
+            DEBUG(f"Data analysis time: {end_time - begin_time}")
 
         if 'lpips' in self.metrics_list:
             self.evaluate_dict['LPIPS'] = self.LPIPS_calculator.compute().item()
