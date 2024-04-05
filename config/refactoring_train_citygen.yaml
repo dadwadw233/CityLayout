@@ -38,6 +38,8 @@ Trainer:
   accelerator: "gpu"
   strategy: "deepspeed_stage_2"
   precision: bf16
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: 'norm'
   accumulate_grad_batches: 4
   check_val_every_n_epoch: 5
   enable_checkpointing: False # use custom checkpointing

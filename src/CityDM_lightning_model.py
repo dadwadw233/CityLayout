@@ -552,7 +552,7 @@ class PL_CityDM(pl.LightningModule):
             self.opt_init()
             self.scheduler_init()
             INFO(f"reinit optimizer!")
-            
+            # self.optimizer.load_state_dict(ckpt["optimizer"])
         
 
         INFO(f"Ckpt loaded from {ckpt_path}")
