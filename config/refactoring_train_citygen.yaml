@@ -36,8 +36,8 @@ Trainer:
   devices: 4
   num_nodes: 1
   accelerator: "gpu"
-  strategy: "deepspeed_stage_2"
-  precision: bf16
+  strategy: "ddp"
+  precision: 16
   accumulate_grad_batches: 4
   check_val_every_n_epoch: 5
   enable_checkpointing: False # use custom checkpointing
