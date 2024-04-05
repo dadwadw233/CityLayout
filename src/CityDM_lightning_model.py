@@ -548,6 +548,12 @@ class PL_CityDM(pl.LightningModule):
         ckpt = torch.load(ckpt_path)
         
         self.load_model_params(model, ckpt["diffusion"], self.finetuning_type)
+        if mode == "train":
+            self.optimizer.load_state_dict(ckpt["optimizer"])
+            self.best_evaluation_result = ckpt["best_evaluation_result"]
+            INFO("train mode, load optimizer state dict!")
+            
+        
 
         INFO(f"Ckpt loaded from {ckpt_path}")
 

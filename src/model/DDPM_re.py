@@ -731,7 +731,7 @@ class GaussianDiffusion(nn.Module):
         unimask = None
         org = x_start.clone()
         # noise = default(noise, lambda: torch.randn_like(x_start))
-        if self.model_type == "completion":
+        if self.model_type == "Completion":
             x_start, unimask = self.get_completion_mask_forward(x_start.clone())
             noise = default(noise, lambda: torch.randn_like(x_start))
         elif self.model_type == "CityGen":
@@ -739,6 +739,8 @@ class GaussianDiffusion(nn.Module):
             noise = default(noise, lambda: torch.randn_like(x_start))
         elif self.model_type == "normal":
             noise = default(noise, lambda: torch.randn_like(x_start))
+        else:
+            raise ValueError(f"unknown model type {self.model_type}")
 
         # offset noise - https://www.crosslabs.org/blog/diffusion-with-offset-noise
 
@@ -799,7 +801,7 @@ class GaussianDiffusion(nn.Module):
             loss = (loss * op_mask)*5 + loss * (1 - op_mask)
         elif unimask is not None:
             unimask = (unimask + 1) / 2
-            loss = (loss * unimask) + loss * (1 - unimask)
+            loss = (loss * unimask)*5 + loss * (1 - unimask)
         
         loss = reduce(loss, "b ... -> b", "mean")
 
