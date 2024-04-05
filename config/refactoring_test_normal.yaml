@@ -194,8 +194,8 @@ CityDM:
     generator_ckpt_type : "latest" # or "best"
     !!merge <<: *common
 
-    sample_type: "normal" # "Inpainting" or "normal" or "Outpainting"
-    use_completion: True
+    sample_type: "Inpainting" # "Inpainting" or "normal" or "Outpainting"
+    use_completion: False
     refiner_ckpt: "${hydra:runtime.cwd}/results/one-hot/completion/2024-03-16-15-35-50-train-completion/ckpt"
     refiner_ckpt_type : "latest" # or "best"
 

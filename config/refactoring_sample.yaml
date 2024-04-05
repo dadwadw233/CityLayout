@@ -1,7 +1,7 @@
 defaults:
   - private: log
 
-batch_size: 8
+batch_size: 16
 
 
 callbacks:
@@ -189,14 +189,14 @@ CityDM:
   Test:
     !!merge <<: *vis
     data_type: "one-hot" # or "rgb"
-    num_samples: 8
+    num_samples: 16
     results_dir: "${hydra:runtime.cwd}/results/one-hot"
     ckpt_results_dir: "${hydra:runtime.cwd}/results/one-hot/normal/2024-02-07-17-06-33-train-normal/ckpt"
     generator_ckpt_type : "latest" # or "best"
     !!merge <<: *common
 
-    sample_type: "normal" # "Inpainting" or "normal" or "Outpainting"
-    use_completion: False
+    sample_type: "Outpainting" # "Inpainting" or "normal" or "Outpainting"
+    use_completion: True
     refiner_ckpt: "${hydra:runtime.cwd}/results/one-hot/completion/2024-03-16-15-35-50-train-completion/ckpt"
     refiner_ckpt_type : "latest" # or "best"
 
@@ -204,7 +204,7 @@ CityDM:
 
     op:
       ratio: 0.5 # outpainting mask ratio
-      padding: 1 # extend padding * ratio patch to the original image eg: org (256*256) -> (256+3*256*0.5, 256+3*256*0.5)
+      padding: 2 # extend padding * ratio patch to the original image eg: org (256*256) -> (256+3*256*0.5, 256+3*256*0.5)
 
   Evaluation: 
     !!merge <<: *vis

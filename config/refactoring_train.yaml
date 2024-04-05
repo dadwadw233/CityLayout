@@ -11,6 +11,10 @@ callbacks:
     max_depth: 3
     max_children: 3
     tablefmt: 'github'
+  
+  LearningRateMonitor:
+    _target_: pytorch_lightning.callbacks.LearningRateMonitor
+    logging_interval: 'step'
 
   
   # some custom callbacks here
@@ -121,7 +125,7 @@ CityDM:
       sampling_timesteps: 50
       image_size: 256
       objective: "pred_v"
-      beta_schedule: "sigmoid"
+      beta_schedule: "linear"
       ddim_sampling_eta: 0.0
       auto_normalize: True
       offset_noise_strength: 0.0
@@ -146,10 +150,10 @@ CityDM:
 
   Main:
     mode: "train"
-    fine_tune: False
-    finetuning_type: "partial" # or "partial/LoRA/ControlNet or just set to none for same objective finetuning"
+    fine_tune: True
+    finetuning_type: "full" # or "partial/LoRA/ControlNet or just set to none for same objective finetuning"
     pretrain_model_type: "normal" # or "uniDM" or 'Outpainting'
-    pretrain_ckpt_type: "best" # or "latest" 
+    pretrain_ckpt_type: "latest" # or "latest" 
     seed: null
     condition: False
 
@@ -174,7 +178,7 @@ CityDM:
     max_grad_norm: 1.
 
 
-    logger: "none"
+    logger: "wandb"
 
   Validation:
     save_best_and_latest_only: True
