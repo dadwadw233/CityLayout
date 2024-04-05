@@ -39,7 +39,7 @@ class EvalCallback(pl.Callback):
                         )
                     )
                 elif pl_module.data_type == "one-hot":
-                    pl_module.vis.visulize_onehot_layout(
+                    pl_module.vis.visualize_onehot_layout(
                         all_images[idx * 4:idx * 4 + 4],
                         os.path.join(
                             path, f"sample-{idx}-onehot.png"
@@ -103,6 +103,9 @@ class EvalCallback(pl.Callback):
             elif not pl_module.save_best_and_latest_only:
                 pl_module.save_ckpts(epoch=pl_module.current_epoch , step=pl_module.global_step)
                 
+            pl_module.generator_ema.ema_model.train()
+            pl_module.outputs.clear()
+        else:
             pl_module.generator_ema.ema_model.train()
             pl_module.outputs.clear()
             

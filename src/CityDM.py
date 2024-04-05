@@ -742,7 +742,7 @@ class CityDM(object):
                     )
                 )
             elif self.data_type == "one-hot":
-                self.vis.visulize_onehot_layout(
+                self.vis.visualize_onehot_layout(
                     all_images[idx * 4:idx * 4 + 4],
                     os.path.join(
                         now_val_path, f"sample-{idx}-onehot.png"
@@ -1041,7 +1041,7 @@ class CityDM(object):
                         )
                     )
                 elif self.data_type == "one-hot":
-                    self.vis.visulize_onehot_layout(
+                    self.vis.visualize_onehot_layout(
                         all_images[idx * 4:idx * 4 + 4],
                         os.path.join(
                             self.sample_results_dir, f"sample-{idx}-onehot.png"

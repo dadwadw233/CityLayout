@@ -63,6 +63,7 @@ from omegaconf import DictConfig
 from pytorch_lightning import seed_everything
 from utils.model import init_backbone, init_diffuser
 from rich.progress import Progress
+
 class PL_CityDM(pl.LightningModule):
 
     def __init__(self, *args, **kwargs):
@@ -319,7 +320,7 @@ class PL_CityDM(pl.LightningModule):
     
     def training_step(self, batch, batch_idx):
         
-        layout = batch["layout"]
+        layout = batch["layout"].to(self.device)
         with amp.autocast():
             loss = self.generator(layout)
             
@@ -363,10 +364,11 @@ class PL_CityDM(pl.LightningModule):
         if self.model_type == "Completion" or self.model_type == "CityGen":
             val_cond = True
         if val_cond:
-            layout = batch["layout"]
+            layout = batch["layout"].to(self.device)
         else:
             layout = None
-        sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)
+        with amp.autocast():
+            sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)
 
         if self.trainer.num_devices > 1:
             sample = self.all_gather(sample).flatten(0, 1)
@@ -402,15 +404,16 @@ class PL_CityDM(pl.LightningModule):
         if self.model_type == "Completion" or self.model_type == "CityGen" or self_cond:
             cond = True
         if cond:
-            layout = batch["layout"]
+            layout = batch["layout"].to(self.device)
         else:
             layout = None
         channel = batch['layout'].shape[1]
-        
-        sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)[:, :channel, ...]
-        
-        if self.refiner is not None:
-            sample = self.refiner_ema.ema_model.sample(batch_size=self.batch_size, cond=sample)[:, :channel, ...]
+        with amp.autocast():
+            sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)[:, :channel, ...]
+            
+            if self.refiner is not None:
+                zero_mask = torch.zeros(sample.shape, device=self.device)
+                sample = self.refiner_ema.ema_model.sample(batch_size=self.batch_size, cond=sample, mask=zero_mask)[:, :channel, ...]
             
         if self.trainer.num_devices > 1:
             sample = self.all_gather(sample).flatten(0, 1)
@@ -419,14 +422,15 @@ class PL_CityDM(pl.LightningModule):
                 layout = self.all_gather(layout).flatten(0, 1)
         
         if self.global_rank == 0:
-            self.samples_for_test["fake"].append(self.vis.onehot_to_rgb(sample))
-            self.samples_for_test["real"].append(self.vis.onehot_to_rgb(real))
+            self.samples_for_test["fake"].append(sample.detach().cpu())
+            self.samples_for_test["real"].append(real.detach().cpu())
             if cond or self_cond:
-                self.samples_for_test["cond"].append(self.vis.onehot_to_rgb(layout))        
+                self.samples_for_test["cond"].append(layout.detach().cpu())        
         
         self.generator_ema.ema_model.train()
         if self.refiner is not None:
             self.refiner_ema.ema_model.train()
+            
         
         
     
@@ -544,6 +548,12 @@ class PL_CityDM(pl.LightningModule):
         ckpt = torch.load(ckpt_path)
         
         self.load_model_params(model, ckpt["diffusion"], self.finetuning_type)
+        if mode == "train":
+            self.opt_init()
+            self.scheduler_init()
+            INFO(f"reinit optimizer!")
+            # self.optimizer.load_state_dict(ckpt["optimizer"])
+        
 
         INFO(f"Ckpt loaded from {ckpt_path}")
 
@@ -569,7 +579,7 @@ class PL_CityDM(pl.LightningModule):
 
         return mask
 
-    def op_handle(self, org, padding=1, ratio=0.5):
+    def op_handle(self, org, padding=1, ratio=0.5, bar=None):
         # extend origin layout by sliding window 
         b, c, h, w = org.shape
         INFO(f"start extend layout with padding {padding} and ratio {ratio}...")
@@ -583,52 +593,65 @@ class PL_CityDM(pl.LightningModule):
         plane = extend_layout.clone()
         # slide direction: left to right; up to down
         init = False
-        with Progress() as progress:
-            task = progress.add_task("[red]Extending layout...", total=None)
-            for h_l_p in range(0, int(extend_h - h * ratio), int(h * ratio)):
-                for w_l_p in range(0, int(extend_W - w * ratio), int(w * ratio)):
-                    # direction: left to right
-                    if init == False:
-                        if w_l_p + int(w * ratio) + w > extend_W:
-                            break
-                        cond_region = extend_layout[:, :, h_l_p:h_l_p + h,
-                                      w_l_p + int(w * ratio):w_l_p + int(w * ratio) + w]
-                        # DEBUG(f"cond_region shape: {cond_region.shape}")
-                        op_mask = self.get_op_mask(ratio=ratio, d='right', shape=(b, 1, h, w))
-                        # DEBUG(f"op_mask shape: {op_mask.shape}")
-                        # DEBUG(f"hlp: {h_l_p}, wlp: {w_l_p}")
-                        # sample from model
+        #with Progress() as progress:
+            #task = progress.add_task("[red]Extending layout...", total=None)
+        task = bar.add_task("[red]Extending layout...", total=None)
+        for h_l_p in range(0, int(extend_h - h * ratio), int(h * ratio)):
+            for w_l_p in range(0, int(extend_W - w * ratio), int(w * ratio)):
+                # direction: left to right
+                if init == False:
+                    if w_l_p + int(w * ratio) + w > extend_W:
+                        break
+                    cond_region = extend_layout[:, :, h_l_p:h_l_p + h,
+                                    w_l_p + int(w * ratio):w_l_p + int(w * ratio) + w]
+                    # DEBUG(f"cond_region shape: {cond_region.shape}")
+                    op_mask = self.get_op_mask(ratio=ratio, d='right', shape=(b, 1, h, w))
+                    # DEBUG(f"op_mask shape: {op_mask.shape}")
+                    # DEBUG(f"hlp: {h_l_p}, wlp: {w_l_p}")
+                    # sample from model
 
-                        extend_region = self.generator_ema.ema_model.sample(batch_size=b, cond=cond_region, mask=op_mask)[:, :c,
-                                        ...]
-                        
-                        if self.refiner is not None:
-                            zero_mask = torch.zeros((b, 1, 256, 256), device=self.device)
-                            refine = self.refiner_ema.ema_model.sample(batch_size=b, cond=extend_region, mask=zero_mask)[:, :3, ...]
-                            extend_region = refine
+                    extend_region = self.generator_ema.ema_model.sample(batch_size=b, cond=cond_region, mask=op_mask)[:, :c,
+                                    ...]
+                    
+                    if self.refiner is not None:
+                        zero_mask = torch.zeros((b, 1, 256, 256), device=self.device)
+                        refine = self.refiner_ema.ema_model.sample(batch_size=b, cond=extend_region, mask=zero_mask)[:, :3, ...]
+                        extend_region = refine
 
-                        extend_layout[:, :, h_l_p:h_l_p + h,
-                        w_l_p + int(w * ratio):w_l_p + int(w * ratio) + w] = extend_region
+                    extend_layout[:, :, h_l_p:h_l_p + h,
+                    w_l_p + int(w * ratio):w_l_p + int(w * ratio) + w] = extend_region
+                     
 
+                else:
+                    cond_region = extend_layout[:, :, h_l_p:h_l_p + h, w_l_p:w_l_p + w]
 
-                    else:
-                        cond_region = extend_layout[:, :, h_l_p:h_l_p + h, w_l_p:w_l_p + w]
+                    op_mask = self.get_op_mask(ratio=ratio, d='down', shape=(b, 1, h, w))
+                    # DEBUG(f"hlp: {h_l_p}, wlp: {w_l_p}")
+                    extend_region = self.generator_ema.ema_model.sample(batch_size=b, cond=cond_region, mask=op_mask)[:, :c,
+                                    ...]
+                    if self.refiner is not None:
+                        zero_mask = torch.zeros((b, 1, 256, 256), device=self.device)
+                        refine = self.refiner_ema.ema_model.sample(batch_size=b, cond=extend_region, mask=zero_mask)[:, :3, ...]
+                        extend_region = refine
+                    extend_layout[:, :, h_l_p:h_l_p + h, w_l_p:w_l_p + w] = extend_region
 
-                        op_mask = self.get_op_mask(ratio=ratio, d='down', shape=(b, 1, h, w))
-                        # DEBUG(f"hlp: {h_l_p}, wlp: {w_l_p}")
-                        extend_region = self.generator_ema.ema_model.sample(batch_size=b, cond=cond_region, mask=op_mask)[:, :c,
-                                        ...]
-                        if self.refiner is not None:
-                            zero_mask = torch.zeros((b, 1, 256, 256), device=self.device)
-                            refine = self.refiner_ema.ema_model.sample(batch_size=b, cond=extend_region, mask=zero_mask)[:, :3, ...]
-                            extend_region = refine
-                        extend_layout[:, :, h_l_p:h_l_p + h, w_l_p:w_l_p + w] = extend_region
+                bar.update(task, advance=1)
 
-                    progress.update(task, advance=1)
+            init = True
 
-                init = True
-
-        INFO(f"extend layout done!")
+        if self.refiner is not None:
+            zero_mask = torch.zeros((b, 1, extend_h, extend_W), device=self.device)
+            # for cuda memory consern, refine batch samples on by one
+            refine = extend_layout.clone()
+            task = bar.add_task("[red]Refining layout...", total=b)
+            for i in range(b):
+                refine[i, :, :, :] = self.refiner_ema.ema_model.sample(batch_size=1, 
+                                                                       cond=extend_layout[i:i+1, :3, ...].clone(), 
+                                                                       mask=zero_mask[i:i+1, ...])[:, :3, ...]
+                bar.update(task, advance=1)
+            extend_layout = torch.cat((refine, extend_layout), dim=1)
+            
+        INFO(f"extend layout done!")    
 
         return torch.cat((extend_layout, plane), dim=1)
 
@@ -644,17 +667,17 @@ class PL_CityDM(pl.LightningModule):
 
         if bbox is None:
             bbox = torch.zeros((b, 4), device=self.device)
+            for bid in range(b):
+                # use same bbox for all batch
+                x1 = torch.randint(0, w // 2, (1,)).item()
+                y1 = torch.randint(0, h // 2, (1,)).item()
+                x2 = torch.randint(w // 2, w, (1,)).item()
+                y2 = torch.randint(h // 2, h, (1,)).item()
 
-            # use same bbox for all batch
-            x1 = torch.randint(0, w // 2, (1,)).item()
-            y1 = torch.randint(0, h // 2, (1,)).item()
-            x2 = torch.randint(w // 2, w, (1,)).item()
-            y2 = torch.randint(h // 2, h, (1,)).item()
-
-            bbox[:, 0] = x1
-            bbox[:, 1] = y1
-            bbox[:, 2] = x2
-            bbox[:, 3] = y2
+                bbox[bid, 0] = x1
+                bbox[bid, 1] = y1
+                bbox[bid, 2] = x2
+                bbox[bid, 3] = y2
 
         else:
             # check the bbox region range 
@@ -682,9 +705,11 @@ class PL_CityDM(pl.LightningModule):
             sample = self.generator_ema.ema_model.sample(batch_size=org.shape[0], cond=org, mask=mask)
             zero_mask = torch.zeros((org.shape[0], 1, 256, 256), device=self.device)
             refine = self.refiner_ema.ema_model.sample(batch_size=org.shape[0], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
-            sample = torch.cat((refine, sample), dim=1)
+            sample = torch.cat((refine, sample, org), dim=1)
             return sample
-        return self.generator_ema.ema_model.sample(batch_size=org.shape[0], cond=org, mask=mask)
+        else:
+            sample = self.generator_ema.ema_model.sample(batch_size=org.shape[0], cond=org, mask=mask)
+            return torch.cat((sample, org), dim=1)
 
 
     def sample(self, cond=False, num_samples=16):
@@ -710,10 +735,10 @@ class PL_CityDM(pl.LightningModule):
                             cond_image = next(cycle(self.trainer.predict_dataloaders))["layout"].to(self.device)
                             # DEBUG(f"cond_image shape: {cond_image.shape}")
                             if all_images is None:
-                                all_images = self.op_handle(cond_image, padding=padding, ratio=ratio)
+                                all_images = self.op_handle(cond_image, padding=padding, ratio=ratio, bar=progress)
                             else:
                                 all_images = torch.cat(
-                                    (all_images, self.op_handle(cond_image, padding=padding, ratio=ratio)), dim=0
+                                    (all_images, self.op_handle(cond_image, padding=padding, ratio=ratio, bar=progress)), dim=0
                                 )
                             progress.update(task, advance=1)
 
@@ -807,7 +832,7 @@ class PL_CityDM(pl.LightningModule):
                                 )
                             )
                         elif self.data_type == "one-hot":
-                            self.vis.visulize_onehot_layout(
+                            self.vis.visualize_onehot_layout(
                                 all_images[idx * 4:idx * 4 + 4],
                                 os.path.join(
                                     self.sample_results_dir, f"sample-{idx}-onehot.png"

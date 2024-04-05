@@ -545,7 +545,9 @@ class GaussianDiffusion(nn.Module):
         if self.model_type == "Completion":
             if org is not None:
                 mask = self.get_completion_mask_backward(org.clone(), mask=mask)
-            img = torch.randn((shape[0], shape[1]//2, shape[2], shape[3]), device=device)
+                img = torch.randn(org.shape, device=device)
+            else:
+                img = torch.randn((shape[0], shape[1]//2, shape[2], shape[3]), device=device)
             
         elif self.model_type == "CityGen" or (self.model_type=="normal" and (self.sample_type=="Inpainting" or self.sample_type=="Outpainting")):
             img, mask = self.random_outpainting_noise_backward(org.clone(), mask)    
@@ -668,7 +670,7 @@ class GaussianDiffusion(nn.Module):
             if op_mask is not None:
                 bool_mask = ((op_mask + 1) / 2).bool()
                 ret = torch.cat((ret, self.normalize(self.unnormalize(org) * ~bool_mask)), dim=1)
-                ret = torch.cat((ret, op_mask), dim=1)
+                # ret = torch.cat((ret, op_mask), dim=1)
                 # ret = torch.cat((ret, imgs[imgs.__len__() // 2]), dim=1)
             else:
                 ret = torch.cat((ret, org), dim=1)
@@ -729,7 +731,7 @@ class GaussianDiffusion(nn.Module):
         unimask = None
         org = x_start.clone()
         # noise = default(noise, lambda: torch.randn_like(x_start))
-        if self.model_type == "completion":
+        if self.model_type == "Completion":
             x_start, unimask = self.get_completion_mask_forward(x_start.clone())
             noise = default(noise, lambda: torch.randn_like(x_start))
         elif self.model_type == "CityGen":
@@ -737,6 +739,8 @@ class GaussianDiffusion(nn.Module):
             noise = default(noise, lambda: torch.randn_like(x_start))
         elif self.model_type == "normal":
             noise = default(noise, lambda: torch.randn_like(x_start))
+        else:
+            raise ValueError(f"unknown model type {self.model_type}")
 
         # offset noise - https://www.crosslabs.org/blog/diffusion-with-offset-noise
 
@@ -797,7 +801,7 @@ class GaussianDiffusion(nn.Module):
             loss = (loss * op_mask)*5 + loss * (1 - op_mask)
         elif unimask is not None:
             unimask = (unimask + 1) / 2
-            loss = (loss * unimask) + loss * (1 - unimask)
+            loss = (loss * unimask)*5 + loss * (1 - unimask)
         
         loss = reduce(loss, "b ... -> b", "mean")
 

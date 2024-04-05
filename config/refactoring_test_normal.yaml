@@ -1,20 +1,16 @@
 defaults:
   - private: log
 
-batch_size: 8
+batch_size: 16
 
 
-callbacks:  
+callbacks:
   RichModelSummary:
     _target_: pytorch_lightning.callbacks.RichModelSummary
     summary: 'full'
     max_depth: 3
     max_children: 3
     tablefmt: 'github'
-  
-  LearningRateMonitor:
-    _target_: pytorch_lightning.callbacks.LearningRateMonitor
-    logging_interval: 'step'
 
   
   # some custom callbacks here
@@ -32,20 +28,17 @@ callbacks:
 
 Trainer:
   _target_: pytorch_lightning.Trainer
-  max_epochs: 1000
-  devices: 4
-  num_nodes: 1
-  accelerator: "gpu"
-  strategy: "deepspeed_stage_2"
-  precision: bf16
-  gradient_clip_val: 1.0
-  gradient_clip_algorithm: 'norm'
+  max_epochs: 50
+  devices: [0,1,2,3]
+  precision: 16
   accumulate_grad_batches: 4
-  check_val_every_n_epoch: 5
+  val_check_interval: 0.25
+  check_val_every_n_epoch: 1
   enable_checkpointing: False # use custom checkpointing
   limit_train_batches: 1.0
-  limit_val_batches: 0.01
-  #val_check_interval: 10
+  limit_val_batches: 1.0
+  limit_test_batches: 1.0
+  limit_predict_batches: 0.01
 
 CityDM:
   _target_: CityDM_lightning_model.PL_CityDM
@@ -140,7 +133,7 @@ CityDM:
       sampling_timesteps: 50
       image_size: 256
       objective: "pred_v"
-      beta_schedule: "sigmoid"
+      beta_schedule: "linear"
       ddim_sampling_eta: 0.0
       auto_normalize: True
       offset_noise_strength: 0.0
@@ -151,18 +144,18 @@ CityDM:
     
 
   Main:
-    mode: "train"
-    fine_tune: True
+    mode: "test"
+    fine_tune: False
     finetuning_type: "full" # or "partial/LoRA/ControlNet or just set to none for same objective finetuning"
     pretrain_model_type: "normal" # or "uniDM" or 'Outpainting'
-    pretrain_ckpt_type: "latest" # or "latest" 
+    pretrain_ckpt_type: "best" # or "latest" 
     seed: null
     condition: False
 
     batch_size: ${batch_size}
     milestone: 0
     device: cuda
-    lr: 1e-4
+    lr: 1e-5
     max_epochs: ${Trainer.max_epochs}
     num_workers: 16
 
@@ -180,14 +173,14 @@ CityDM:
     max_grad_norm: 1.
 
 
-    logger: "wandb"
+    logger: "none"
 
   Validation:
     save_best_and_latest_only: True
     # evaluate per sample_frequency epochs and sample 64 images 
     # to calculate average overlap rate
     num_samples: 64
-    sample_type: "normal" 
+    sample_type: "Outpainting" 
     results_dir: "${hydra:runtime.cwd}/results/one-hot"
     fine_tune_dir: "${hydra:runtime.cwd}/results/one-hot/normal/2024-02-07-17-06-33-train-normal"
     
@@ -197,13 +190,13 @@ CityDM:
     data_type: "one-hot" # or "rgb"
     num_samples: 8
     results_dir: "${hydra:runtime.cwd}/results/one-hot"
-    ckpt_results_dir: "${hydra:runtime.cwd}/results/one-hot/Outpainting/2024-03-06-11-03-53-train-CityGen/ckpt"
+    ckpt_results_dir: "${hydra:runtime.cwd}/results/one-hot/normal/2024-02-07-17-06-33-train-normal/ckpt"
     generator_ckpt_type : "latest" # or "best"
     !!merge <<: *common
 
-    sample_type: "normal" # "Inpainting" or "normal" or "Outpainting"
-    use_completion: False
-    refiner_ckpt: "${hydra:runtime.cwd}/results/one-hot/completion/2024-03-17-12-12-20-train-completion/ckpt"
+    sample_type: "Inpainting" # "Inpainting" or "normal" or "Outpainting"
+    use_completion: True
+    refiner_ckpt: "${hydra:runtime.cwd}/results/one-hot/completion/2024-03-16-15-35-50-train-completion/ckpt"
     refiner_ckpt_type : "latest" # or "best"
 
 
@@ -216,11 +209,12 @@ CityDM:
     !!merge <<: *vis
     data_type: "one-hot" # or "rgb"
 
-    metrics_list : ["is", "ssim"]
+    metrics_list : ["fid", "mifid", "kid", "clip", "is", "data_analysis", "lpips", "ssim", "psnr"]
+    # "fid", "mifid", "kid", "clip", "is", "data_analysis", "lpips", "ssim", "psnr"
 
     # at least 2048 samples for FID or the "nan" or "complex number" error will occur
     # 30000-50000 samples are recommended
-    num_fid_samples: 64
+    num_fid_samples: 10000
     # [64, 128, 768, 2048] can be used, but 2048 is FID calculation's standard value which is recommended
     inception_block_idx: 2048
     types: ["overlap"]
@@ -245,7 +239,7 @@ Data:
     val_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
 
   params:
-    mode: "test"
+    mode: ${CityDM.Main.mode}
     # define which layout type to use and modify the layout's granularity by user's choice
     custom: True
     device: "cuda"
