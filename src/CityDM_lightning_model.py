@@ -69,7 +69,7 @@ class PL_CityDM(pl.LightningModule):
     def __init__(self, *args, **kwargs):
         super().__init__()
         self.save_hyperparameters()
-        self.init_main()
+        # self.init_main()
     
     def init_basic_params(self):
         # init some key params:
@@ -222,8 +222,7 @@ class PL_CityDM(pl.LightningModule):
         
         self.generator_ckpt_type = test_config["generator_ckpt_type"]
         
-
-    def init_main(self):
+    def setup(self, stage):
         self.timesteps = self.hparams.Model.diffusion.timesteps
         self.data_type = self.hparams.Evaluation.data_type
         
@@ -315,13 +314,13 @@ class PL_CityDM(pl.LightningModule):
     def predict(self, *args, **kwargs):
         self.sample()
     
-    def configure_optimizers(self):
+    def configure_optimizers(self):        
         return [self.optimizer], [self.scheduler]
     
     def training_step(self, batch, batch_idx):
         
         layout = batch["layout"].to(self.device)
-        with amp.autocast():
+        with amp.autocast(enabled=True):
             loss = self.generator(layout)
             
         self.log("train/loss", loss, logger=True, on_step=True, on_epoch=False, prog_bar=True, rank_zero_only=True)
@@ -367,7 +366,7 @@ class PL_CityDM(pl.LightningModule):
             layout = batch["layout"].to(self.device)
         else:
             layout = None
-        with amp.autocast():
+        with amp.autocast(enabled=True):
             sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)
 
         if self.trainer.num_devices > 1:
@@ -408,7 +407,7 @@ class PL_CityDM(pl.LightningModule):
         else:
             layout = None
         channel = batch['layout'].shape[1]
-        with amp.autocast():
+        with amp.autocast(enabled=True):
             sample = self.generator_ema.ema_model.sample(batch_size=self.batch_size, cond=layout)[:, :channel, ...]
             
             if self.refiner is not None:
@@ -533,8 +532,9 @@ class PL_CityDM(pl.LightningModule):
                 "ema": self.generator_ema.state_dict(),
                 "best_evaluation_result": self.best_evaluation_result,
                 "seed": self.seed,
-                'scaler': None,
+                'scaler': self.trainer.precision_plugin.state_dict() if self.trainer.precision_plugin is not None else None
             }
+            
 
             if best:
                 ckpt_path = os.path.join(self.ckpt_results_dir, f"best_ckpt.pth")
@@ -548,13 +548,20 @@ class PL_CityDM(pl.LightningModule):
         ckpt = torch.load(ckpt_path)
         
         self.load_model_params(model, ckpt["diffusion"], self.finetuning_type)
+        
+            # self.optimizer.load_state_dict(ckpt["optimizer"])
+        
+        if 'scaler' in ckpt.keys() and self.trainer.precision_plugin is not None:
+            INFO(f"load scaler state dict!")
+            self.trainer.precision_plugin.load_state_dict(ckpt['scaler'])
+
         if mode == "train":
             self.opt_init()
             self.scheduler_init()
             INFO(f"reinit optimizer!")
             # self.optimizer.load_state_dict(ckpt["optimizer"])
-        
-
+            
+        INFO(f"{ckpt['scaler']}")
         INFO(f"Ckpt loaded from {ckpt_path}")
 
 

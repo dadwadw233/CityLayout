@@ -42,6 +42,7 @@ def handle(config: DictConfig):
                                         callbacks=callbacks
                                         )
         
+        
         if config.CityDM.Main.mode == "train":
             trainer.fit(CityDM, datamodule=OSMData)
         elif config.CityDM.Main.mode == "test":
