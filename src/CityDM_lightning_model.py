@@ -272,7 +272,7 @@ class PL_CityDM(pl.LightningModule):
         # step2: if finetuning or sampling, load ckpt
         if self.fine_tune or self.mode == "test" or self.mode == "sample":
             INFO(f"Fine tune mode or test mode, load ckpt from {self.pretrain_ckpt_dir}")
-            if self.pretrain_ckpt_type == "best" and self.generator_ckpt_type == "best":
+            if self.pretrain_ckpt_type == "best" or self.generator_ckpt_type == "best":
                 ckpt_path = os.path.join(self.pretrain_ckpt_dir, "best_ckpt.pth")
             else:
                 ckpt_path = os.path.join(self.pretrain_ckpt_dir, "latest_ckpt.pth")
