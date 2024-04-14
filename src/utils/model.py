@@ -1,6 +1,6 @@
 from .log import INFO
 from model.Unet import Unet
-from model.DDPM_re import GaussianDiffusion
+from model.DDPM import GaussianDiffusion
 
 def init_backbone(cfg=None):
         backbone = Unet(**cfg)

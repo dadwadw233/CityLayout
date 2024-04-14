@@ -36,8 +36,8 @@ Trainer:
   devices: 4
   num_nodes: 1
   accelerator: "gpu"
-  strategy: "deepspeed_stage_2"
-  precision: bf16
+  strategy: "ddp"
+  precision: 16
   gradient_clip_val: 1.0
   gradient_clip_algorithm: 'norm'
   accumulate_grad_batches: 4
@@ -214,7 +214,7 @@ CityDM:
     !!merge <<: *vis
     data_type: "one-hot" # or "rgb"
 
-    metrics_list : ["is", "ssim"]
+    metrics_list : ["is"]
 
     # at least 2048 samples for FID or the "nan" or "complex number" error will occur
     # 30000-50000 samples are recommended

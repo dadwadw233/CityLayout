@@ -17,11 +17,16 @@ from torch.optim import Adam, lr_scheduler, SGD
 
 from torchvision import transforms as T, utils
 
+from einops import rearrange, reduce, repeat
+from einops.layers.torch import Rearrange
+
 from PIL import Image
 from tqdm.auto import tqdm
 from ema_pytorch import EMA
 
 from accelerate import Accelerator
+
+from utils.fid_evaluation import FIDEvaluation
 
 from utils.utils import (
     exists,
@@ -44,7 +49,7 @@ from utils.log import *
 
 from utils.config import ConfigParser
 from model.Unet import Unet
-from model.DDPM import GaussianDiffusion
+from src.model.DDPM import GaussianDiffusion
 import os
 import inspect
 from utils.evaluation import Evaluation
@@ -70,8 +75,7 @@ class CityDM(object):
         self.serialized_config = None
         self.ddp = ddp
         self.debug = debug
-        INFO(f"config file {self.config_path} loaded!")
-
+        
         # Init Accelerator
         if accelerator is None:
             acc_config = self.config_parser.get_config_by_name("Accelerator")
@@ -132,30 +136,35 @@ class CityDM(object):
         else:
             self.sweep_mode = False
             INFO(f"Running in normal mode without sweep!")
-
-        self.timesteps = self.config_parser.get_config_by_name("Model")["diffusion"]["timesteps"]
-        self.data_type = self.config_parser.get_config_by_name("Evaluation")["data_type"]
-
-        try:
-            # Init Model
-            model_config = self.config_parser.get_config_by_name("Model")
-            self.backbone = Unet(**model_config['backbone'])
-
-            # Init Diffusion
-            diffusion_config = model_config["diffusion"].copy()
-            diffusion_config['model'] = self.backbone
-            self.diffusion = GaussianDiffusion(**diffusion_config)
-            self.generation_type = diffusion_config["model_type"]
-        except Exception as e:
-            ERROR(f"Init Model failed! {e}")
-            raise e
-
+            
+        self.init_main()
+        
+    def init_backbone(self, cfg=None):
+        backbone = Unet(**cfg)
+        INFO(f"Backbone initialized!")
+        return backbone
+        
+    
+    def init_diffuser(self, backbone, cfg=None):
+        diffusion_config = cfg.copy()
+        diffusion_config['model'] = backbone
+        diffusion = GaussianDiffusion(**diffusion_config)
+        diffusion = self.accelerator.prepare(diffusion)
+        
+        return diffusion
+    
+    def fix_seed(self, seed):
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
+            torch.cuda.manual_seed_all(seed)
+        np.random.seed(seed)
+        random.seed(seed)
+        INFO(f"Seed set to {seed}")
+    
+    def init_basic_params(self):
         # init some key params:
         main_config = self.config_parser.get_config_by_name("Main")
-        data_config = self.config_parser.get_config_by_name("Data")
-
-        self.batch_size = data_config["batch_size"]
-        self.num_workers = data_config["num_workers"]
 
         self.epochs = main_config["max_epochs"]
         self.lr = float(main_config["lr"])
@@ -185,23 +194,12 @@ class CityDM(object):
             self.pretrain_model_type = None
             self.pretrain_ckpt_type = None
             self.finetuning_type = None
+            
+    def init_data(self):
+        data_config = self.config_parser.get_config_by_name("Data")
 
-        if self.seed is not None:
-            torch.manual_seed(self.seed)
-            if torch.cuda.is_available():
-                torch.cuda.manual_seed(self.seed)
-                torch.cuda.manual_seed_all(self.seed)
-            np.random.seed(self.seed)
-            random.seed(self.seed)
-
-            INFO(f"Seed set to {self.seed}")
-
-        # Init EMA
-        if self.accelerator.is_main_process:
-            self.ema = EMA(self.diffusion, beta=self.ema_decay, update_every=self.ema_update_every)
-            self.ema.to(self.device)
-            INFO(f"EMA initialized!")
-
+        self.batch_size = data_config["batch_size"]
+        self.num_workers = data_config["num_workers"]
         # Init Dataloader
         self.train_dataloader = None
         self.val_dataloader = None
@@ -244,133 +242,206 @@ class CityDM(object):
             )
             self.test_dataloader = cycle(self.test_dataloader)
             INFO(f"Test dataset and dataloader initialized!")
-
-        # Validation prepare
-
-        if self.mode == "train":
-
-            val_config = self.config_parser.get_config_by_name("Validation")
-            self.save_best_and_latest_only = val_config["save_best_and_latest_only"]
-            self.num_samples = val_config["num_samples"]
-            self.results_dir = val_config["results_dir"]
-            self.sample_type = val_config["sample_type"]
-            self.sample_mode = val_config["sample_mode"]
-
-            # add time stamp to results_dir
-            # TODO: check the finetuning type
-            if self.fine_tune and self.pretrain_model_type is self.generation_type:
-                self.results_dir = val_config["fine_tune_dir"]
-            else:
-                if self.accelerator.is_main_process:
-                    self.results_dir = os.path.join(self.results_dir, self.generation_type)
-                    self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S",
-                                                                                    time.localtime())) + '-train-' + self.sample_type
-
+            
+    def get_ema(self, model):
+        if self.accelerator.is_main_process:
+            ema = EMA(model, beta=self.ema_decay, update_every=self.ema_update_every)
+            return ema.to(self.device)
+    
+    def opt_init(self):
+        if self.opt_type == "adam":
+            self.optimizer = Adam(self.generator.parameters(), lr=self.lr, betas=self.adam_betas)
+        elif self.opt_type == "sgd":
+            self.optimizer = SGD(self.generator.parameters(), lr=self.lr)
+        else:
+            ERROR(f"Optimizer type {self.opt_type} not supported!")
+            raise ValueError(f"Optimizer type {self.opt_type} not supported!")
+    
+    def scheduler_init(self):
+        if self.scheduler_type == "cosine":
+            self.scheduler = lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=self.max_step)
+        elif self.scheduler_type == "step":
+            self.scheduler = lr_scheduler.StepLR(self.optimizer, step_size=self.sample_frequency * 3, gamma=0.9)
+        else:
+            ERROR(f"Scheduler type {self.scheduler_type} not supported!")
+            raise ValueError(f"Scheduler type {self.scheduler_type} not supported!")
+    
+    def create_folder(self, mode):
+        
+        self.asset_results_dir = os.path.join(self.results_dir, "asset")
+        self.sample_results_dir = os.path.join(self.results_dir, "sample")
+        
+        os.makedirs(self.results_dir, exist_ok=True)
+        os.makedirs(self.asset_results_dir, exist_ok=True)
+        if mode == "train":
             self.val_results_dir = os.path.join(self.results_dir, "val")
             self.ckpt_results_dir = os.path.join(self.results_dir, "ckpt")
-            self.asset_results_dir = os.path.join(self.results_dir, "asset")
-            self.sample_results_dir = os.path.join(self.results_dir, "sample")
-
-            self.pretrain_ckpt_dir = os.path.join(val_config["fine_tune_dir"], "ckpt")
-
-            if self.accelerator.is_main_process:
-                os.makedirs(self.results_dir, exist_ok=True)
-                os.makedirs(self.val_results_dir, exist_ok=True)
-                os.makedirs(self.ckpt_results_dir, exist_ok=True)
-                os.makedirs(self.asset_results_dir, exist_ok=True)
-                os.makedirs(self.sample_results_dir, exist_ok=True)
-                # log some info
-                INFO(f"Results dir: {self.results_dir}")
-                INFO(f"Vis results dir: {self.val_results_dir}")
-                INFO(f"Checkpoint results dir: {self.ckpt_results_dir}")
-                INFO(f"Asset results dir: {self.asset_results_dir}")
-                INFO(f"Sample results dir: {self.sample_results_dir}")
-
-                # utils prepare
-                self.vis_config = self.config_parser.get_config_by_name("Vis")
-                self.vis = OSMVisulizer(config=self.vis_config, path=self.val_results_dir)
-                self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
-                INFO(f"Utils initialized!")
-
-                self.ema.ema_model.set_sample_type(self.sample_type)
-                self.ema.ema_model.set_sample_mode(self.sample_mode)
-
-            # Init Optimizer
-            if self.opt_type == "adam":
-                self.optimizer = Adam(self.diffusion.parameters(), lr=self.lr, betas=self.adam_betas)
-            elif self.opt_type == "sgd":
-                self.optimizer = SGD(self.diffusion.parameters(), lr=self.lr)
-            else:
-                ERROR(f"Optimizer type {self.opt_type} not supported!")
-                raise ValueError(f"Optimizer type {self.opt_type} not supported!")
-            self.max_step = self.epochs * len(self.train_dataset) // (self.batch_size * self.grad_accumulate)
-
-            # Init Scheduler
-            if self.scheduler_type == "cosine":
-                self.scheduler = lr_scheduler.CosineAnnealingLR(self.optimizer, T_max=self.max_step)
-            elif self.scheduler_type == "step":
-                self.scheduler = lr_scheduler.StepLR(self.optimizer, step_size=self.sample_frequency * 3, gamma=0.9)
-            else:
-                ERROR(f"Scheduler type {self.scheduler_type} not supported!")
-                raise ValueError(f"Scheduler type {self.scheduler_type} not supported!")
-
-            # prepare model, optimizer, scheduler with accelerator
-            self.optimizer, self.scheduler = self.accelerator.prepare(
-                self.optimizer, self.scheduler
-            )
-
-        elif self.mode == "test":
-            test_config = self.config_parser.get_config_by_name("Test")
-            self.num_samples = test_config["num_samples"]
-            self.results_dir = test_config["results_dir"]
-            self.ckpt_results_dir = test_config["ckpt_results_dir"]
-            if self.ckpt_results_dir is None or not os.path.exists(self.ckpt_results_dir) or not os.path.isdir(
-                    self.ckpt_results_dir):
-                ERROR(f"ckpt_results_dir {self.ckpt_results_dir} does not exist!")
-                raise ValueError(f"ckpt_results_dir {self.ckpt_results_dir} does not exist!")
-            # add time stamp to results_dir
-            # check if results_dir exists
-            self.sample_type = test_config["sample_type"]
-            self.sample_mode = test_config["sample_mode"]
-
-            self.results_dir = os.path.join(self.results_dir, self.sample_mode) + '-sample-' + self.sample_type
-            self.results_dir = os.path.join(self.results_dir,
-                                            time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-test'
-
-            self.asset_results_dir = os.path.join(self.results_dir, "asset")
-            self.sample_results_dir = os.path.join(self.results_dir, "sample")
-
-            os.makedirs(self.results_dir, exist_ok=True)
-            os.makedirs(self.asset_results_dir, exist_ok=True)
+            os.makedirs(self.ckpt_results_dir, exist_ok=True)
+            os.makedirs(self.val_results_dir, exist_ok=True)
+        else:
             os.makedirs(self.sample_results_dir, exist_ok=True)
+    
+    def utils_init(self):
+        # utils prepare
+        self.vis_config = self.config_parser.get_config_by_name("Vis")
+        if self.mode == "train":
+            self.vis = OSMVisulizer(config=self.vis_config, path=self.val_results_dir)
+        else:
+            self.vis = OSMVisulizer(config=self.vis_config, path=self.sample_results_dir)
+        self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
+        INFO(f"Utils initialized!")
+
+            
+    def trainer_init(self):
+        val_config = self.config_parser.get_config_by_name("Validation")
+        self.save_best_and_latest_only = val_config["save_best_and_latest_only"]
+        self.num_samples = val_config["num_samples"]
+        self.results_dir = val_config["results_dir"]
+        
+        self.sample_type = val_config["sample_type"]
+
+        
+        if self.accelerator.is_main_process:
+            self.results_dir = os.path.join(self.results_dir, self.model_type)
+            self.results_dir = os.path.join(self.results_dir, time.strftime("%Y-%m-%d-%H-%M-%S",
+                                                                            time.localtime())) + '-train-' + self.sample_type
+
+        
+        self.pretrain_ckpt_dir = os.path.join(val_config["fine_tune_dir"], "ckpt")
+        self.pretrain_ckpt_type = self.config_parser.get_config_by_name("Main")["pretrain_ckpt_type"]
+
+        if self.accelerator.is_main_process:
+            self.create_folder("train")
             # log some info
             INFO(f"Results dir: {self.results_dir}")
-            INFO(f"Vis results dir: {self.sample_results_dir}")
-            INFO(f"Asset results dir: {self.asset_results_dir}")
-            INFO(f"Sample results dir: {self.sample_results_dir}")
-
             # utils prepare
-            self.vis_config = self.config_parser.get_config_by_name("Vis")
-            self.vis = OSMVisulizer(config=self.vis_config, path=self.sample_results_dir)
-            self.asset_gen = AssetGen(self.config_parser.get_config_by_name("Asset"), path=self.asset_results_dir)
-            INFO(f"Utils initialized!")
+            self.utils_init()
 
-        # evaluation prepare
+        # Init Optimizer
+        self.opt_init()
+        self.max_step = self.epochs * len(self.train_dataset) // (self.batch_size * self.grad_accumulate)
+
+        # Init Scheduler
+        self.scheduler_init()
+        # prepare model, optimizer, scheduler with accelerator
+        self.optimizer, self.scheduler = self.accelerator.prepare(
+            self.optimizer, self.scheduler
+        )
+        
+        self.completion = False
+        self.refiner = None
+    
+    def sample_init(self):
+        test_config = self.config_parser.get_config_by_name("Test")
+        self.num_samples = test_config["num_samples"]
+        self.results_dir = test_config["results_dir"]
+        self.pretrain_ckpt_dir = test_config["ckpt_results_dir"]
+        if self.pretrain_ckpt_dir is None or not os.path.exists(self.pretrain_ckpt_dir) or not os.path.isdir(
+                self.pretrain_ckpt_dir):
+            ERROR(f"pretrain_ckpt_dir {self.pretrain_ckpt_dir} does not exist!")
+            raise ValueError(f"pretrain_ckpt_dir {self.pretrain_ckpt_dir} does not exist!")
+        # add time stamp to results_dir
+        # check if results_dir exists
+        self.sample_type = test_config["sample_type"]
+
+
+        self.results_dir = os.path.join(self.results_dir, self.model_type) + '-sample-' + self.sample_type
+        self.results_dir = os.path.join(self.results_dir,
+                                        time.strftime("%Y-%m-%d-%H-%M-%S", time.localtime())) + '-test'
+
+        self.asset_results_dir = os.path.join(self.results_dir, "asset")
+        self.sample_results_dir = os.path.join(self.results_dir, "sample")
+
+        if self.accelerator.is_main_process:
+            self.create_folder("test")
+            # log some info
+            INFO(f"Results dir: {self.results_dir}")
+            # utils prepare
+            self.utils_init()
+            
+        if test_config["use_completion"]:
+            self.completion = True
+            # LOAD COMPLETION MODEL
+            backbone_config = self.config_parser.get_config_by_name("Model")["backbone"]
+            backbone_config["channels"] = 6
+            
+            self.completion_backbone = self.init_backbone(backbone_config)
+            self.refiner = self.init_diffuser(self.completion_backbone, self.config_parser.get_config_by_name("Model")["completion"])
+            
+            
+            INFO(f"Completion model initialized!")
+            self.refiner_ckpt = test_config["refiner_ckpt"]
+            self.refiner_ckpt_type = test_config["refiner_ckpt_type"]
+            
+        else:
+            self.completion = False
+            self.refiner = None
+        
+        self.generator_ckpt_type = test_config["generator_ckpt_type"]
+        
+            
+            
+    def get_evaluator(self, sampler):
         eval_config = self.config_parser.get_config_by_name("Evaluation")
         if self.accelerator.is_main_process:
-            self.evaluation = Evaluation(batch_size=self.batch_size // self.accelerator.num_processes,
+            evaluation = Evaluation(batch_size=self.batch_size // self.accelerator.num_processes,
                                          device=self.device,
                                          dl=self.val_dataloader if self.mode == "train" else self.test_dataloader,
-                                         sampler=self.ema.ema_model,
+                                         sampler=sampler,
                                          accelerator=self.accelerator,
                                          mapping=eval_config["channel_to_rgb"],
                                          config=eval_config,
                                          )
-            # 👆 代码evaluation初始化还可以再优化 优化成全config的形式
-            INFO(f"Evaluation initialized!")
-            # print some info
-            INFO(self.evaluation.summary())
+            return evaluation
+            
 
+    def init_main(self):
+        INFO(f"config file {self.config_path} loaded!")
+
+        
+
+        self.timesteps = self.config_parser.get_config_by_name("Model")["diffusion"]["timesteps"]
+        self.data_type = self.config_parser.get_config_by_name("Evaluation")["data_type"]
+
+        try:
+            # Init Model
+            model_config = self.config_parser.get_config_by_name("Model")
+            backbone_config = model_config["backbone"]
+            self.backbone = self.init_backbone(backbone_config)
+
+            # Init Diffusion generator (aka. diffuser)
+            diffusion_config = self.config_parser.get_config_by_name("Model")["diffusion"]
+            self.generator = self.init_diffuser(self.backbone, diffusion_config)
+            self.model_type = diffusion_config["model_type"]
+            self.generator_ckpt_type = None
+            
+            
+        except Exception as e:
+            ERROR(f"Init Model failed! {e}")
+            raise e
+
+        self.init_basic_params()
+
+        if self.seed is not None:
+            self.fix_seed(self.seed)
+            
+        self.init_data()
+
+
+        # Validation prepare
+        if self.mode == "train":
+            self.trainer_init()
+            
+        elif self.mode == "test":
+            self.sample_init()
+            
+        # todo: handle param load situation for finetuning amd sampling here
+        
+        # step1: unwrap model if wrapped by DataParallel
+        if self.ddp:
+            INFO(f"Model is wrapped by DataParallel, unwrap it!")
+            self.generator = self.generator.module
+            
         self.best_evaluation_result = None
 
         #  some preperation for train
@@ -379,13 +450,62 @@ class CityDM(object):
         self.best_validation_result = None
 
         self.not_best = 0
+        
+        # step2: if finetuning or sampling, load ckpt
+        if self.fine_tune or self.mode == "test":
+            INFO(f"Fine tune mode or test mode, load ckpt from {self.pretrain_ckpt_dir}")
+            if self.pretrain_ckpt_type == "best" and self.generator_ckpt_type == "best":
+                ckpt_path = os.path.join(self.pretrain_ckpt_dir, "best_ckpt.pth")
+            else:
+                ckpt_path = os.path.join(self.pretrain_ckpt_dir, "latest_ckpt.pth")
+            self.load_ckpts(self.generator, ckpt_path, mode=self.mode)
+            
+            INFO(f"ckpt loaded!")
+            INFO(f"ckpt step & epoch: {self.now_step}, {self.now_epoch}")
+            
+            if self.mode == "test" and self.refiner is not None:
+                if self.refiner_ckpt_type == "best":
+                    ckpt_path = os.path.join(self.refiner_ckpt, "best_ckpt.pth")
+                else:
+                    ckpt_path = os.path.join(self.refiner_ckpt, "latest_ckpt.pth")
+                self.load_ckpts(self.refiner, ckpt_path, mode=self.mode)
+                INFO(f"Refiner ckpt loaded!")
+        else:
+            INFO(f"Train from scratch!")
+            
+        # confirm sample type
+        self.generator.set_sample_type(self.sample_type)
+        if self.refiner is not None:
+            self.refiner.set_sample_type("normal")
 
-        self.diffusion = self.accelerator.prepare(
-            self.diffusion
-        )
+        # Init EMA
+        
 
+        # evaluation prepare
+        if self.accelerator.is_main_process:
+            self.generator_ema = self.get_ema(self.generator)
+            INFO(f"EMA initialized!")
+            self.evaluator = self.get_evaluator(self.generator_ema.ema_model)
+            
+            if self.refiner is not None:
+                self.refiner_ema = self.get_ema(self.refiner)
+                INFO(f"Refiner EMA initialized!")
+                self.evaluator.set_refiner(self.refiner_ema.ema_model)
+                
+        INFO(f"Evaluation initialized!")
+        
+        # print some info
+        if self.accelerator.is_main_process:
+            
+            INFO(self.evaluator.summary())
+        
+        
         # Done
+        
+            
+        
         INFO(f"CityDM initialized!")
+        
 
     def check_best_or_not(self, result):
         if self.best_evaluation_result is None and result is not None:
@@ -411,10 +531,11 @@ class CityDM(object):
         return self.accelerator.device
 
     def load_model_params(self, tgt, model_state_dict, load_type):
+        
         if load_type == "full" or load_type == None:
             tgt.load_state_dict(model_state_dict)
         elif load_type == "partial":
-            tgt.load_state_dict(self.partly_load(model_state_dict))
+            tgt.load_state_dict(self.partly_load(model_state_dict), strict=False)
         elif load_type == "LoRA":
             ERROR(f"LoRA not supported yet!")
             raise NotImplementedError(f"LoRA not supported yet!")
@@ -426,7 +547,7 @@ class CityDM(object):
         # pre-train model may not suitable for current model, so we load pre-train model's params
         # which is suitable for current model and zero init other new params
 
-        padded_dict = self.diffusion.state_dict()
+        padded_dict = self.generator.state_dict()
         for key in padded_dict.keys():
             if key not in param_dict.keys():
                 padded_dict[key] = torch.zeros_like(padded_dict[key])
@@ -468,10 +589,10 @@ class CityDM(object):
             ckpt = {
                 "epoch": epoch,
                 "step": step,
-                "diffusion": self.accelerator.get_state_dict(self.diffusion),
+                "diffusion": self.accelerator.get_state_dict(self.generator),
                 "optimizer": self.optimizer.state_dict(),
                 "scheduler": self.scheduler.state_dict(),
-                "ema": self.ema.state_dict(),
+                "ema": self.generator_ema.state_dict(),
                 "best_evaluation_result": self.best_evaluation_result,
                 "seed": self.seed,
                 'scaler': self.accelerator.scaler.state_dict() if exists(self.accelerator.scaler) else None,
@@ -485,37 +606,27 @@ class CityDM(object):
                 torch.save(ckpt, ckpt_path)
                 INFO(f"Ckpt saved to {ckpt_path}")
 
-    def load_ckpts(self, ckpt_path, mode="train"):
+    def load_ckpts(self, model, ckpt_path, mode="train"):
         ckpt = torch.load(ckpt_path)
-        # self.diffusion.load_state_dict(ckpt["diffusion"])
-        if mode == "train":
-            if self.pretrain_model_type == self.generation_type and self.fine_tune:
-                WARNING(f"Fine tune mode and same training type, load pretrain model's params and continue training!")
-                self.optimizer.load_state_dict(ckpt["optimizer"])
-                self.scheduler.load_state_dict(ckpt["scheduler"])
-                self.now_epoch = ckpt["epoch"]
-                self.now_step = ckpt["step"]
-                self.best_evaluation_result = ckpt["best_evaluation_result"]
-                self.seed = ckpt["seed"]
+        
+        # if mode == "train":
+        #     if self.pretrain_model_type == self.model_type and self.fine_tune:
+        #         WARNING(f"Fine tune mode and same training type, load pretrain model's params and continue training!")
+        #         #self.optimizer.load_state_dict(ckpt["optimizer"])
+        #         self.scheduler.load_state_dict(ckpt["scheduler"])
+        #         self.now_epoch = ckpt["epoch"]
+        #         self.now_step = ckpt["step"]
+        #         self.best_evaluation_result = ckpt["best_evaluation_result"]
+        #         self.seed = ckpt["seed"]
+        
         if self.fine_tune and mode == "train":
-            INFO(f"Load ckpt from {ckpt_path} for fintunig {self.generation_type} model!")
+            INFO(f"Load ckpt from {ckpt_path} for fintunig {self.model_type} model!")
             INFO(f"fintuning type: {self.finetuning_type}")
 
-        self.load_model_params(self.diffusion, ckpt["diffusion"], self.finetuning_type)
-
-        if self.accelerator.is_main_process:
-            # reinit ema
-            self.ema = EMA(self.diffusion, beta=self.ema_decay, update_every=self.ema_update_every)
-            self.ema.to(self.device)
-            INFO(f"EMA reinitialized!")
-            # Evaluator reinit
-            
-
-            self.ema.ema_model.set_sample_type(self.sample_type)
-            self.ema.ema_model.set_sample_mode(self.sample_mode)
-            self.evaluation.reset_sampler(self.ema.ema_model)
-
         INFO(f"Ckpt loaded from {ckpt_path}")
+        self.load_model_params(model, ckpt["diffusion"], self.finetuning_type)
+
+        
 
         if exists(self.accelerator.scaler) and exists(ckpt['scaler']):
             self.accelerator.scaler.load_state_dict(ckpt['scaler'])
@@ -528,7 +639,7 @@ class CityDM(object):
         # print model param
         INFO("Model Summary:")
         INFO("========================================")
-        INFO(self.diffusion)
+        INFO(self.generator)
         INFO("========================================")
         INFO("Model Summary End")
 
@@ -546,21 +657,21 @@ class CityDM(object):
                     if self.sweep_mode:
                         # wandb.config.update(self.config_parser.get_config_all())
                         wandb.init(config=self.config_parser.get_config_all(), name=display_name, reinit=True)
-                        # wandb.watch(self.diffusion, log="all")
+                        # wandb.watch(self.generator, log="all")
                     else:
                         wandb.init(project="CityLayout", entity="913217005", config=self.config_parser.get_config_all(),
-                                   name=display_name, group=self.generation_type)
-                        # wandb.watch(self.diffusion, log="all")
+                                   name=display_name, group=self.model_type)
+                        # wandb.watch(self.generator, log="all")
             else:
                 display_name = self.results_dir.replace("/", "-")
                 if self.sweep_mode:
                     wandb.init(config=self.config_parser.get_config_all(), name=display_name, reinit=True)
                     # wandb.config.update(self.config_parser.get_config_all())
-                    # wandb.watch(self.diffusion, log="all")
+                    # wandb.watch(self.generator, log="all")
                 else:
                     wandb.init(project="CityLayout", entity="913217005", config=self.config_parser.get_config_all(),
-                               name=display_name, group=self.generation_type)
-                    # wandb.watch(self.diffusion, log="all")
+                               name=display_name, group=self.model_type)
+                    # wandb.watch(self.generator, log="all")
 
             if self.accelerator.is_main_process:
                 experiment_title = "experiment_{}_lr{}_diffusion{}_maxepoch{}_resultfolder{}".format(
@@ -574,26 +685,6 @@ class CityDM(object):
         else:
             writer = None
 
-        if isinstance(self.diffusion, nn.DataParallel) or self.ddp:  # if model is wrapped by DataParallel, unwrap it
-            DEBUG(f"Model is wrapped by DataParallel, unwrap it!")
-            self.diffusion = self.diffusion.module
-            if self.accelerator.is_main_process:
-                self.ema = EMA(self.diffusion, beta=self.ema_decay, update_every=self.ema_update_every)
-                self.ema.to(self.device)
-                self.evaluation.reset_sampler(self.ema.ema_model)
-
-        if self.fine_tune:
-            INFO(f"Fine tune mode, load ckpt from {self.ckpt_results_dir}")
-            if self.pretrain_ckpt_type == "best":
-                ckpt_path = os.path.join(self.pretrain_ckpt_dir, "best_ckpt.pth")
-            else:
-                ckpt_path = os.path.join(self.pretrain_ckpt_dir, "latest_ckpt.pth")
-            self.load_ckpts(ckpt_path, mode="train")
-
-            INFO(f"ckpt loaded!")
-            INFO(f"ckpt step & epoch: {self.now_step}, {self.now_epoch}")
-        else:
-            INFO(f"Train from scratch!")
 
         self.accelerator.wait_for_everyone()
 
@@ -613,7 +704,7 @@ class CityDM(object):
                         layout = data["layout"].to(self.device)
 
                         with self.accelerator.autocast():
-                            loss = self.diffusion(layout)
+                            loss = self.generator(layout)
                             # DEBUG(f"loss: {loss}, GPU: {self.device}")
                             loss = loss / self.grad_accumulate
                             total_loss += loss.item()
@@ -637,7 +728,7 @@ class CityDM(object):
                     )
 
                     self.accelerator.wait_for_everyone()
-                    self.accelerator.clip_grad_norm_(self.diffusion.parameters(), self.max_grad_norm)
+                    self.accelerator.clip_grad_norm_(self.generator.parameters(), self.max_grad_norm)
 
                     self.scheduler.step()
                     self.optimizer.step()
@@ -648,18 +739,16 @@ class CityDM(object):
                     self.now_step += 1
                     self.now_epoch = (self.now_step * self.batch_size * self.grad_accumulate) // len(self.train_dataset)
                     if self.accelerator.is_main_process:
-                        self.ema.update()
+                        self.generator_ema.update()
 
                         if self.now_step != 0 and divisible_by(self.now_step, self.sample_frequency):
-                            if self.generation_type == "completion":
-                                # self.validation(writer, cond=False)
-                                # INFO(f"Validation done!")
+                            if self.model_type == "completion":
                                 self.validation(writer, cond=True)
                                 INFO(f"Validation with cond done!")
-                            elif self.generation_type == "Outpainting":
+                            elif self.model_type == "CityGen":
                                 self.validation(writer, cond=True)
                                 INFO(f"Validation with cond done!")
-                            elif self.generation_type == "normal":
+                            elif self.model_type == "normal":
                                 self.validation(writer, cond=False)
                                 INFO(f"Validation done!")
 
@@ -679,15 +768,11 @@ class CityDM(object):
         if not self.accelerator.is_main_process:
             return
 
-        self.ema.ema_model.eval()
+        self.generator_ema.ema_model.eval()
         if cond:
             wandb_key = "val_cond"
         else:
             wandb_key = "val"
-
-        # reset sample type and mode
-        self.ema.ema_model.set_sample_type(self.sample_type)
-        self.ema.ema_model.set_sample_mode(self.sample_mode)
         
         with torch.inference_mode():
             milestone = self.now_step // self.sample_frequency
@@ -704,15 +789,15 @@ class CityDM(object):
                 for b in range(len(batches)):
                     cond_image = next(self.val_dataloader)["layout"].to(self.device)
                     if all_images_list is None:
-                        all_images_list = self.ema.ema_model.sample(batch_size=batches[b], cond=cond_image)
+                        all_images_list = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=cond_image)
                     else:
                         all_images_list = torch.cat(
-                            (all_images_list, self.ema.ema_model.sample(batch_size=batches[b], cond=cond_image)), dim=0
+                            (all_images_list, self.generator_ema.ema_model.sample(batch_size=batches[b], cond=cond_image)), dim=0
                         )
             else:
                 all_images_list = list(
                     map(
-                        lambda n: self.ema.ema_model.sample(batch_size=n, cond=None),
+                        lambda n: self.generator_ema.ema_model.sample(batch_size=n, cond=None),
                         batches,
                     )
                 )
@@ -769,8 +854,8 @@ class CityDM(object):
 
         val_result = None
         try:
-            if (self.evaluation.validation(cond, os.path.join(now_val_path, "data_analyse"))):
-                val_result = self.evaluation.get_evaluation_dict()
+            if (self.evaluator.validation(cond, os.path.join(now_val_path, "data_analyse"))):
+                val_result = self.evaluator.get_evaluation_dict()
                 # self.accelerator.print(val_result)
 
 
@@ -786,22 +871,13 @@ class CityDM(object):
         if self.save_best_and_latest_only:
             if self.check_best_or_not(val_result):
                 self.save_ckpts(epoch=self.now_epoch, step=self.now_step, best=True)
-            else:
-                # self.not_best +=1
-                # if self.not_best >= 5:
-                #     wandb.alert(
-                #         title="CityLayout",
-                #         text="Model may be overfitting!, please check!",
-                #         level=wandb.AlertLevel.WARNING,
-                #         wait_duration=timedelta(minutes=5),  # 7 days
-                #     )
-                self.not_best = 0
+
 
             self.save_ckpts(epoch=self.now_epoch, step=self.now_step, latest=True)
         elif not self.save_best_and_latest_only:
             self.save_ckpts(epoch=self.now_epoch, step=self.now_step)
 
-        self.ema.ema_model.train()
+        self.generator_ema.ema_model.train()
 
     def get_op_mask(self, ratio=0.5, d='right', shape=(1, 3, 256, 256)):
         # ratio: the ratio of the mask
@@ -853,8 +929,13 @@ class CityDM(object):
                         # DEBUG(f"hlp: {h_l_p}, wlp: {w_l_p}")
                         # sample from model
 
-                        extend_region = self.ema.ema_model.sample(batch_size=b, cond=cond_region, mask=op_mask)[:, :c,
+                        extend_region = self.generator_ema.ema_model.sample(batch_size=b, cond=cond_region, mask=op_mask)[:, :c,
                                         ...]
+                        
+                        if self.refiner is not None:
+                            zero_mask = torch.zeros((b, 1, 256, 256), device=self.device)
+                            refine = self.refiner_ema.ema_model.sample(batch_size=b, cond=extend_region, mask=zero_mask)[:, :3, ...]
+                            extend_region = refine
 
                         extend_layout[:, :, h_l_p:h_l_p + h,
                         w_l_p + int(w * ratio):w_l_p + int(w * ratio) + w] = extend_region
@@ -865,8 +946,12 @@ class CityDM(object):
 
                         op_mask = self.get_op_mask(ratio=ratio, d='down', shape=(b, 1, h, w))
                         # DEBUG(f"hlp: {h_l_p}, wlp: {w_l_p}")
-                        extend_region = self.ema.ema_model.sample(batch_size=b, cond=cond_region, mask=op_mask)[:, :c,
+                        extend_region = self.generator_ema.ema_model.sample(batch_size=b, cond=cond_region, mask=op_mask)[:, :c,
                                         ...]
+                        if self.refiner is not None:
+                            zero_mask = torch.zeros((b, 1, 256, 256), device=self.device)
+                            refine = self.refiner_ema.ema_model.sample(batch_size=b, cond=extend_region, mask=zero_mask)[:, :3, ...]
+                            extend_region = refine
                         extend_layout[:, :, h_l_p:h_l_p + h, w_l_p:w_l_p + w] = extend_region
 
                     pbar.update(1)
@@ -923,44 +1008,28 @@ class CityDM(object):
         # bbox: the bbox of the inp region : shape (b, 4) (x1, y1, x2, y2)
 
         mask = self.get_inpaint_mask(shape=org.shape, bbox=bbox)
+        if self.refiner is not None:
+            sample = self.generator_ema.ema_model.sample(batch_size=org.shape[0], cond=org, mask=mask)
+            zero_mask = torch.zeros((org.shape[0], 1, 256, 256), device=self.device)
+            refine = self.refiner_ema.ema_model.sample(batch_size=org.shape[0], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
+            sample = torch.cat((refine, sample), dim=1)
+            return sample
+        return self.generator_ema.ema_model.sample(batch_size=org.shape[0], cond=org, mask=mask)
 
-        return self.ema.ema_model.sample(batch_size=org.shape[0], cond=org, mask=mask)
-
-    def sample(self, cond=False, eval=True, best=False, use_wandb=False):
+    def sample(self, cond=False, eval=True, use_wandb=False):
+        
         INFO(f"Start sampling {self.num_samples} images...")
         INFO(F"Sample result save to {self.sample_results_dir}")
 
         INFO(f"sample mode: {'random' if not cond else 'conditional'}")
 
-        # check and load ckpt
-        INFO(f"ckpt path: {self.ckpt_results_dir}")
-        if best:
-            ckpt_path = os.path.join(self.ckpt_results_dir, "best_ckpt.pth")
-        else:
-            ckpt_path = os.path.join(self.ckpt_results_dir, "latest_ckpt.pth")
-
-        INFO(f"ckpt path: {ckpt_path}")
-        try:
-            self.load_ckpts(ckpt_path, mode="test")
-            INFO(f"ckpt loaded!")
-            INFO(f"ckpt step & epoch: {self.now_step}, {self.now_epoch}")
-        except Exception as e:
-            ERROR(f"load ckpt failed! {e}")
-            raise e
-
-        # sample
-        self.ema.ema_model.eval()
-
-        self.ema.ema_model.set_sample_type(self.sample_type)
-        self.ema.ema_model.set_sample_mode(self.sample_mode)
-        
         try:
             if use_wandb:
                 if not self.debug:
                     DISPLAY_NAME = self.sample_results_dir.replace("/", "-")
                     wandb.init(project="CityLayout", entity="913217005", config=self.config_parser.get_config_all(),
                                name=DISPLAY_NAME, group="sample")
-                # wandb.watch(self.diffusion, log="all")
+                # wandb.watch(self.generator, log="all")
         except Exception as e:
             ERROR(f"wandb init failed! {e}")
             use_wandb = False
@@ -969,7 +1038,7 @@ class CityDM(object):
 
             batches = num_to_groups(self.num_samples, self.batch_size)
 
-            if self.sample_mode == "Outpainting":
+            if self.sample_type == "Outpainting":
                 all_images = None
                 padding = self.config_parser.get_config_by_name("Test")['op']["padding"]
                 ratio = self.config_parser.get_config_by_name("Test")['op']["ratio"]
@@ -983,7 +1052,7 @@ class CityDM(object):
                             (all_images, self.op_handle(cond_image, padding=padding, ratio=ratio)), dim=0
                         )
 
-            elif self.sample_mode == "Inpainting":
+            elif self.sample_type == "Inpainting":
                 all_images = None
                 for b in tqdm(range(len(batches)), desc="inpaiting sampling", leave=False, colour="green"):
                     cond_image = next(self.test_dataloader)["layout"].to(self.device)
@@ -1001,26 +1070,46 @@ class CityDM(object):
                     all_images = None
                     for b in tqdm(range(len(batches)), desc="sampling", leave=False, colour="green"):
                         cond_image = next(self.test_dataloader)["layout"].to(self.device)
+                        sample = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=cond_image)[:, :3, ...]
+                        
+                        if self.refiner is not None:
+                            zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
+                            refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
+                            sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
+                        
                         if all_images is None:
-                            all_images = self.ema.ema_model.sample(batch_size=batches[b], cond=cond_image)
+                            all_images = sample
+                        
                         else:
                             all_images = torch.cat(
-                                (all_images, self.ema.ema_model.sample(batch_size=batches[b], cond=cond_image)), dim=0
+                                (all_images, sample), dim=0
                             )
+                        
                 else:
-                    all_images = list(
-                        map(
-                            lambda n: self.ema.ema_model.sample(batch_size=n, cond=None),
-                            batches,
+                    if self.refiner is not None:
+                        all_images = None
+                        for b in tqdm(range(len(batches)), desc="sampling", leave=False, colour="green"):
+                            sample = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=None)
+                            zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
+                            refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
+                            sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
+                            if all_images is None:
+                                all_images = sample
+                            else:
+                                all_images = torch.cat(
+                                    (all_images, sample), dim=0
+                                )
+                    else:
+                        all_images = list(
+                            map(
+                                lambda n: self.generator_ema.ema_model.sample(batch_size=n, cond=None),
+                                batches,
+                            )
                         )
-                    )
+                        all_images = torch.cat(
+                            all_images, dim=0
+                        )
 
-            if cond is True:
-                all_images = all_images
-            else:
-                all_images = torch.cat(
-                    all_images, dim=0
-                )
             INFO(f"Sampling {self.num_samples} images done!")
 
             # save and evaluate
@@ -1074,9 +1163,8 @@ class CityDM(object):
             result = None
             if eval:
                 try:
-                    self.evaluation.reset_sampler(self.ema.ema_model)
-                    self.evaluation.validation(cond, os.path.join(self.sample_results_dir, "data_analyse"))
-                    result = self.evaluation.get_evaluation_dict()
+                    self.evaluator.validation(cond, os.path.join(self.sample_results_dir, "data_analyse"))
+                    result = self.evaluator.get_evaluation_dict()
                     try:
                         if use_wandb:
                             wandb.log({"sample": result})
