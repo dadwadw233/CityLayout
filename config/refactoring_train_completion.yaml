@@ -153,7 +153,7 @@ CityDM:
     fine_tune: True
     finetuning_type: "partial" # or "partial/LoRA/ControlNet or just set to none for same objective finetuning"
     pretrain_model_type: "normal" # or "uniDM" or 'Outpainting'
-    pretrain_ckpt_type: "latest" # or "latest" 
+    pretrain_ckpt_type: "best" # or "latest" 
     seed: null
     condition: False
 
@@ -187,7 +187,7 @@ CityDM:
     num_samples: 64
     sample_type: "normal" 
     results_dir: "${hydra:runtime.cwd}/results/one-hot"
-    fine_tune_dir: "${hydra:runtime.cwd}/results/one-hot/normal/2024-02-07-17-06-33-train-normal"
+    fine_tune_dir: "${hydra:runtime.cwd}/results/one-hot/normal/2024-04-06-16-33-25-train-normal"
     
   # 👇 only nedded for sample config
   Test:
