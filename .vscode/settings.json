@@ -8,5 +8,8 @@
     "editor.defaultFormatter": "ms-python.black-formatter",
     "python.analysis.enablePytestExtra": false,
     "explorer.excludeGitIgnore": false,
+    "github.copilot.enable": {
+        "markdown": "true"
+    },
     
 }
