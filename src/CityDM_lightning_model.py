@@ -45,7 +45,7 @@ from utils.log import *
 
 from utils.config import ConfigParser
 from model.Unet import Unet
-from src.model.DDPM import GaussianDiffusion
+from model.DDPM import GaussianDiffusion
 import os
 import inspect
 from utils.evaluation import Evaluation
