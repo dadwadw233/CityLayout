@@ -114,13 +114,12 @@ class GaussianDiffusion(nn.Module):
         offset_noise_strength=0.0,  # https://www.crosslabs.org/blog/diffusion-with-offset-noise
         min_snr_loss_weight=False,  # https://arxiv.org/abs/2303.09556
         min_snr_gamma=5,
-        model_type="completion", # or "Outpainting"
+        model_type="normal", # or "CityGen" or "Completion"
     ):
         super().__init__()
         
         assert not model.random_or_learned_sinusoidal_cond
-        self.sample_mode = "normal"
-        self.sample_type = "CityGen"
+        self.sample_type = "normal"
         self.model = model
         self.model_type = model_type
         self.channels = self.model.channels
@@ -241,15 +240,17 @@ class GaussianDiffusion(nn.Module):
         self.combinations = self.generate_all_channel_combinations(self.channels)
         # print("all channel combinations: ", self.combinations)
         
+    
+    def get_sample_type(self):
+        return self.sample_type
         
-        
+    def get_model_type(self):
+        return self.model_type
+    
     def set_sample_type(self, sample_type):
         self.sample_type = sample_type
         INFO(f"set sample type to {self.sample_type}")
     
-    def set_sample_mode(self, sample_mode):
-        self.sample_mode = sample_mode
-        INFO(f"set sample mode to {self.sample_mode}")
 
     def generate_all_channel_combinations(self, num_channels):
         # 生成所有可能的通道组合
@@ -344,24 +345,6 @@ class GaussianDiffusion(nn.Module):
         )
         return model_mean, posterior_variance, posterior_log_variance, x_start
     
-    def get_random_noise_forward(self, image):
-        # select random channel to add standard gaussian noise
-        b, c, h, w = image.shape
-        
-        noise = torch.zeros_like(image, device=self.device)
-
-        # 👇 maybe image in the batch have different conditional channel will lead to better performance
-        # combinations_idx = torch.randint(0, len(self.combinations), (1,))
-
-        combinations_idx = torch.randint(0, len(self.combinations), (b,))
-        # combinations_idx shape : (b,)
-
-        # then replace these channels with noise
-        
-        for i in range(b):
-            noise[i, self.combinations[combinations_idx[i]], :, :] = torch.randn_like(image[i, self.combinations[combinations_idx[i]], :, :])
-
-        return noise
     
     def get_random_outpainting_mask_forward(self, image):
         # crop some continue region from image and add noise
@@ -462,19 +445,6 @@ class GaussianDiffusion(nn.Module):
         
         return mask
     
-    @torch.inference_mode()
-    def random_mask_image_backward(self, image):
-
-        b, c, h, w = image.shape
-
-        # combinations_idx = torch.randint(0, len(self.combinations), (1,))
-        combinations_idx = torch.randint(0, len(self.combinations), (b,))
-        # then replace these channels with noise
-        # image[:, self.combinations[combinations_idx], :, :] = torch.randn_like(image[:, self.combinations[combinations_idx], :, :])
-        for i in range(b):
-            image[i, self.combinations[combinations_idx[i]], :, :] = torch.randn_like(image[i, self.combinations[combinations_idx[i]], :, :])
-
-        return image
     
     @torch.inference_mode()
     def random_outpainting_noise_backward(self, image, mask=None):
@@ -572,16 +542,18 @@ class GaussianDiffusion(nn.Module):
     @torch.inference_mode()
     def get_sample_input(self, shape, org=None, mask=None):
         batch, device = shape[0], self.device
-        if self.sample_type == "completion":
+        if self.model_type == "Completion":
             if org is not None:
                 mask = self.get_completion_mask_backward(org.clone(), mask=mask)
-            img = torch.randn((shape[0], shape[1]//2, shape[2], shape[3]), device=device)
+                img = torch.randn(org.shape, device=device)
+            else:
+                img = torch.randn((shape[0], shape[1]//2, shape[2], shape[3]), device=device)
             
-        elif self.sample_mode == "Outpainting" or self.sample_mode == "Inpainting":
+        elif self.model_type == "CityGen" or (self.model_type=="normal" and (self.sample_type=="Inpainting" or self.sample_type=="Outpainting")):
             img, mask = self.random_outpainting_noise_backward(org.clone(), mask)    
             img = torch.randn(org.shape, device=device)
             
-        elif self.sample_mode == "normal":
+        elif self.model_type == "normal" and self.sample_type == "normal":
             img = torch.randn(shape, device=device)
             org = img.clone()
         
@@ -630,14 +602,14 @@ class GaussianDiffusion(nn.Module):
             self_cond = x_start if self.self_condition else None
             # DEBUG(self.sample_type)
             # DEBUG(f"mask shape : {op_mask.shape}")
-            if self.sample_type == "CityGen":
+            if self.model_type == "CityGen":
                 bool_mask = ((op_mask + 1) / 2).bool()
                 
                 cond = torch.concat((self.normalize((self.unnormalize(org)) * ~bool_mask), op_mask), dim=1)
                 pred_noise, x_start, *_ = self.model_predictions(
                     img, time_cond, self_cond, cond, clip_x_start=True, rederive_pred_noise=True
                 )
-            elif self.sample_type == "completion":
+            elif self.model_type == "Completion":
                 if org is None:
                     org = self.normalize(torch.zeros_like(img, device=device))
                     op_mask = self.normalize(torch.zeros_like(img, device=device))
@@ -672,7 +644,7 @@ class GaussianDiffusion(nn.Module):
             imgs.append(img)
             
             # conditional sample
-            if (self.sample_mode == "Outpainting" or self.sample_mode == "Inpainting") and self.sample_type == "Repaint": 
+            if self.model_type == "normal" and (self.sample_type == "Inpainting" or self.sample_type == "Outpainting"): 
                 #DEBUG(img.shape)
                 # DEBUG("Repaint sample mode")
                 bool_mask = ((op_mask + 1) / 2).bool()
@@ -693,12 +665,12 @@ class GaussianDiffusion(nn.Module):
         
 
         ret = img if not return_all_timesteps else torch.stack(imgs, dim=1)
-        if not return_all_timesteps and self.sample_mode != 'normal': 
+        if not return_all_timesteps: 
             
             if op_mask is not None:
                 bool_mask = ((op_mask + 1) / 2).bool()
                 ret = torch.cat((ret, self.normalize(self.unnormalize(org) * ~bool_mask)), dim=1)
-                ret = torch.cat((ret, op_mask), dim=1)
+                # ret = torch.cat((ret, op_mask), dim=1)
                 # ret = torch.cat((ret, imgs[imgs.__len__() // 2]), dim=1)
             else:
                 ret = torch.cat((ret, org), dim=1)
@@ -759,14 +731,16 @@ class GaussianDiffusion(nn.Module):
         unimask = None
         org = x_start.clone()
         # noise = default(noise, lambda: torch.randn_like(x_start))
-        if self.model_type == "completion":
+        if self.model_type == "Completion":
             x_start, unimask = self.get_completion_mask_forward(x_start.clone())
             noise = default(noise, lambda: torch.randn_like(x_start))
-        elif self.model_type == "Outpainting":
+        elif self.model_type == "CityGen":
             x_start, op_mask = self.get_random_outpainting_mask_forward(x_start.clone())
             noise = default(noise, lambda: torch.randn_like(x_start))
         elif self.model_type == "normal":
             noise = default(noise, lambda: torch.randn_like(x_start))
+        else:
+            raise ValueError(f"unknown model type {self.model_type}")
 
         # offset noise - https://www.crosslabs.org/blog/diffusion-with-offset-noise
 
@@ -827,7 +801,7 @@ class GaussianDiffusion(nn.Module):
             loss = (loss * op_mask)*5 + loss * (1 - op_mask)
         elif unimask is not None:
             unimask = (unimask + 1) / 2
-            loss = (loss * unimask) + loss * (1 - unimask)
+            loss = (loss * unimask)*5 + loss * (1 - unimask)
         
         loss = reduce(loss, "b ... -> b", "mean")
 

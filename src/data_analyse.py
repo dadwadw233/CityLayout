@@ -1,4 +1,4 @@
-from data.osm_loader import OSMDataset
+from datasets.osm_loader import OSMDataset
 
 import torch
 
@@ -26,17 +26,12 @@ import math
 
 
 def discretize_data(data, bin_width):
-    # 确定数据的最小值和最大值
     min_val = min(data)
     max_val = max(data)
-
-    # 根据步长创建区间边界
     bins = np.arange(min_val, max_val + bin_width, bin_width)
 
-    # 使用histogram函数离散化数据
     histogram, bin_edges = np.histogram(data, bins=bins)
 
-    # 找出频率最高的区间
     max_freq_index = np.argmax(histogram)
     mode_bin = bin_edges[max_freq_index], bin_edges[max_freq_index + 1]
 
@@ -64,7 +59,7 @@ def data_spliter(data, data_names, _bin, train_ratio=0.9, test_ratio=0.05, val_r
 
     train, test, val = [], [], []
     for bin_data in bins:
-        random.shuffle(bin_data)  # 打乱每个桶中的数据
+        random.shuffle(bin_data)  
         bin_size = len(bin_data)
         bin_train_size = int(bin_size * train_ratio)
         bin_test_size = int(bin_size * test_ratio)
@@ -74,7 +69,6 @@ def data_spliter(data, data_names, _bin, train_ratio=0.9, test_ratio=0.05, val_r
         test.extend(bin_data[bin_train_size:bin_train_size + bin_test_size])
         val.extend(bin_data[bin_train_size + bin_test_size:])
 
-    # 保存数据集到 JSON 文件
     DEBUG("train size: {}, test size: {}, val size: {}".format(len(train), len(test), len(val)))
     with open('./data/train.json', 'w') as f:
         json.dump(train, f)

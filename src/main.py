@@ -1,4 +1,4 @@
-from CityDM_re import CityDM
+from src.CityDM import CityDM
 import argparse
 import os
 import wandb

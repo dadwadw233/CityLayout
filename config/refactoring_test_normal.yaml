@@ -191,13 +191,13 @@ CityDM:
     num_samples: 8
     results_dir: "${hydra:runtime.cwd}/results/one-hot"
     ckpt_results_dir: "${hydra:runtime.cwd}/results/one-hot/normal/2024-04-06-16-33-25-train-normal/ckpt"
-    generator_ckpt_type : "latest" # or "best"
+    generator_ckpt_type : "best" # or "best"
     !!merge <<: *common
 
-    sample_type: "Inpainting" # "Inpainting" or "normal" or "Outpainting"
-    use_completion: True
+    sample_type: "normal" # "Inpainting" or "normal" or "Outpainting"
+    use_completion: False
     refiner_ckpt: "${hydra:runtime.cwd}/results/one-hot/Completion/2024-04-06-16-38-26-train-normal/ckpt"
-    refiner_ckpt_type : "latest" # or "best"
+    refiner_ckpt_type : "best" # or "best"
 
 
 
