@@ -138,7 +138,7 @@ CityDM:
       sampling_timesteps: 50
       image_size: 256
       objective: "pred_v"
-      beta_schedule: "sigmoid"
+      beta_schedule: "linear"
       ddim_sampling_eta: 0.0
       auto_normalize: True
       offset_noise_strength: 0.0
@@ -214,7 +214,7 @@ CityDM:
     !!merge <<: *vis
     data_type: "one-hot" # or "rgb"
 
-    metrics_list : ["is"]
+    metrics_list : ["is", "ssim"]
 
     # at least 2048 samples for FID or the "nan" or "complex number" error will occur
     # 30000-50000 samples are recommended
