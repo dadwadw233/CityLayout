@@ -622,7 +622,7 @@ class PL_CityDM(pl.LightningModule):
                     
                     if self.refiner is not None:
                         zero_mask = torch.zeros((b, 1, 256, 256), device=self.device)
-                        refine = self.refiner_ema.ema_model.sample(batch_size=b, cond=extend_region, mask=zero_mask)[:, :3, ...]
+                        refine = self.refiner_ema.ema_model.sample(batch_size=b, cond= (extend_region > 0.7).float(), mask=zero_mask)[:, :3, ...]
                         extend_region = refine
 
                     extend_layout[:, :, h_l_p:h_l_p + h,
@@ -638,7 +638,7 @@ class PL_CityDM(pl.LightningModule):
                                     ...]
                     if self.refiner is not None:
                         zero_mask = torch.zeros((b, 1, 256, 256), device=self.device)
-                        refine = self.refiner_ema.ema_model.sample(batch_size=b, cond=extend_region, mask=zero_mask)[:, :3, ...]
+                        refine = self.refiner_ema.ema_model.sample(batch_size=b, cond= (extend_region > 0.7).float(), mask=zero_mask)[:, :3, ...]
                         extend_region = refine
                     extend_layout[:, :, h_l_p:h_l_p + h, w_l_p:w_l_p + w] = extend_region
 
@@ -711,6 +711,7 @@ class PL_CityDM(pl.LightningModule):
         if self.refiner is not None:
             sample = self.generator_ema.ema_model.sample(batch_size=org.shape[0], cond=org, mask=mask)
             zero_mask = torch.zeros((org.shape[0], 1, 256, 256), device=self.device)
+            sample = (sample > 0.7).float()
             refine = self.refiner_ema.ema_model.sample(batch_size=org.shape[0], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
             sample = torch.cat((refine, sample, org), dim=1)
             return sample
@@ -777,6 +778,7 @@ class PL_CityDM(pl.LightningModule):
                                 
                                 if self.refiner is not None:
                                     zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
+                                    sample = (sample > 0.7).float()
                                     refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
                                     sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
                                 
@@ -797,6 +799,7 @@ class PL_CityDM(pl.LightningModule):
                                 for b in range(len(batches)):
                                     sample = self.generator_ema.ema_model.sample(batch_size=batches[b], cond=None)
                                     zero_mask = torch.zeros((batches[b], 1, 256, 256), device=self.device)
+                                    sample = (sample > 0.7).float()
                                     refiner_sample = self.refiner_ema.ema_model.sample(batch_size=batches[b], cond=sample[:, :3, ...].clone(), mask=zero_mask)[:, :3, ...]
                                     sample = torch.cat((refiner_sample, sample[:, :3, ...]), dim=1)
                                     if all_images is None:

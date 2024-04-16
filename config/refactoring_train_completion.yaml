@@ -178,7 +178,7 @@ CityDM:
     max_grad_norm: 1.
 
 
-    logger: "wandb"
+    logger: "none"
 
   Validation:
     save_best_and_latest_only: True
