@@ -190,7 +190,7 @@ CityDM:
     data_type: "one-hot" # or "rgb"
     num_samples: 8
     results_dir: "${hydra:runtime.cwd}/results/one-hot"
-    ckpt_results_dir: "${hydra:runtime.cwd}/results/one-hot/CityGen/2024-04-12-15-17-09-train-Outpainting/ckpt"
+    ckpt_results_dir: "${hydra:runtime.cwd}/results/one-hot/CityGen/2024-03-20-21-28-16-train-Outpainting/ckpt"
     generator_ckpt_type : "best" # or "best"
     !!merge <<: *common
 

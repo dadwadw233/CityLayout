@@ -117,7 +117,7 @@ CityDM:
 
     diffusion:
       timesteps: 2500
-      sampling_timesteps: 50
+      sampling_timesteps: 100
       image_size: 256
       objective: "pred_v"
       beta_schedule: "linear"
@@ -195,9 +195,9 @@ CityDM:
     !!merge <<: *common
 
     sample_type: "normal" # "Inpainting" or "normal" or "Outpainting"
-    use_completion: True
+    use_completion: False
     refiner_ckpt: "${hydra:runtime.cwd}/results/one-hot/Completion/2024-03-16-15-35-50-train-normal/ckpt"
-    refiner_ckpt_type : "latest" # or "best"
+    refiner_ckpt_type : "best" # or "best"
 
 
 
