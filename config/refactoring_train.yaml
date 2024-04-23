@@ -126,7 +126,7 @@ CityDM:
       timesteps: 2500
       sampling_timesteps: 50
       image_size: 256
-      objective: "pred_v"
+      objective: "pred_noise"
       beta_schedule: "linear"
       ddim_sampling_eta: 0.0
       auto_normalize: True
