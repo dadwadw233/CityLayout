@@ -1,7 +1,7 @@
 defaults:
   - private: log
 
-batch_size: 8
+batch_size: 16
 
 
 callbacks:  

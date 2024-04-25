@@ -34,7 +34,7 @@ def load_config(config_path):
 
 
 config = load_config(
-    "/home/admin/workspace/yuyuanhong/code/CityLayout/config/data/city_landmark.yaml"
+    "config/data/city_landmark.yaml"
 )
 cities = config["name"]["cities"]
 landmarks = config["name"]["landmarks"]
