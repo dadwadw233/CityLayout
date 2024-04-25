@@ -240,9 +240,9 @@ Data:
   num_workers: 16
   # root path for city_name.h5
   path:
-    train_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_large
-    test_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
-    val_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
+    train_dir: ${hydra:runtime.cwd}/data/train_large
+    test_dir: ${hydra:runtime.cwd}/data/train_128
+    val_dir: ${hydra:runtime.cwd}/data/train_128
 
   params:
     mode: "test"
