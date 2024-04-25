@@ -83,18 +83,28 @@ python scripts/osm/get_locations.py
 
 ### Second: download osm data by runing script `get_city_osm.py`
 
-the default config for downloading osm data is stored in config/data/osm_cities.yaml,
+The default config for downloading osm data is stored in config/data/osm_cities.yaml,
 including some path like input (city coordinates), output (osm data), and some other parameters like citylayout patch size(pixel), etc.
 
 
 ```bash
 # download osm data
 python scripts/osm/get_city_osm.py
+```
 
+### Third: preprocess osm data by runing script `preprocess.py`
+
+The default config for preprocessing osm data is stored in config/data/preprocess.yaml, which provides detailed osm customizing parameters like 
+selected tags, geo coordinate, image size, etc. Preprocessed data will be stored as one-hot encoded numpy array with h5 format under boolean type.
+
+```bash
+# preprocess osm data
+python scripts/osm/preprocess.py
 ```
 
 ## Train model
 
+### TBD
 ```bash
 
 ```
@@ -106,23 +116,16 @@ You can generate citylayout from gaussian noise by using normal ckpt, or you can
 ```bash
 # random sample
 python src/train_lightning.py -cn=refactoring_sample
-
 # with refiner 
-
 python src/train_lightning.py -cn=refactoring_sample CityDM.Test.use_completion=True
-
 ```
 
 ### Generate city layout from existing city layout
 ```bash
-
 # inpainting
 python src/train_lightning.py -cn=refactoring_sample_citygen CityDM.Test.sample_type=Inpainting
-
 # outpainting
-
 python src/train_lightning.py -cn=refactoring_sample_citygen CityDM.Test.sample_type=Outpainting
-
 ```
 
 
@@ -133,18 +136,6 @@ sbatch scripts/run/sample_normal.sh
 ```
 
 
-## Acknowledgement
 
-This project is inspired by [CityGen](https://github.com/rese1f/CityGen) we partially reproduce their work and make some
-improvements. If you find this project helpful, please consider to cite their work.
-
-```
-@article{deng2023citygen,
-  title={CityGen: Infinite and Controllable 3D City Layout Generation},
-  author={Deng, Jie and Chai, Wenhao and Guo, Jianshu and Huang, Qixuan and Hu, Wenhao and Hwang, Jenq-Neng and Wang, Gaoang},
-  journal={arXiv preprint arXiv:2312.01508},
-  year={2023}
-}
-```
 
 
