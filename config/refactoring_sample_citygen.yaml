@@ -188,16 +188,16 @@ CityDM:
   Test:
     !!merge <<: *vis
     data_type: "one-hot" # or "rgb"
-    num_samples: 64
+    num_samples: 16
     results_dir: "${hydra:runtime.cwd}/results/one-hot"
     ckpt_results_dir: "${hydra:runtime.cwd}/results/one-hot/CityGen/2024-03-20-21-28-16-train-Outpainting/ckpt"
     generator_ckpt_type : "latest" # or "best"
     !!merge <<: *common
 
-    sample_type: "Inpainting" # "Inpainting" or "normal" or "Outpainting"
-    use_completion: True
+    sample_type: "Outpainting" # "Inpainting" or "normal" or "Outpainting"
+    use_completion: False
     refiner_ckpt: "${hydra:runtime.cwd}/results/one-hot/Completion/2024-03-16-15-35-50-train-normal/ckpt"
-    refiner_ckpt_type : "latest" # or "best"
+    refiner_ckpt_type : "best" # or "best"
 
 
 
@@ -234,9 +234,9 @@ Data:
   num_workers: 16
   # root path for city_name.h5
   path:
-    train_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_large
-    test_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
-    val_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
+    train_dir: ${hydra:runtime.cwd}/data/train_large
+    test_dir: ${hydra:runtime.cwd}/data/train_128
+    val_dir: ${hydra:runtime.cwd}/data/train_128
 
   params:
     mode: ${CityDM.Main.mode}

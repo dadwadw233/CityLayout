@@ -117,7 +117,7 @@ CityDM:
 
     diffusion:
       timesteps: 2500
-      sampling_timesteps: 50
+      sampling_timesteps: 100
       image_size: 256
       objective: "pred_v"
       beta_schedule: "linear"
@@ -196,7 +196,7 @@ CityDM:
 
     sample_type: "normal" # "Inpainting" or "normal" or "Outpainting"
     use_completion: False
-    refiner_ckpt: "${hydra:runtime.cwd}/results/one-hot/Completion/2024-04-06-16-38-26-train-normal/ckpt"
+    refiner_ckpt: "${hydra:runtime.cwd}/results/one-hot/Completion/2024-03-16-15-35-50-train-normal/ckpt"
     refiner_ckpt_type : "best" # or "best"
 
 
@@ -234,9 +234,9 @@ Data:
   num_workers: 16
   # root path for city_name.h5
   path:
-    train_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_large
-    test_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
-    val_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
+    train_dir: ${hydra:runtime.cwd}/data/train_large
+    test_dir: ${hydra:runtime.cwd}/data/train_128
+    val_dir: ${hydra:runtime.cwd}/data/train_128
 
   params:
     mode: ${CityDM.Main.mode}

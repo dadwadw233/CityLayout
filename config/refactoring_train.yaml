@@ -126,7 +126,7 @@ CityDM:
       timesteps: 2500
       sampling_timesteps: 50
       image_size: 256
-      objective: "pred_v"
+      objective: "pred_noise"
       beta_schedule: "linear"
       ddim_sampling_eta: 0.0
       auto_normalize: True
@@ -240,9 +240,9 @@ Data:
   num_workers: 16
   # root path for city_name.h5
   path:
-    train_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_large
-    test_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
-    val_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
+    train_dir: ${hydra:runtime.cwd}/data/train_large
+    test_dir: ${hydra:runtime.cwd}/data/train_128
+    val_dir: ${hydra:runtime.cwd}/data/train_128
 
   params:
     mode: "test"

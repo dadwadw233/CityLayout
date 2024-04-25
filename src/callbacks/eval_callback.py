@@ -60,7 +60,7 @@ class EvalCallback(pl.Callback):
     def on_validation_epoch_end(self, trainer: pl.Trainer, pl_module: pl.LightningModule) -> None:
         if trainer.is_global_zero:
             val_cond = False
-            if pl_module.model_type == "completion" or pl_module.model_type == "CityGen":
+            if pl_module.model_type == "Completion" or pl_module.model_type == "CityGen":
                 val_cond = True
             milestone = (pl_module.current_epoch)+1
             now_val_path = os.path.join(pl_module.val_results_dir, f"milestone_{milestone}_val_cond_{val_cond}")

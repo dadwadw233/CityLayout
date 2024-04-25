@@ -1,7 +1,7 @@
 defaults:
   - private: log
 
-batch_size: 8
+batch_size: 16
 
 
 callbacks:  
@@ -32,7 +32,7 @@ callbacks:
 
 Trainer:
   _target_: pytorch_lightning.Trainer
-  max_epochs: 600
+  max_epochs: 1000
   devices: 4
   num_nodes: 1
   accelerator: "gpu"
@@ -124,7 +124,7 @@ CityDM:
       timesteps: 2500
       sampling_timesteps: 50
       image_size: 256
-      objective: "pred_v"
+      objective: "pred_noise"
       beta_schedule: "linear"
       ddim_sampling_eta: 0.0
       auto_normalize: True
@@ -138,7 +138,7 @@ CityDM:
       sampling_timesteps: 50
       image_size: 256
       objective: "pred_v"
-      beta_schedule: "sigmoid"
+      beta_schedule: "linear"
       ddim_sampling_eta: 0.0
       auto_normalize: True
       offset_noise_strength: 0.0
@@ -150,17 +150,17 @@ CityDM:
 
   Main:
     mode: "train"
-    fine_tune: True
+    fine_tune: False
     finetuning_type: "partial" # or "partial/LoRA/ControlNet or just set to none for same objective finetuning"
     pretrain_model_type: "normal" # or "uniDM" or 'Outpainting'
-    pretrain_ckpt_type: "latest" # or "latest" 
+    pretrain_ckpt_type: "best" # or "latest" 
     seed: null
     condition: False
 
     batch_size: ${batch_size}
     milestone: 0
     device: cuda
-    lr: 1e-5
+    lr: 1e-4
     max_epochs: ${Trainer.max_epochs}
     num_workers: 16
 
@@ -187,7 +187,7 @@ CityDM:
     num_samples: 64
     sample_type: "normal" 
     results_dir: "${hydra:runtime.cwd}/results/one-hot"
-    fine_tune_dir: "${hydra:runtime.cwd}/results/one-hot/normal/2024-02-07-17-06-33-train-normal"
+    fine_tune_dir: "${hydra:runtime.cwd}/results/one-hot/normal/2024-04-06-16-33-25-train-normal"
     
   # 👇 only nedded for sample config
   Test:
@@ -214,7 +214,7 @@ CityDM:
     !!merge <<: *vis
     data_type: "one-hot" # or "rgb"
 
-    metrics_list : ["is"]
+    metrics_list : ["is", "ssim"]
 
     # at least 2048 samples for FID or the "nan" or "complex number" error will occur
     # 30000-50000 samples are recommended
@@ -238,9 +238,9 @@ Data:
   num_workers: 16
   # root path for city_name.h5
   path:
-    train_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_large
-    test_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
-    val_dir: /home/admin/workspace/yuyuanhong/code/CityLayout/data/train_128
+    train_dir: ${hydra:runtime.cwd}/data/train_large
+    test_dir: ${hydra:runtime.cwd}/data/train_128
+    val_dir: ${hydra:runtime.cwd}/data/train_128
 
   params:
     mode: "test"

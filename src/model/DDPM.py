@@ -666,7 +666,6 @@ class GaussianDiffusion(nn.Module):
 
         ret = img if not return_all_timesteps else torch.stack(imgs, dim=1)
         if not return_all_timesteps: 
-            
             if op_mask is not None:
                 bool_mask = ((op_mask + 1) / 2).bool()
                 ret = torch.cat((ret, self.normalize(self.unnormalize(org) * ~bool_mask)), dim=1)
@@ -798,10 +797,10 @@ class GaussianDiffusion(nn.Module):
         # if op_mask is not none， then only loss in the mask == 1.0 region will have more weight
         if op_mask is not None:
             op_mask = (op_mask + 1) / 2
-            loss = (loss * op_mask)*5 + loss * (1 - op_mask)
+            loss = (loss * op_mask) + loss * (1 - op_mask)
         elif unimask is not None:
             unimask = (unimask + 1) / 2
-            loss = (loss * unimask)*5 + loss * (1 - unimask)
+            loss = (loss * unimask) + loss * (1 - unimask)
         
         loss = reduce(loss, "b ... -> b", "mean")
 
