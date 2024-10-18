@@ -17,7 +17,7 @@ click-plugins==1.1.1
 cligj==0.7.2
 contourpy==1.2.0
 cycler==0.12.1
-deepspeed==0.14.0
+deepspeed==0.15.1
 docker-pycreds==0.4.0
 einops==0.7.0
 elevation==1.1.3
